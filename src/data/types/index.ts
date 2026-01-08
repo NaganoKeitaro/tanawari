@@ -18,7 +18,7 @@ export const REGIONS = [
 
 export type Region = typeof REGIONS[number];
 
-export const FMTS = ['MEGA', 'SuC', 'SMART', 'GO'] as const;
+export const FMTS = ['MEGA', 'SuC', 'SMART', 'GO', 'FC'] as const;
 export type FMT = typeof FMTS[number];
 
 // 単位変換定数
