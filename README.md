@@ -1,73 +1,77 @@
-# React + TypeScript + Vite
+# 棚割管理システム (Planogram System) MVP
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript で構築された、FMT標準棚割から個店棚割への自動展開機能を持つ棚割管理システムです。
 
-Currently, two official plugins are available:
+## 特徴
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+*   **FMT標準棚割管理**: マスタとなる標準棚割をドラッグ＆ドロップで作成
+*   **個店展開の自動化**: 店舗ごとの棚サイズに合わせて、商品フェイス数を自動調整（カット/拡張）
+*   **レスポンシブな棚ビジュアル**: 商品サイズ（cm/尺）に基づいた正確な視覚化
+*   **LocalStorage実装**: サーバーレスで手軽に動作検証が可能
 
-## React Compiler
+## 技術スタック
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+*   **Frontend**: React, TypeScript, Vite
+*   **Styling**: Vanilla CSS (CSS Variables)
+*   **DnD**: @dnd-kit/core
+*   **Storage**: LocalStorage (Repository Pattern)
 
-## Expanding the ESLint configuration
+## Getting Started (起動方法)
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 前提条件
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+*   Node.js (v18以降推奨)
+*   npm
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+### インストール
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+プロジェクトのルートディレクトリで以下のコマンドを実行し、依存パッケージをインストールします。
+
+```bash
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### 開発サーバーの起動
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+ローカル開発サーバーを立ち上げます。
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run dev
 ```
+
+ブラウザで `http://localhost:5173` にアクセスしてください。
+
+### ビルド
+
+本番用にビルドする場合：
+
+```bash
+npm run build
+```
+
+## 使い方 (Quick Start)
+
+システムを初めて起動した際は、以下の手順で動作を確認してください。
+
+1.  **データの初期化**:
+    *   ホーム画面 (`/`) の「ダミーデータを生成」ボタンをクリックします。
+    *   これにより、テスト用の商品、店舗、什器データが生成されます。
+
+2.  **棚ブロックの作成**:
+    *   サイドバーの「棚ブロック管理」へ移動します。
+    *   「新規ブロック」を作成し、右側のリストから商品をドラッグしてブロックを作ります。
+
+3.  **標準棚割の作成**:
+    *   「FMT標準棚割」へ移動します。
+    *   FMTと基準店舗を選択し、作成した棚ブロックを配置して保存します。
+
+4.  **個店棚割の自動生成**:
+    *   「個店棚割管理」へ移動します。
+    *   当該FMTを選択し、「一括自動生成」を実行します。
+    *   「詳細」から、店舗ごとの棚サイズに合わせて調整された結果を確認できます。
+
+## 自動化ルールについて
+
+*   **ルールA (Cut)**: 店舗の棚が標準より**狭い**場合、売上ランク下位の商品からフェイス数を削減または削除します。
+*   **ルールB (Expand)**: 店舗の棚が標準より**広い**場合、売上ランク上位の商品のフェイス数を増やしてスペースを埋めます。
+*   **ルールC (Sync)**: 「同期」ボタンにより、標準棚割の最新構成を個店棚割に再適用します。
