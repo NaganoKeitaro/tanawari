@@ -38,6 +38,25 @@ export interface Product {
   category: string;
   imageUrl: string;
   salesRank: number; // 1-100, 1が最高
+  salesQuantity?: number; // 売上数量（ランク計算用）
+
+  // 組織階層情報（全て任意）
+  divisionCode?: string;        // 事業部CD
+  divisionName?: string;        // 事業部
+  divisionSubCode?: string;     // ディビジョンCD
+  divisionSubName?: string;     // ディビジョン名
+  lineCode?: string;            // ラインCD
+  lineName?: string;            // ライン名
+  departmentCode?: string;      // 部門CD
+  departmentName?: string;      // 部門名
+  categoryCode?: string;        // カテゴリーCD
+  categoryName?: string;        // カテゴリ名
+  subCategoryCode?: string;     // サブカテゴリーCD
+  subCategoryName?: string;     // サブカテゴリ名
+  segmentCode?: string;         // セグメントCD
+  segmentName?: string;         // セグメント名
+  subSegmentCode?: string;      // サブセグメントCD
+  subSegmentName?: string;      // サブセグメント名
 }
 
 // ========================================
