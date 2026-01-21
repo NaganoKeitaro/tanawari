@@ -38,7 +38,14 @@ export interface Product {
   category: string;
   imageUrl: string;
   salesRank: number; // 1-100, 1が最高
-  salesQuantity?: number; // 売上数量（ランク計算用）
+  salesQuantity?: number; // 売上数量(ランク計算用)
+
+  // 分析用メトリクス
+  quantity?: number;          // 売上数量
+  sales?: number;             // 売上金額
+  grossProfit?: number;       // 粗利
+  traffic?: number;           // 客数
+  spendPerCustomer?: number;  // 客単価
 
   // 組織階層情報（全て任意）
   divisionCode?: string;        // 事業部CD

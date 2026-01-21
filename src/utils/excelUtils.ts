@@ -1,6 +1,7 @@
 // 棚割管理システム - Excel ユーティリティ
 import * as XLSX from 'xlsx';
 import type { Product } from '../data/types';
+import { generateRandomMetrics, generateRandomSize } from './metricsGenerator';
 
 // Excelから読み込んだ生データの型
 export interface ExcelRow {
@@ -48,6 +49,9 @@ const COLUMN_MAPPING: Record<string, keyof Product> = {
     'JAN': 'jan',
     '商品名': 'name',
     '売上数量': 'salesQuantity',
+    '幅': 'width',
+    '高さ': 'height',
+    '奥行': 'depth',
 };
 
 /**
@@ -147,9 +151,30 @@ export function mapExcelRowToProduct(row: ExcelRow): Partial<Product> {
     Object.entries(COLUMN_MAPPING).forEach(([excelCol, productKey]) => {
         const value = row[excelCol];
         if (value !== undefined && value !== null && value !== '') {
-            (product as any)[productKey] = String(value).trim();
+            // 数値フィールドの処理
+            if (productKey === 'width' || productKey === 'height' || productKey === 'depth' || productKey === 'salesQuantity') {
+                (product as any)[productKey] = parseFloat(String(value));
+            } else {
+                (product as any)[productKey] = String(value).trim();
+            }
         }
     });
+
+    // サイズが欠損している場合はランダム生成
+    if (!product.width || !product.height || !product.depth) {
+        const randomSize = generateRandomSize();
+        product.width = product.width || randomSize.width;
+        product.height = product.height || randomSize.height;
+        product.depth = product.depth || randomSize.depth;
+    }
+
+    // 分析用メトリクスを自動生成
+    const metrics = generateRandomMetrics();
+    product.quantity = metrics.quantity;
+    product.sales = metrics.sales;
+    product.grossProfit = metrics.grossProfit;
+    product.traffic = metrics.traffic;
+    product.spendPerCustomer = metrics.spendPerCustomer;
 
     return product;
 }
@@ -285,51 +310,7 @@ export function calculateSalesRank(products: Partial<Product>[]): Partial<Produc
     });
 }
 
-/**
- * 商品データをExcelにエクスポート
- */
-export function exportProductsToExcel(products: Product[]): Blob {
-    // Excelカラム順序
-    const headers = [
-        '事業部CD', '事業部',
-        'ディビジョンCD', 'ディビジョン名',
-        'ラインCD', 'ライン名',
-        '部門CD', '部門名',
-        'カテゴリーCD', 'カテゴリ名',
-        'サブカテゴリーCD', 'サブカテゴリ名',
-        'セグメントCD', 'セグメント名',
-        'サブセグメントCD', 'サブセグメント名',
-        'JAN', '商品名', '売上数量'
-    ];
 
-    // データを配列形式に変換
-    const rows = products.map(product => {
-        return headers.map(header => {
-            const key = COLUMN_MAPPING[header];
-            return (product as any)[key] || '';
-        });
-    });
-
-    // ヘッダーとデータを結合
-    const wsData = [headers, ...rows];
-
-    // ワークシートを作成
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-    // カラム幅を設定
-    ws['!cols'] = headers.map(() => ({ wch: 15 }));
-
-    // ワークブックを作成
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '商品マスタ');
-
-    // Excelファイルを生成
-    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-
-    return new Blob([excelBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    });
-}
 
 /**
  * 商品データをCSVにエクスポート
@@ -345,7 +326,7 @@ export function exportProductsToCSV(products: Product[]): Blob {
         'サブカテゴリーCD', 'サブカテゴリ名',
         'セグメントCD', 'セグメント名',
         'サブセグメントCD', 'サブセグメント名',
-        'JAN', '商品名', '売上数量'
+        'JAN', '商品名', '売上数量', '幅', '高さ', '奥行'
     ];
 
     // データを配列形式に変換
@@ -390,7 +371,7 @@ export function generateExcelTemplate(): Blob {
         'サブカテゴリーCD', 'サブカテゴリ名',
         'セグメントCD', 'セグメント名',
         'サブセグメントCD', 'サブセグメント名',
-        'JAN', '商品名', '売上数量'
+        'JAN', '商品名', '売上数量', '幅', '高さ', '奥行'
     ];
 
     // サンプル行を追加
@@ -403,7 +384,7 @@ export function generateExcelTemplate(): Blob {
         'SC001', 'プレミアム',
         'S001', 'A5ランク',
         'SS001', '黒毛和牛',
-        '4901234567890', 'サンプル商品名', '1000'
+        '4901234567890', 'サンプル商品名', '1000', '10', '15', '8'
     ];
 
     const wsData = [headers, sampleRow];

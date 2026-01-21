@@ -10,6 +10,7 @@ import { ShelfBlockEditor } from './pages/blocks/ShelfBlockEditor';
 import { StandardPlanogramEditor } from './pages/planogram/StandardPlanogramEditor';
 import { StorePlanogramBatch } from './pages/planogram/StorePlanogramBatch';
 import { StorePlanogramEditor } from './pages/planogram/StorePlanogramEditor';
+import { Dashboard } from './pages/Dashboard';
 
 function App() {
   return (
@@ -18,6 +19,9 @@ function App() {
         <Routes>
           {/* ホーム */}
           <Route path="/" element={<HomePage />} />
+
+          {/* ダッシュボード */}
+          <Route path="/dashboard" element={<Dashboard />} />
 
           {/* マスタ管理 */}
           <Route path="/masters/products" element={<ProductMaster />} />
