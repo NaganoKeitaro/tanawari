@@ -7,8 +7,8 @@ import { SizeInput } from '../../components/common/UnitInput';
 import { DimensionDisplay } from '../../components/common/UnitDisplay';
 import { ExcelImportModal } from '../../components/masters/ExcelImportModal';
 import { BulkEditModal } from '../../components/masters/BulkEditModal';
-import { exportProductsToExcel, exportProductsToCSV, calculateSalesRank } from '../../utils/excelUtils';
-import { renderHierarchyLevel, countProductsInHierarchy } from '../../utils/hierarchyHelpers';
+import { exportProductsToCSV, calculateSalesRank } from '../../utils/excelUtils';
+import { renderHierarchyLevel } from '../../utils/hierarchyHelpers';
 
 // カテゴリ一覧
 const CATEGORIES = [
@@ -249,19 +249,8 @@ export function ProductMaster() {
         loadProducts();
     };
 
-    // Excelエクスポート
-    const handleExportExcel = () => {
-        const blob = exportProductsToExcel(products);
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `商品マスタ_${new Date().toISOString().split('T')[0]}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
-
-    // CSVエクスポート
-    const handleExportCSV = () => {
+    // 全件データダウンロード(CSV)
+    const handleDownloadAll = () => {
         const blob = exportProductsToCSV(products);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -269,6 +258,18 @@ export function ProductMaster() {
         a.download = `商品マスタ_${new Date().toISOString().split('T')[0]}.csv`;
         a.click();
         URL.revokeObjectURL(url);
+    };
+
+    // 全件データ削除
+    const handleDeleteAll = async () => {
+        if (confirm('全ての商品データを削除します。この操作は取り消せません。本当に実行しますか?')) {
+            if (confirm('最終確認: 本当に全商品データを削除しますか?')) {
+                for (const product of products) {
+                    await productRepository.delete(product.id);
+                }
+                loadProducts();
+            }
+        }
     };
 
     // 全選択/全解除
@@ -412,14 +413,15 @@ export function ProductMaster() {
                                 ✏️ 一括編集 ({selectedIds.size})
                             </button>
                         )}
-                        <button className="btn btn-secondary" onClick={handleExportExcel}>
-                            📤 Excel
+                        <button className="btn btn-secondary" onClick={handleDownloadAll}>
+                            📥 全件データDL
                         </button>
-                        <button className="btn btn-secondary" onClick={handleExportCSV}>
-                            📄 CSV
+                        <button className="btn btn-danger" onClick={handleDeleteAll}>
+                            🗑️ 全件データ削除
                         </button>
+
                         <button className="btn btn-secondary" onClick={() => setIsImportModalOpen(true)}>
-                            📥 インポート
+                            📤 CSVインポート
                         </button>
                         <button className="btn btn-primary" onClick={() => openModal()}>
                             ＋ 新規登録

@@ -16,11 +16,12 @@ import {
     setInitialized,
     clearAllData
 } from './repositories/localStorageRepository';
+import { generateRandomMetrics } from '../utils/metricsGenerator';
 
 // ダミー画像URL
 const NO_IMAGE_URL = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgZmlsbD0iI2UwZTBlMCIvPjx0ZXh0IHg9IjUwIiB5PSI1MCIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjEyIiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+Tm8gSW1hZ2U8L3RleHQ+PC9zdmc+';
 
-// カテゴリ一覧（精肉部門のみ）
+// カテゴリ一覧(精肉部門のみ)
 const CATEGORIES = [
     '焼肉セット',
     '牛肉',
@@ -74,6 +75,8 @@ function generateProducts(): Omit<Product, 'id'>[] {
         const names = PRODUCT_NAMES[category] || ['商品'];
         for (const name of names) {
             const size = generateProductSize();
+            const metrics = generateRandomMetrics();
+
             products.push({
                 jan: generateJAN(),
                 name,
@@ -82,7 +85,13 @@ function generateProducts(): Omit<Product, 'id'>[] {
                 depth: size.depth,
                 category,
                 imageUrl: NO_IMAGE_URL,
-                salesRank: Math.floor(Math.random() * 100) + 1 // 1-100のランダム
+                salesRank: Math.floor(Math.random() * 100) + 1, // 1-100のランダム
+                // 分析用メトリクスを追加
+                quantity: metrics.quantity,
+                sales: metrics.sales,
+                grossProfit: metrics.grossProfit,
+                traffic: metrics.traffic,
+                spendPerCustomer: metrics.spendPerCustomer
             });
         }
     }

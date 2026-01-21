@@ -21,7 +21,8 @@ const navSections: NavSection[] = [
     {
         title: 'ダッシュボード',
         items: [
-            { path: '/', label: 'ホーム', icon: '🏠' }
+            { path: '/', label: 'ホーム', icon: '🏠' },
+            { path: '/dashboard', label: '分析ダッシュボード', icon: '📊' }
         ]
     },
     {
