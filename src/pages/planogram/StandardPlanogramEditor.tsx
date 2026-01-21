@@ -71,15 +71,42 @@ function DraggableBlock({ block }: { block: ShelfBlock }) {
 // 標準棚割キャンバス
 function PlanogramCanvas({
     planogram,
-    products
+    products,
+    analyticsMode,
+    selectedMetric
 }: {
     planogram: StandardPlanogram;
     products: Product[];
+    analyticsMode?: boolean;
+    selectedMetric?: 'sales' | 'grossProfit' | 'quantity' | 'traffic';
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: 'planogram-canvas',
         data: { type: 'canvas' }
     });
+
+    // メトリクスの最大値を計算(ヒートマップ用)
+    const maxMetricValue = analyticsMode && selectedMetric ? Math.max(
+        ...products.map(p => p[selectedMetric] || 0),
+        1
+    ) : 1;
+
+    // メトリクス値から色を計算
+    const getHeatmapColor = (value: number): string => {
+        const ratio = value / maxMetricValue;
+        if (ratio > 0.8) return 'rgba(239, 68, 68, 0.3)'; // red
+        if (ratio > 0.6) return 'rgba(245, 158, 11, 0.3)'; // orange
+        if (ratio > 0.4) return 'rgba(234, 179, 8, 0.3)'; // yellow
+        if (ratio > 0.2) return 'rgba(34, 197, 94, 0.3)'; // green
+        return 'rgba(59, 130, 246, 0.3)'; // blue
+    };
+
+    // メトリクス値をフォーマット
+    const formatMetricValue = (value: number): string => {
+        if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+        if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+        return value.toString();
+    };
 
     return (
         <div
@@ -133,7 +160,9 @@ function PlanogramCanvas({
                                             top: 0,
                                             bottom: 0,
                                             width: `${width}px`,
-                                            background: 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))',
+                                            background: analyticsMode && selectedMetric
+                                                ? getHeatmapColor(product[selectedMetric] || 0)
+                                                : 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))',
                                             border: '1px solid var(--border-color)',
                                             borderRadius: 'var(--radius-sm)',
                                             display: 'flex',
@@ -144,12 +173,31 @@ function PlanogramCanvas({
                                             fontSize: '0.6rem',
                                             overflow: 'hidden'
                                         }}
-                                        title={`${product.name} ×${sp.faceCount}`}
+                                        title={`${product.name} ×${sp.faceCount}${analyticsMode && selectedMetric ? `\n${selectedMetric}: ${product[selectedMetric] || 0}` : ''}`}
                                     >
                                         <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
                                             {product.name}
                                         </div>
                                         <div style={{ color: 'var(--text-muted)' }}>×{sp.faceCount}</div>
+
+                                        {/* 分析モード: メトリクスバッジ */}
+                                        {analyticsMode && selectedMetric && (
+                                            <div
+                                                style={{
+                                                    position: 'absolute',
+                                                    top: '2px',
+                                                    right: '2px',
+                                                    background: 'rgba(0,0,0,0.7)',
+                                                    color: 'white',
+                                                    padding: '1px 4px',
+                                                    borderRadius: '3px',
+                                                    fontSize: '0.55rem',
+                                                    fontWeight: 600
+                                                }}
+                                            >
+                                                {formatMetricValue(product[selectedMetric] || 0)}
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
@@ -210,6 +258,10 @@ export function StandardPlanogramEditor() {
     const [activeBlock, setActiveBlock] = useState<ShelfBlock | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [planogramName, setPlanogramName] = useState('');
+
+    // 分析モード
+    const [analyticsMode, setAnalyticsMode] = useState(false);
+    const [selectedMetric, setSelectedMetric] = useState<'sales' | 'grossProfit' | 'quantity' | 'traffic'>('sales');
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -524,8 +576,34 @@ export function StandardPlanogramEditor() {
                                             <UnitDisplay valueCm={currentPlanogram.width} /> × <UnitDisplay valueCm={currentPlanogram.height} /> / {currentPlanogram.shelfCount}段
                                         </div>
                                     </div>
-                                    <div className="text-sm">
-                                        配置商品: <strong>{currentPlanogram.products.length}</strong>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                                        {/* 分析モードトグル */}
+                                        <label className="flex items-center gap-sm" style={{ cursor: 'pointer' }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={analyticsMode}
+                                                onChange={(e) => setAnalyticsMode(e.target.checked)}
+                                            />
+                                            <span className="text-sm">📊 分析モード</span>
+                                        </label>
+
+                                        {analyticsMode && (
+                                            <select
+                                                className="form-select"
+                                                value={selectedMetric}
+                                                onChange={(e) => setSelectedMetric(e.target.value as any)}
+                                                style={{ width: '150px' }}
+                                            >
+                                                <option value="sales">売上金額</option>
+                                                <option value="grossProfit">粗利</option>
+                                                <option value="quantity">売上数量</option>
+                                                <option value="traffic">客数</option>
+                                            </select>
+                                        )}
+
+                                        <div className="text-sm">
+                                            配置商品: <strong>{currentPlanogram.products.length}</strong>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -533,6 +611,8 @@ export function StandardPlanogramEditor() {
                                     <PlanogramCanvas
                                         planogram={currentPlanogram}
                                         products={products}
+                                        analyticsMode={analyticsMode}
+                                        selectedMetric={selectedMetric}
                                     />
                                 </div>
                             </div>
