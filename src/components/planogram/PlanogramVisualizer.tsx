@@ -317,9 +317,28 @@ export function PlanogramVisualizer({
                                         }}
                                         title={`${product.name}`}
                                     >
-                                        <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                        <div style={{
+                                            fontWeight: 500,
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            width: '100%',
+                                            textAlign: 'center',
+                                            lineHeight: 1.2
+                                        }}>
                                             {product.name}
                                         </div>
+
+                                        {sp.faceCount > 1 && (
+                                            <div style={{
+                                                fontSize: '0.55rem',
+                                                fontWeight: 'bold',
+                                                opacity: 0.8,
+                                                marginBottom: '1px'
+                                            }}>
+                                                {sp.faceCount}F
+                                            </div>
+                                        )}
 
                                         {showBadge && level === 'jan' && (
                                             <div style={{
