@@ -11,6 +11,7 @@ import { StandardPlanogramEditor } from './pages/planogram/StandardPlanogramEdit
 import { StorePlanogramBatch } from './pages/planogram/StorePlanogramBatch';
 import { StorePlanogramEditor } from './pages/planogram/StorePlanogramEditor';
 import { Dashboard } from './pages/Dashboard';
+import { Analytics } from './pages/Analytics';
 
 function App() {
   return (
@@ -21,7 +22,9 @@ function App() {
           <Route path="/" element={<HomePage />} />
 
           {/* ダッシュボード */}
+          {/* ダッシュボード */}
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/analytics" element={<Analytics />} />
 
           {/* マスタ管理 */}
           <Route path="/masters/products" element={<ProductMaster />} />
