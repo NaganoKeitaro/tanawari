@@ -331,12 +331,15 @@ export function PlanogramVisualizer({
 
                                         {sp.faceCount > 1 && (
                                             <div style={{
-                                                fontSize: '0.55rem',
+                                                fontSize: '0.6rem', // Size up slightly
                                                 fontWeight: 'bold',
-                                                opacity: 0.8,
-                                                marginBottom: '1px'
+                                                zIndex: 2,
+                                                marginBottom: '1px',
+                                                background: 'rgba(255,255,255,0.7)',
+                                                borderRadius: '2px',
+                                                padding: '0 2px'
                                             }}>
-                                                {sp.faceCount}F
+                                                x{sp.faceCount}
                                             </div>
                                         )}
 
