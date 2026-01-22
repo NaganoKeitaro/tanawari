@@ -34,6 +34,7 @@ export function Analytics() {
     // Analysis State
     const [metric, setMetric] = useState<HeatmapMetric>('sales');
     const [level, setLevel] = useState<HeatmapLevel>('jan');
+    const [hierarchyField, setHierarchyField] = useState<keyof Product>('categoryName');
 
     // Load Initial Data
     useEffect(() => {
@@ -241,7 +242,7 @@ export function Analytics() {
                                     >
                                         {{
                                             jan: '単品 (JAN)',
-                                            hierarchy: 'カテゴリ',
+                                            hierarchy: '商品カテゴリ',
                                             block: '棚ブロック',
                                             planogram: '棚割全体'
                                         }[l]}
@@ -249,6 +250,28 @@ export function Analytics() {
                                 ))}
                             </div>
                         </div>
+
+                        {level === 'hierarchy' && (
+                            <div className="form-group mb-0 animate-fadeIn">
+                                <label className="form-label">集計キー</label>
+                                <select
+                                    className="form-select"
+                                    value={hierarchyField}
+                                    onChange={(e) => setHierarchyField(e.target.value as keyof Product)}
+                                    style={{ minWidth: '150px' }}
+                                >
+                                    <option value="divisionName">事業部</option>
+                                    <option value="divisionSubName">ディビジョン</option>
+                                    <option value="lineName">ライン</option>
+                                    <option value="departmentName">部門</option>
+                                    <option value="categoryName">カテゴリ</option>
+                                    <option value="subCategoryName">サブカテゴリ</option>
+                                    <option value="segmentName">セグメント</option>
+                                    <option value="subSegmentName">サブセグメント</option>
+                                    <option value="category">旧カテゴリ(互換用)</option>
+                                </select>
+                            </div>
+                        )}
 
                         <div className="form-group mb-0">
                             <label className="form-label">評価指標</label>
@@ -293,6 +316,7 @@ export function Analytics() {
                                     shelfBlocks={shelfBlocks}
                                     level={level}
                                     metric={metric}
+                                    hierarchyField={hierarchyField}
                                     totalMetric={planogramStats?.totalMetric || 0}
                                 />
                             </div>

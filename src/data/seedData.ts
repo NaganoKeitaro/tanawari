@@ -103,7 +103,21 @@ function generateProducts(): Omit<Product, 'id'>[] {
                 sales: metrics.sales,
                 grossProfit: metrics.grossProfit,
                 traffic: metrics.traffic,
-                spendPerCustomer: metrics.spendPerCustomer
+                spendPerCustomer: metrics.spendPerCustomer,
+
+                // 階層データ設定 - カテゴリから推論してダミー設定
+                divisionName: category === '生花' ? '住居余暇事業部' : '食品事業部',
+                divisionSubName: category === '生花' ? 'ライフスタイル' : 'グロサリー',
+                lineName: category === '生花' ? '園芸' : '一般食品',
+                departmentName: ['牛肉', '豚肉', '鶏肉'].includes(category) ? '精肉部' :
+                    ['スナック', 'チョコ', 'キャンディ'].includes(category) ? '菓子部' :
+                        category === '生花' ? '花卉部' : '一般食品部',
+                categoryName: category,
+                subCategoryName: category === '牛肉' ? (Math.random() > 0.5 ? '国産牛' : '輸入牛') :
+                    category === 'スナック' ? (Math.random() > 0.5 ? 'ポテト' : 'コーン') :
+                        category + 'その他',
+                segmentName: 'セグメント-' + category,
+                subSegmentName: 'サブセグメント-' + category
             });
         }
     }

@@ -13,8 +13,7 @@ import type {
 import {
     calculateHeatmapColor,
     formatMetricValue,
-    getJanLevelValue,
-    aggregateByHierarchy
+    getJanLevelValue
 } from '../../utils/heatmapUtils';
 
 type PlanogramVisualizerProps = {
@@ -23,6 +22,7 @@ type PlanogramVisualizerProps = {
     shelfBlocks?: ShelfBlock[];
     level: HeatmapLevel;
     metric: HeatmapMetric;
+    hierarchyField?: keyof Product; // Optional hierarchy field to aggregate by
     totalMetric?: number; // Optional externally provided total
 };
 
@@ -34,6 +34,7 @@ export function PlanogramVisualizer({
     shelfBlocks = [],
     level,
     metric,
+    hierarchyField = 'category',
     totalMetric: propTotalMetric
 }: PlanogramVisualizerProps) {
 
@@ -50,7 +51,7 @@ export function PlanogramVisualizer({
             planogram.products.forEach(p => {
                 const product = products.find(pr => pr.id === p.productId);
                 if (product) {
-                    total += (product[metric] || 0);
+                    total += ((product[metric] as number) || 0);
                 }
             });
         }
@@ -67,33 +68,132 @@ export function PlanogramVisualizer({
             });
         }
 
-        // Hierarchy Level (Category)
+        // Hierarchy Level (Category etc.)
         // 商品レベルで塗るが、値はカテゴリ合計を使用
         else if (level === 'hierarchy') {
             const productsInPlanogram = planogram.products
                 .map(p => products.find(pr => pr.id === p.productId))
                 .filter((p): p is Product => !!p);
 
-            const categorySums = aggregateByHierarchy(productsInPlanogram, metric, 'category');
+            // Use the dynamic hierarchy field for key
+            const hierarchySums: Record<string, number> = {};
+            productsInPlanogram.forEach(p => {
+                const key = (p[hierarchyField || 'category'] as any) || 'Others';
+                hierarchySums[key] = (hierarchySums[key] || 0) + ((p[metric] as number) || 0);
+            });
 
-            max = Math.max(...Object.values(categorySums));
+            max = Math.max(...Object.values(hierarchySums));
 
             planogram.products.forEach(p => {
                 const product = products.find(pr => pr.id === p.productId);
-                if (product && product.category) {
-                    computedScores[p.id] = categorySums[product.category] || 0;
+                if (product) {
+                    const key = (product[hierarchyField || 'category'] as any) || 'Others';
+                    computedScores[p.id] = hierarchySums[key] || 0;
                 }
             });
         }
 
-        // Block & Planogram logic doesn't strictly need computedScores per product for logic, 
-        // but Planogram level uses total.
-
         return { scores: computedScores, maxScore: max, totalMetric: total };
-    }, [planogram, products, level, metric, propTotalMetric]);
+    }, [planogram, products, level, metric, propTotalMetric, hierarchyField]);
 
 
-    // ブロック配置の計算
+    // 2. 階層ブロック配置の計算 (Spatial Grouping)
+    const hierarchyLayouts = useMemo(() => {
+        if (level !== 'hierarchy') return [];
+
+        const layouts: {
+            id: string;
+            name: string;
+            shelfIndex: number;
+            x: number;
+            width: number;
+            score: number;
+        }[] = [];
+
+        // shelves loop
+        for (let i = 0; i < planogram.shelfCount; i++) {
+            const shelfProducts = planogram.products
+                .filter(p => p.shelfIndex === i)
+                .sort((a, b) => a.positionX - b.positionX);
+
+            if (shelfProducts.length === 0) continue;
+
+            let currentGroup: {
+                name: string;
+                startX: number;
+                currentX: number; // To track continuity gap
+                score: number;
+                width: number;
+            } | null = null;
+
+            shelfProducts.forEach((sp, index) => {
+                const product = products.find(p => p.id === sp.productId);
+                if (!product) return;
+
+                const groupName = (product[hierarchyField || 'category'] as any) || '未設定';
+                const productWidth = product.width * sp.faceCount;
+                const productVal = (product[metric] as number) || 0;
+
+                // 新しいグループの開始条件: 
+                // 1. グループがない
+                // 2. 名前が変わった
+                // 3. (Optional) 物理的に離れている (Gap check could be added here if needed)
+                if (!currentGroup || currentGroup.name !== groupName) {
+                    // Save previous group
+                    if (currentGroup) {
+                        layouts.push({
+                            id: `${i}-${currentGroup.startX}-${currentGroup.name}`,
+                            shelfIndex: i,
+                            name: currentGroup.name,
+                            x: currentGroup.startX,
+                            width: currentGroup.width,
+                            score: currentGroup.score
+                        });
+                    }
+
+                    // Start new group
+                    currentGroup = {
+                        name: groupName,
+                        startX: sp.positionX,
+                        currentX: sp.positionX + productWidth,
+                        score: productVal,
+                        width: productWidth
+                    };
+                } else {
+                    // Continue group
+                    // 隙間がある場合は埋めるか、厳密にするか。ここでは「棚ブロック的」に埋めるアプローチをとる
+                    // widthは (現在の商品のEnd - グループのStart) で計算し直す（隙間込み）
+                    const currentEnd = sp.positionX + productWidth;
+                    currentGroup.width = currentEnd - currentGroup.startX;
+                    currentGroup.score += productVal;
+                    currentGroup.currentX = currentEnd;
+                }
+
+                // Last item check
+                if (index === shelfProducts.length - 1 && currentGroup) {
+                    layouts.push({
+                        id: `${i}-${currentGroup.startX}-${currentGroup.name}`,
+                        shelfIndex: i,
+                        name: currentGroup.name,
+                        x: currentGroup.startX,
+                        width: currentGroup.width,
+                        score: currentGroup.score
+                    });
+                }
+            });
+        }
+
+        return layouts;
+    }, [planogram, products, level, metric, hierarchyField]);
+
+    // Calculate max score for hierarchy blocks to color them
+    const maxHierarchyBlockScore = useMemo(() => {
+        if (hierarchyLayouts.length === 0) return 0;
+        return Math.max(...hierarchyLayouts.map(l => l.score));
+    }, [hierarchyLayouts]);
+
+
+    // ブロック配置の計算 (Original ShelfBlock Logic)
     const blockLayouts = useMemo(() => {
         if (!('blocks' in planogram) || !shelfBlocks.length) return [];
         // StorePlanogramでもVisualizerにお膳立てされたblocksがあれば利用可能 (Analytics.tsx側で対応済み)
@@ -126,7 +226,7 @@ export function PlanogramVisualizer({
                 // 中心点がブロック内にあるか
                 const productCenter = p.positionX + (product.width * p.faceCount / 2);
                 if (productCenter >= startX && productCenter < endX) {
-                    blockTotal += (product[metric] || 0);
+                    blockTotal += ((product[metric] as number) || 0);
                 }
             });
 
@@ -242,6 +342,9 @@ export function PlanogramVisualizer({
                 {Array.from({ length: planogram.shelfCount }).map((_, shelfIndex) => {
                     const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
 
+                    // Render Hierarchy Overlay for this shelf (if applied)
+                    const shelfHierarchyBlocks = hierarchyLayouts.filter(l => l.shelfIndex === shelfIndex);
+
                     return (
                         <div
                             key={shelfIndex}
@@ -252,6 +355,44 @@ export function PlanogramVisualizer({
                                 borderBottom: '1px solid var(--border-color)'
                             }}
                         >
+                            {/* Hierarchy Blocks Overlay (Inside the shelf) */}
+                            {level === 'hierarchy' && shelfHierarchyBlocks.map(block => (
+                                <div key={block.id}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${block.x * SCALE}px`,
+                                        top: 0,
+                                        bottom: 0,
+                                        width: `${block.width * SCALE}px`,
+                                        backgroundColor: calculateHeatmapColor(block.score, maxHierarchyBlockScore),
+                                        zIndex: 3, // Above products (which will be faded)
+                                        border: '1px solid rgba(255,255,255,0.5)',
+                                        boxShadow: '0 0 10px rgba(0,0,0,0.1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        opacity: 0.9
+                                    }}
+                                >
+                                    <div style={{
+                                        background: 'rgba(255,255,255,0.95)',
+                                        padding: '4px 8px',
+                                        borderRadius: '4px',
+                                        textAlign: 'center',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                                        minWidth: '60px'
+                                    }}>
+                                        <div style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{block.name}</div>
+                                        <div style={{ fontSize: '0.8rem', color: 'var(--color-primary)', fontWeight: 800 }}>
+                                            {formatMetricValue(block.score)}
+                                        </div>
+                                        <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>
+                                            {totalMetric > 0 ? (block.score / totalMetric * 100).toFixed(1) + '%' : '-'}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
                             {/* Shelf Index Label */}
                             <div style={{
                                 position: 'absolute',
@@ -272,9 +413,7 @@ export function PlanogramVisualizer({
                                 // Visuals
                                 let bgColor = 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))';
                                 let showBadge = false;
-                                let badgeTitle = '';
                                 let badgeValue = '';
-                                let badgeSub = '';
 
                                 if (level === 'jan') {
                                     const score = scores[sp.id] || 0;
@@ -282,14 +421,8 @@ export function PlanogramVisualizer({
                                     showBadge = true;
                                     badgeValue = formatMetricValue(score);
                                 } else if (level === 'hierarchy') {
-                                    const score = scores[sp.id] || 0;
-                                    bgColor = calculateHeatmapColor(score, maxScore);
-                                    showBadge = true;
-                                    badgeTitle = product.category;
-                                    badgeValue = formatMetricValue(score);
-                                    if (totalMetric > 0) {
-                                        badgeSub = (score / totalMetric * 100).toFixed(1) + '%';
-                                    }
+                                    // Faded out, just showing presence
+                                    bgColor = 'rgba(200, 200, 200, 0.2)';
                                 } else if (level === 'block') {
                                     bgColor = 'rgba(255, 255, 255, 0.4)'; // More transparent
                                 }
@@ -313,7 +446,8 @@ export function PlanogramVisualizer({
                                             padding: '2px',
                                             fontSize: '0.6rem',
                                             overflow: 'hidden',
-                                            opacity: (level === 'block' || level === 'planogram') ? 0.3 : 1
+                                            // Fade out individual products when in aggregated modes
+                                            opacity: (level === 'block' || level === 'planogram' || level === 'hierarchy') ? 0.3 : 1
                                         }}
                                         title={`${product.name}`}
                                     >
@@ -353,24 +487,6 @@ export function PlanogramVisualizer({
                                                 marginTop: '2px'
                                             }}>
                                                 {badgeValue}
-                                            </div>
-                                        )}
-
-                                        {/* Hierarchy Badge (Detailed) */}
-                                        {showBadge && level === 'hierarchy' && (
-                                            <div style={{
-                                                background: 'rgba(0,0,0,0.7)',
-                                                color: 'white',
-                                                padding: '2px 4px',
-                                                borderRadius: '3px',
-                                                fontSize: '0.5rem',
-                                                marginTop: '2px',
-                                                textAlign: 'center',
-                                                lineHeight: 1.1
-                                            }}>
-                                                <div>{badgeTitle}</div>
-                                                <div style={{ fontWeight: 'bold' }}>{badgeValue}</div>
-                                                <div style={{ fontSize: '0.45rem', opacity: 0.9 }}>{badgeSub}</div>
                                             </div>
                                         )}
                                     </div>
