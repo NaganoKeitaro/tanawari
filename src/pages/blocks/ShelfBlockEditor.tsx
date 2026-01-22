@@ -302,10 +302,12 @@ export function ShelfBlockEditor() {
 
         const shelfIndex = parseInt(overId.replace('shelf-', ''));
 
-        // 既存配置の計算
-        const existingPlacements = selectedBlock.productPlacements.filter(
-            p => p.shelfIndex === shelfIndex
-        );
+        // 既存配置の取得（左から順にソート）
+        const existingPlacements = selectedBlock.productPlacements
+            .filter(p => p.shelfIndex === shelfIndex)
+            .sort((a, b) => a.positionX - b.positionX);
+
+        // 使用済み幅の計算
         const usedWidth = existingPlacements.reduce((sum, p) => {
             const prod = products.find(pr => pr.id === p.productId);
             return sum + (prod ? prod.width * p.faceCount : 0);
@@ -317,18 +319,34 @@ export function ShelfBlockEditor() {
             return;
         }
 
-        // 配置を追加
-        const newPlacement: ProductPlacement = {
-            id: crypto.randomUUID(),
-            productId: product.id,
-            shelfIndex,
-            positionX: usedWidth, // 左詰め
-            faceCount: 1
-        };
+        let updatedPlacements = [...selectedBlock.productPlacements];
+
+        // 末尾の商品と同じ場合は統合（フェース追加）
+        const lastPlacement = existingPlacements[existingPlacements.length - 1];
+        if (lastPlacement && lastPlacement.productId === product.id) {
+            // 統合
+            const updatedLast = {
+                ...lastPlacement,
+                faceCount: lastPlacement.faceCount + 1
+            };
+            updatedPlacements = updatedPlacements.map(p =>
+                p.id === lastPlacement.id ? updatedLast : p
+            );
+        } else {
+            // 新規追加
+            const newPlacement: ProductPlacement = {
+                id: crypto.randomUUID(),
+                productId: product.id,
+                shelfIndex,
+                positionX: usedWidth, // 左詰め
+                faceCount: 1
+            };
+            updatedPlacements.push(newPlacement);
+        }
 
         const updatedBlock = {
             ...selectedBlock,
-            productPlacements: [...selectedBlock.productPlacements, newPlacement],
+            productPlacements: updatedPlacements,
             updatedAt: new Date().toISOString()
         };
 
@@ -337,16 +355,35 @@ export function ShelfBlockEditor() {
         setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
     };
 
-    // 配置削除
+    // 配置削除（フェース減少）
     const handleRemovePlacement = async (placementId: string) => {
         if (!selectedBlock) return;
 
-        const updatedPlacements = selectedBlock.productPlacements.filter(p => p.id !== placementId);
+        const targetPlacement = selectedBlock.productPlacements.find(p => p.id === placementId);
+        if (!targetPlacement) return;
+
+        let updatedPlacements: ProductPlacement[];
+
+        if (targetPlacement.faceCount > 1) {
+            // フェース減少
+            updatedPlacements = selectedBlock.productPlacements.map(p =>
+                p.id === placementId
+                    ? { ...p, faceCount: p.faceCount - 1 }
+                    : p
+            );
+        } else {
+            // 削除
+            updatedPlacements = selectedBlock.productPlacements.filter(p => p.id !== placementId);
+        }
+
         // 位置を再計算（左詰め）
         const recalculatedPlacements: ProductPlacement[] = [];
 
         for (let shelfIndex = 0; shelfIndex < selectedBlock.shelfCount; shelfIndex++) {
-            const shelfPlacements = updatedPlacements.filter(p => p.shelfIndex === shelfIndex);
+            const shelfPlacements = updatedPlacements
+                .filter(p => p.shelfIndex === shelfIndex)
+                .sort((a, b) => a.positionX - b.positionX); // 元の位置順に処理
+
             let currentX = 0;
             for (const placement of shelfPlacements) {
                 const product = products.find(p => p.id === placement.productId);

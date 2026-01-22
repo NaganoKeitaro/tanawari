@@ -583,9 +583,10 @@ function generateSeedShelfBlocks(products: Product[]): Omit<ShelfBlock, 'id'>[] 
         const BLOCK_WIDTH = 120;
         const SHELF_COUNT = 5;
 
+        let pIdx = 0; // 棚またぎで商品を循環させる
+
         for (let i = 0; i < SHELF_COUNT; i++) {
             let currentX = 0;
-            let pIdx = 0;
 
             // 幅がいっぱいになるまで商品を配置
             while (currentX < BLOCK_WIDTH) {
@@ -600,10 +601,13 @@ function generateSeedShelfBlocks(products: Product[]): Omit<ShelfBlock, 'id'>[] 
 
                 if (maxFaces === 0) break; // もう入らない
 
-                // 2〜5フェースでランダムに、ただし最大数を超えないように
-                // 最後の隙間を埋めるために、残り幅が少なければmaxFacesを使うロジックも検討できるが
-                // ここでは単純にランダム
-                const faces = Math.min(Math.floor(Math.random() * 4) + 2, maxFaces);
+                // 統合ロジック：
+                // 同じ商品を横に並べる（4〜8フェース程度まとめて配置し、バラバラになるのを防ぐ）
+                let faces = 1;
+                if (maxFaces >= 2) {
+                    const targetFaces = Math.floor(Math.random() * 5) + 4; // 4-8フェース
+                    faces = Math.min(targetFaces, maxFaces);
+                }
 
                 placements.push({
                     id: crypto.randomUUID(),
@@ -632,32 +636,46 @@ function generateSeedShelfBlocks(products: Product[]): Omit<ShelfBlock, 'id'>[] 
 
 // テスト用標準棚割生成
 function generateSeedStandardPlanograms(blocks: ShelfBlock[], products: Product[]): Omit<StandardPlanogram, 'id'>[] {
-    // ブロックIDをマップ
-    const blockMappings = blocks.map(b => ({
+    const BLOCK_WIDTH = 120;
+
+    // ブロックIDをマップ（位置を設定）
+    const blockMappings = blocks.map((b, i) => ({
         id: crypto.randomUUID(),
         blockId: b.id,
-        positionX: 0, // 簡易的に配置
+        positionX: i * BLOCK_WIDTH, // 横に並べる
         positionY: 0
     }));
 
-    // 商品配置（棚割直下にもいくつか配置しておく）
-    const sampleProducts = products.slice(0, 10).map((p, i) => ({
-        id: crypto.randomUUID(),
-        productId: p.id,
-        shelfIndex: 0,
-        positionX: i * 10,
-        faceCount: 1
-    }));
+    // 商品配置（ブロック内の商品を展開する）
+    // StandardPlanogramには、ブロック配置情報(blocks)と、展開された商品情報(products)の両方を持たせるのが一般的
+    // アプリケーションの実装によっては blocks から動的に展開する場合もあるが、
+    // ここではデータの整合性を保つために展開した状態で保存する
+    const allProductsInPlanogram: any[] = [];
+
+    blocks.forEach((block, index) => {
+        const xOffset = index * BLOCK_WIDTH;
+        if (block.productPlacements) {
+            block.productPlacements.forEach(pp => {
+                allProductsInPlanogram.push({
+                    id: crypto.randomUUID(),
+                    productId: pp.productId,
+                    shelfIndex: pp.shelfIndex,
+                    positionX: pp.positionX + xOffset, // オフセットを加算
+                    faceCount: pp.faceCount
+                });
+            });
+        }
+    });
 
     return [{
         name: 'テスト標準棚割',
         fmt: 'MEGA',
         baseStoreId: '', // 標準棚割なのでなし
-        width: 120 * blocks.length, // ブロック数分
+        width: BLOCK_WIDTH * blocks.length, // ブロック数分
         height: 180,
         shelfCount: 5,
         blocks: blockMappings,
-        products: sampleProducts,
+        products: allProductsInPlanogram, // 展開済み商品リスト
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
     }];
