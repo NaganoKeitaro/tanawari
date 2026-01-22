@@ -7,12 +7,20 @@ import type {
     Store,
     Fixture,
     FMT,
-    Region
+    Region,
+    ShelfBlock,
+    StandardPlanogram,
+    StorePlanogram,
+    StoreFixturePlacement
 } from './types';
 import {
     productRepository,
     storeRepository,
     fixtureRepository,
+    shelfBlockRepository,
+    standardPlanogramRepository,
+    storePlanogramRepository,
+    storeFixturePlacementRepository,
     setInitialized,
     clearAllData
 } from './repositories/localStorageRepository';
@@ -30,7 +38,9 @@ const CATEGORIES = [
     '挽肉',
     '加工肉',
     'ホルモン',
-    '味付肉'
+    '味付肉',
+    '骨付き肉',
+    'おつまみ'
 ];
 
 // 商品名サンプル
@@ -42,7 +52,9 @@ const PRODUCT_NAMES: Record<string, string[]> = {
     '挽肉': ['牛豚合い挽き肉', '豚ひき肉', '鶏ひき肉', '赤身ひき肉'],
     '加工肉': ['あらびきウインナー', 'ロースハム', 'ベーコンスライス', '生ハム', 'サライ', '厚切りベーコン'],
     'ホルモン': ['牛シマチョウ', '牛マルチョウ', '豚白モツ', '牛レバー', 'センマイ刺し'],
-    '味付肉': ['プルコギビーフ', '豚ロース味噌漬け', '鶏肉のバジルソテー', '砂肝のネギ塩だれ']
+    '味付肉': ['プルコギビーフ', '豚ロース味噌漬け', '鶏肉のバジルソテー', '砂肝のネギ塩だれ'],
+    '骨付き肉': ['スペアリブ', '骨付きラム肉', '豚足', 'テール', '鶏ガラ'],
+    'おつまみ': ['ビーフジャーキー', 'サラミソーセージ', 'ミミガー', '酢モツ', '焼き豚足', 'スモークタン', '砂肝黒胡椒焼き']
 };
 
 // JANコード生成
@@ -551,42 +563,248 @@ function generateFixtures(): Omit<Fixture, 'id'>[] {
     return fixtures;
 }
 
+// テスト用棚ブロック生成
+function generateSeedShelfBlocks(products: Product[]): Omit<ShelfBlock, 'id'>[] {
+    const blockTypes = [
+        { name: 'テスト棚ブロック（牛肉）', category: '牛肉' },
+        { name: 'テスト棚ブロック（豚肉）', category: '豚肉' },
+        { name: 'テスト棚ブロック（鶏肉）', category: '鶏肉' },
+        { name: 'テスト棚ブロック（BBQ）', category: '焼肉セット' },
+        { name: 'テスト棚ブロック（骨物）', category: '骨付き肉' },
+        { name: 'テスト棚ブロック（MS）', category: 'おつまみ' }
+    ];
+
+    return blockTypes.map(type => {
+        const categoryProducts = products.filter(p => p.category === type.category);
+        // カテゴリ商品がない場合は全体から補填
+        const sourceProducts = categoryProducts.length > 0 ? categoryProducts : products.slice(0, 10);
+
+        const placements: any[] = [];
+        const BLOCK_WIDTH = 120;
+        const SHELF_COUNT = 5;
+
+        for (let i = 0; i < SHELF_COUNT; i++) {
+            let currentX = 0;
+            let pIdx = 0;
+
+            // 幅がいっぱいになるまで商品を配置
+            while (currentX < BLOCK_WIDTH) {
+                // 商品を循環させる
+                const product = sourceProducts[pIdx % sourceProducts.length];
+                const width = product.width || 10; // デフォルト10cm
+
+                // 残り幅計算
+                const remainingWidth = BLOCK_WIDTH - currentX;
+                //配置可能な最大フェース数
+                const maxFaces = Math.floor(remainingWidth / width);
+
+                if (maxFaces === 0) break; // もう入らない
+
+                // 2〜5フェースでランダムに、ただし最大数を超えないように
+                // 最後の隙間を埋めるために、残り幅が少なければmaxFacesを使うロジックも検討できるが
+                // ここでは単純にランダム
+                const faces = Math.min(Math.floor(Math.random() * 4) + 2, maxFaces);
+
+                placements.push({
+                    id: crypto.randomUUID(),
+                    productId: product.id,
+                    shelfIndex: i,
+                    positionX: currentX,
+                    faceCount: faces
+                });
+
+                currentX += width * faces;
+                pIdx++;
+            }
+        }
+
+        return {
+            name: type.name,
+            width: BLOCK_WIDTH, // 4尺
+            height: 180,
+            shelfCount: SHELF_COUNT,
+            productPlacements: placements,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+    });
+}
+
+// テスト用標準棚割生成
+function generateSeedStandardPlanograms(blocks: ShelfBlock[], products: Product[]): Omit<StandardPlanogram, 'id'>[] {
+    // ブロックIDをマップ
+    const blockMappings = blocks.map(b => ({
+        id: crypto.randomUUID(),
+        blockId: b.id,
+        positionX: 0, // 簡易的に配置
+        positionY: 0
+    }));
+
+    // 商品配置（棚割直下にもいくつか配置しておく）
+    const sampleProducts = products.slice(0, 10).map((p, i) => ({
+        id: crypto.randomUUID(),
+        productId: p.id,
+        shelfIndex: 0,
+        positionX: i * 10,
+        faceCount: 1
+    }));
+
+    return [{
+        name: 'テスト標準棚割',
+        fmt: 'MEGA',
+        baseStoreId: '', // 標準棚割なのでなし
+        width: 120 * blocks.length, // ブロック数分
+        height: 180,
+        shelfCount: 5,
+        blocks: blockMappings,
+        products: sampleProducts,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    }];
+}
+
+// テスト店舗用什器配置生成 (64尺 = 1920cm -> 120cm * 16台)
+function generateSeedStoreFixtures(storeId: string, fixtures: Fixture[]): Omit<StoreFixturePlacement, 'id'>[] {
+    const placements: Omit<StoreFixturePlacement, 'id'>[] = [];
+
+    // 多段什器（標準棚B: 120cm）を探す
+    const multiTierFixture = fixtures.find(f => f.name === '標準棚B') || fixtures[0];
+
+    // 平台（エンド什器等を代用、あるいは新規定義すべきだが既存から選択）
+    // seedDataのgenerateFixturesには「平台」がない。「冷蔵ケース」や「エンド什器」等。
+    // 仮に「冷蔵ケース」(120cm)を平台として扱う
+    const flatFixture = fixtures.find(f => f.name === '冷蔵ケース') || fixtures[1];
+
+    // 多段 16台
+    for (let i = 0; i < 16; i++) {
+        placements.push({
+            storeId,
+            fixtureId: multiTierFixture.id,
+            positionX: i * 120,
+            positionY: 0,
+            order: i
+        });
+    }
+
+    // 平台 16台（Y座標をずらす）
+    for (let i = 0; i < 16; i++) {
+        placements.push({
+            storeId,
+            fixtureId: flatFixture.id,
+            positionX: i * 120,
+            positionY: 200, // 通路を挟んで配置
+            order: 16 + i
+        });
+    }
+
+    return placements;
+}
+
+// テスト用個店棚割生成
+function generateSeedStorePlanograms(storeId: string, standardPlanogram: StandardPlanogram): Omit<StorePlanogram, 'id'>[] {
+    return [{
+        storeId,
+        standardPlanogramId: standardPlanogram.id, // Correct property name
+        width: standardPlanogram.width,
+        height: standardPlanogram.height,
+        shelfCount: standardPlanogram.shelfCount,
+        products: [], // 初期状態は空（または標準からコピー）
+        warnings: [],
+        status: 'generated',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+    }];
+}
+
 // 初期データ投入のメイン関数
 export async function seedData(): Promise<{
     products: number;
     stores: number;
     fixtures: number;
+    shelfBlocks: number;
+    standardPlanograms: number;
+    storePlanograms: number;
 }> {
     // 既存データをクリア
     await clearAllData();
 
     // 商品データ生成・保存
     const productsData = generateProducts();
+    const savedProducts: Product[] = [];
     for (const product of productsData) {
-        await productRepository.create(product);
+        const saved = await productRepository.create(product);
+        savedProducts.push(saved);
     }
 
-    // 店舗データ生成・保存
+    // 店舗データ生成・保存（テスト店舗を追加）
     const storesData = generateStores();
+    storesData.unshift({
+        code: 'TEST001',
+        name: 'テスト店舗',
+        fmt: 'MEGA',
+        region: '関東'
+    });
+
+    const savedStores: Store[] = [];
     for (const store of storesData) {
-        await storeRepository.create(store);
+        const saved = await storeRepository.create(store);
+        savedStores.push(saved);
     }
 
     // 什器データ生成・保存
     const fixturesData = generateFixtures();
+    const savedFixtures: Fixture[] = [];
     for (const fixture of fixturesData) {
-        await fixtureRepository.create(fixture);
+        const saved = await fixtureRepository.create(fixture);
+        savedFixtures.push(saved);
+    }
+
+    // テスト棚ブロック生成・保存
+    const shelfBlocksData = generateSeedShelfBlocks(savedProducts);
+    const savedBlocks: ShelfBlock[] = [];
+    for (const block of shelfBlocksData) {
+        const saved = await shelfBlockRepository.create(block);
+        savedBlocks.push(saved);
+    }
+
+    // テスト標準棚割生成・保存
+    const standardPlanogramsData = generateSeedStandardPlanograms(savedBlocks, savedProducts);
+    const savedStandardPlanograms: StandardPlanogram[] = [];
+    for (const sp of standardPlanogramsData) {
+        const saved = await standardPlanogramRepository.create(sp);
+        savedStandardPlanograms.push(saved);
+    }
+
+    // テスト店舗用什器配置生成・保存
+    const testStore = savedStores.find(s => s.code === 'TEST001');
+    if (testStore) {
+        const fixturePlacements = generateSeedStoreFixtures(testStore.id, savedFixtures);
+        for (const fp of fixturePlacements) {
+            await storeFixturePlacementRepository.create(fp);
+        }
+
+        // テスト個店棚割生成・保存
+        if (savedStandardPlanograms.length > 0) {
+            const storePlanogramsData = generateSeedStorePlanograms(testStore.id, savedStandardPlanograms[0]);
+            for (const sp of storePlanogramsData) {
+                await storePlanogramRepository.create(sp);
+            }
+        }
     }
 
     // 初期化完了フラグをセット
     await setInitialized(true);
 
     return {
-        products: productsData.length,
-        stores: storesData.length,
-        fixtures: fixturesData.length
+        products: savedProducts.length,
+        stores: savedStores.length,
+        fixtures: savedFixtures.length,
+        shelfBlocks: savedBlocks.length,
+        standardPlanograms: savedStandardPlanograms.length,
+        storePlanograms: 1
     };
 }
 
 // 初期化チェック用エクスポート（再エクスポート）
 export { isInitialized } from './repositories/localStorageRepository';
+

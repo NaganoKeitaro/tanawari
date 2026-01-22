@@ -33,6 +33,7 @@ import {
 } from '../../data/repositories/localStorageRepository';
 import { Modal } from '../../components/common/Modal';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
+import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
 
 const SCALE = 3; // 1cm = 3px
 
@@ -91,22 +92,11 @@ function PlanogramCanvas({
         1
     ) : 1;
 
-    // メトリクス値から色を計算
-    const getHeatmapColor = (value: number): string => {
-        const ratio = value / maxMetricValue;
-        if (ratio > 0.8) return 'rgba(239, 68, 68, 0.3)'; // red
-        if (ratio > 0.6) return 'rgba(245, 158, 11, 0.3)'; // orange
-        if (ratio > 0.4) return 'rgba(234, 179, 8, 0.3)'; // yellow
-        if (ratio > 0.2) return 'rgba(34, 197, 94, 0.3)'; // green
-        return 'rgba(59, 130, 246, 0.3)'; // blue
-    };
+    // メトリクス値から色を計算 (Deprecated: Using shared util)
+    // const getHeatmapColor ... 
 
-    // メトリクス値をフォーマット
-    const formatMetricValue = (value: number): string => {
-        if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-        if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
-        return value.toString();
-    };
+    // メトリクス値をフォーマット (Deprecated: Using shared util)
+    // const formatMetricValue ...
 
     return (
         <div
@@ -161,7 +151,7 @@ function PlanogramCanvas({
                                             bottom: 0,
                                             width: `${width}px`,
                                             background: analyticsMode && selectedMetric
-                                                ? getHeatmapColor(product[selectedMetric] || 0)
+                                                ? calculateHeatmapColor(product[selectedMetric] || 0, maxMetricValue)
                                                 : 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))',
                                             border: '1px solid var(--border-color)',
                                             borderRadius: 'var(--radius-sm)',
