@@ -545,14 +545,20 @@ function generateFixtures(): Omit<Fixture, 'id'>[] {
 
     // 標準的な棚什器サイズ
     const fixtureTemplates = [
-        { name: '標準棚A', width: 90, height: 180, shelfCount: 5 },
-        { name: '標準棚B', width: 120, height: 180, shelfCount: 5 },
-        { name: '大型棚', width: 150, height: 200, shelfCount: 6 },
-        { name: 'コンパクト棚', width: 60, height: 150, shelfCount: 4 },
-        { name: 'ワイド棚', width: 180, height: 180, shelfCount: 5 },
-        { name: '冷蔵ケース', width: 120, height: 200, shelfCount: 4 },
-        { name: 'エンド什器', width: 90, height: 150, shelfCount: 4 },
-        { name: 'ゴンドラ什器', width: 100, height: 180, shelfCount: 5 }
+        { name: '標準棚A', width: 90, height: 180, shelfCount: 5, fixtureType: 'gondola' as const },
+        { name: '標準棚B', width: 120, height: 180, shelfCount: 5, fixtureType: 'gondola' as const },
+        { name: '大型棚', width: 150, height: 200, shelfCount: 6, fixtureType: 'gondola' as const },
+        { name: 'コンパクト棚', width: 60, height: 150, shelfCount: 4, fixtureType: 'gondola' as const },
+        { name: 'ワイド棚', width: 180, height: 180, shelfCount: 5, fixtureType: 'gondola' as const },
+        { name: '冷蔵ケース', width: 120, height: 200, shelfCount: 4, fixtureType: 'flat-refrigerated' as const },
+        { name: 'エンド什器', width: 90, height: 150, shelfCount: 4, fixtureType: 'end-cap-refrigerated' as const },
+        { name: 'ゴンドラ什器', width: 100, height: 180, shelfCount: 5, fixtureType: 'gondola' as const },
+        // 精肉部門用什器
+        { name: '多段棚（4尺）', width: 120, height: 180, shelfCount: 12, fixtureType: 'multi-tier' as const },
+        { name: '平台冷蔵', width: 120, height: 100, shelfCount: 1, fixtureType: 'flat-refrigerated' as const },
+        { name: '平台冷蔵エンド', width: 90, height: 100, shelfCount: 1, fixtureType: 'end-cap-refrigerated' as const },
+        { name: '平台冷凍', width: 120, height: 100, shelfCount: 1, fixtureType: 'flat-frozen' as const },
+        { name: '平台冷凍エンド', width: 150, height: 100, shelfCount: 1, fixtureType: 'end-cap-frozen' as const }
     ];
 
     const manufacturers = ['メーカーA', 'メーカーB', 'メーカーC'];
@@ -695,39 +701,84 @@ function generateSeedStandardPlanograms(blocks: ShelfBlock[], products: Product[
     }];
 }
 
-// テスト店舗用什器配置生成 (64尺 = 1920cm -> 120cm * 16台)
+// テスト店舗用什器配置生成
+// 配置イメージ（添付画像に基づく）:
+// - 多段: 52尺（4尺棚 x 13本 = 120cm x 13 = 1560cm）
+// - 平台冷蔵: 48尺（120cm x 12 = 1440cm）
+// - 平台冷蔵エンド: 15尺（90cm x 5 = 450cm、または 150cm + 90cm x 2 + 120cm）
+// - 平台冷凍: 16尺（120cm x 4 = 480cm）
+// - 平台冷凍エンド: 5尺（150cm x 1 = 150cm）
 function generateSeedStoreFixtures(storeId: string, fixtures: Fixture[]): Omit<StoreFixturePlacement, 'id'>[] {
     const placements: Omit<StoreFixturePlacement, 'id'>[] = [];
 
-    // 多段什器（標準棚B: 120cm）を探す
-    const multiTierFixture = fixtures.find(f => f.name === '標準棚B') || fixtures[0];
+    // 各什器タイプを取得
+    const multiTierFixture = fixtures.find(f => f.name === '多段棚（4尺）') || fixtures.find(f => f.name === '標準棚B') || fixtures[0];
+    const refrigeratedFlat = fixtures.find(f => f.name === '平台冷蔵') || fixtures.find(f => f.name === '冷蔵ケース') || fixtures[1];
+    const refrigeratedFlatEnd = fixtures.find(f => f.name === '平台冷蔵エンド') || fixtures.find(f => f.name === 'エンド什器') || fixtures[2];
+    const frozenFlat = fixtures.find(f => f.name === '平台冷凍') || fixtures.find(f => f.name === '冷蔵ケース') || fixtures[1];
+    const frozenFlatEnd = fixtures.find(f => f.name === '平台冷凍エンド') || fixtures.find(f => f.name === 'エンド什器') || fixtures[2];
 
-    // 平台（エンド什器等を代用、あるいは新規定義すべきだが既存から選択）
-    // seedDataのgenerateFixturesには「平台」がない。「冷蔵ケース」や「エンド什器」等。
-    // 仮に「冷蔵ケース」(120cm)を平台として扱う
-    const flatFixture = fixtures.find(f => f.name === '冷蔵ケース') || fixtures[1];
+    let order = 0;
 
-    // 多段 16台
-    for (let i = 0; i < 16; i++) {
+    // 多段: 52尺（4尺棚 x 13本 = 1560cm）
+    // 上部に配置（positionY = 0）
+    for (let i = 0; i < 13; i++) {
         placements.push({
             storeId,
             fixtureId: multiTierFixture.id,
-            positionX: i * 120,
+            positionX: i * 120, // 4尺 = 120cm
             positionY: 0,
-            order: i
+            order: order++
         });
     }
 
-    // 平台 16台（Y座標をずらす）
-    for (let i = 0; i < 16; i++) {
+    // ===== 平台ゾーン（positionY = 200以降）=====
+    // 画像から：左側が冷蔵、右側が冷凍
+
+    // 平台冷蔵: 48尺（120cm x 12 = 1440cm）
+    // 活力ゾーン (1-20の範囲)
+    for (let i = 0; i < 12; i++) {
         placements.push({
             storeId,
-            fixtureId: flatFixture.id,
+            fixtureId: refrigeratedFlat.id,
             positionX: i * 120,
-            positionY: 200, // 通路を挟んで配置
-            order: 16 + i
+            positionY: 200,
+            order: order++
         });
     }
+
+    // 平台冷蔵エンド: 15尺（90cm x 5 = 450cm or 混合配置）
+    // 冷蔵の端っこ部分
+    for (let i = 0; i < 5; i++) {
+        placements.push({
+            storeId,
+            fixtureId: refrigeratedFlatEnd.id,
+            positionX: 1440 + i * 90, // 冷蔵の後ろに配置
+            positionY: 200,
+            order: order++
+        });
+    }
+
+    // 平台冷凍: 16尺（120cm x 4 = 480cm）
+    // 時短ゾーン（右側）
+    for (let i = 0; i < 4; i++) {
+        placements.push({
+            storeId,
+            fixtureId: frozenFlat.id,
+            positionX: i * 120,
+            positionY: 400, // 冷蔵の下に配置
+            order: order++
+        });
+    }
+
+    // 平台冷凍エンド: 5尺（150cm x 1 = 150cm）
+    placements.push({
+        storeId,
+        fixtureId: frozenFlatEnd.id,
+        positionX: 480, // 冷凍の後ろに配置
+        positionY: 400,
+        order: order++
+    });
 
     return placements;
 }

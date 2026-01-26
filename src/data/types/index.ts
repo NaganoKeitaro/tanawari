@@ -82,6 +82,10 @@ export interface Store {
 // 棚什器データ (Fixtures)
 // ========================================
 
+// 什器タイプ
+export const FIXTURE_TYPES = ['multi-tier', 'flat-refrigerated', 'flat-frozen', 'end-cap-refrigerated', 'end-cap-frozen', 'gondola'] as const;
+export type FixtureType = typeof FIXTURE_TYPES[number];
+
 export interface Fixture {
   id: string;
   name: string;
@@ -92,11 +96,16 @@ export interface Fixture {
   modelNumber?: string;
   installDate?: string;   // ISO date string
   warrantyEndDate?: string; // ISO date string
+  fixtureType?: FixtureType; // レイアウト表示用の什器タイプ
 }
 
 // ========================================
 // 店舗棚尺配置データ (Store Fixture Placement)
 // ========================================
+
+// ゾーンタイプ
+export const ZONE_TYPES = ['多段', '平台冷蔵', '平台冷蔵エンド', '平台冷凍', '平台冷凍エンド'] as const;
+export type ZoneType = typeof ZONE_TYPES[number];
 
 export interface StoreFixturePlacement {
   id: string;
@@ -105,6 +114,8 @@ export interface StoreFixturePlacement {
   positionX: number;  // レイアウト上の位置
   positionY: number;
   order: number;      // 配置順序
+  zone?: ZoneType;    // ゾーン名
+  label?: string;     // カスタムラベル
 }
 
 // ========================================
