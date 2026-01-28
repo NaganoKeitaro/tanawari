@@ -26,6 +26,16 @@ interface StoreLayoutEditorProps {
     onPlacementRemove: (id: string) => void;
 }
 
+const FIXTURE_COLORS: Record<string, string> = {
+    'multi-tier': '#f0f0f0',           // 多段: ソフトグレー
+    'flat-refrigerated': '#e0f7fa',    // 平台冷蔵: ペールシアン
+    'flat-frozen': '#e3f2fd',          // 平台冷凍: ペールブルー
+    'end-cap-refrigerated': '#b2ebf2', // エンド冷蔵: ソフトシアン
+    'end-cap-frozen': '#bbdefb',       // エンド冷凍: ソフトブルー
+    'gondola': '#fff8e1',              // ゴンドラ: ペールアンバー
+    'default': 'var(--bg-secondary)'
+};
+
 // Fixture dimensions helper
 function getFixtureDimensions(fixture: Fixture, direction: number = 0) {
     const depth = fixture.fixtureType?.includes('end-cap') ? 60 : 90;
@@ -60,6 +70,10 @@ function DraggablePlacement({
     const { width: visualWidth, height: visualHeight } = getFixtureDimensions(fixture, direction);
     const isRotated = direction === 90 || direction === 270;
 
+    const bgColor = fixture.fixtureType ? (FIXTURE_COLORS[fixture.fixtureType] || FIXTURE_COLORS['default']) : FIXTURE_COLORS['default'];
+    // 背景色が明るいパステルカラーなので、テキストは濃い色にする (default以外の時)
+    const textColor = fixture.fixtureType ? '#334155' : 'var(--text-primary)';
+
     const style = {
         position: 'absolute' as const,
         left: `${placement.positionX * scale}px`,
@@ -89,7 +103,7 @@ function DraggablePlacement({
                     height: '100%',
                     background: isSelected
                         ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.2))'
-                        : 'linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.9))',
+                        : bgColor,
                     border: `2px solid ${isSelected ? 'var(--color-primary)' : 'rgba(148, 163, 184, 0.6)'}`,
                     borderRadius: '6px',
                     boxShadow: isDragging
@@ -107,12 +121,13 @@ function DraggablePlacement({
                     writingMode: isRotated ? 'vertical-rl' : 'horizontal-tb',
                     cursor: isDragging ? 'grabbing' : 'grab',
                     transition: 'box-shadow 0.2s, border-color 0.2s',
+                    color: textColor
                 }}
             >
-                <span style={{ fontWeight: 600, color: 'var(--text-color)', pointerEvents: 'none', userSelect: 'none' }}>
+                <span style={{ fontWeight: 600, pointerEvents: 'none', userSelect: 'none' }}>
                     {fixture.name.replace('（4尺）', '').replace('平台', '')}
                 </span>
-                <span style={{ fontSize: `${Math.max(7, 8 * scale)}px`, opacity: 0.6, pointerEvents: 'none', userSelect: 'none' }}>
+                <span style={{ fontSize: `${Math.max(7, 8 * scale)}px`, opacity: 0.8, pointerEvents: 'none', userSelect: 'none' }}>
                     {Math.round(fixture.width / 30)}尺
                 </span>
             </div>
@@ -126,6 +141,9 @@ function PaletteFixture({ fixture }: { fixture: Fixture }) {
         id: `palette-${fixture.id}`,
         data: { fixture, type: 'new-fixture' }
     });
+
+    const bgColor = fixture.fixtureType ? (FIXTURE_COLORS[fixture.fixtureType] || FIXTURE_COLORS['default']) : FIXTURE_COLORS['default'];
+    const textColor = fixture.fixtureType ? '#334155' : 'var(--text-primary)';
 
     const style = {
         transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
@@ -148,16 +166,17 @@ function PaletteFixture({ fixture }: { fixture: Fixture }) {
                 alignItems: 'center',
                 gap: '0.5rem',
                 padding: '0.5rem',
-                background: 'var(--bg-secondary)',
+                background: bgColor,
+                color: textColor,
                 borderRadius: 'var(--radius-sm)',
                 cursor: isDragging ? 'grabbing' : 'grab',
             }}>
                 <span style={{ fontSize: '1.25rem' }}>🗄️</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 500, fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.875rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {fixture.name}
                     </div>
-                    <div className="text-xs text-muted">
+                    <div className="text-xs" style={{ opacity: 0.8 }}>
                         <UnitDisplay valueCm={fixture.width} /> / {fixture.shelfCount}段
                     </div>
                 </div>
@@ -200,22 +219,29 @@ function GridDropZone({
 // Drag Overlay Component
 function DragOverlayContent({ fixture, scale }: { fixture: Fixture; scale: number }) {
     const { width, height } = getFixtureDimensions(fixture, 0);
+    const bgColor = fixture.fixtureType ? (FIXTURE_COLORS[fixture.fixtureType] || FIXTURE_COLORS['default']) : FIXTURE_COLORS['default'];
+    // Drag overlay should be a bit translucent or specific style, but matching color is good
+    // However, original code had a gradient. Let's keep the user request "color coded" priority.
+    // The previous overlay was purple linear gradient. Now we match the fixture type.
+
+    const textColor = fixture.fixtureType ? '#334155' : 'var(--text-primary)';
 
     return (
         <div
             style={{
                 width: `${width * scale}px`,
                 height: `${height * scale}px`,
-                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(139, 92, 246, 0.8))',
+                background: bgColor,
                 border: '2px solid var(--color-primary)',
                 borderRadius: '6px',
                 boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.2), 0 10px 10px -5px rgba(0, 0, 0, 0.1)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'white',
+                color: textColor,
                 fontSize: `${Math.max(10, 12 * scale)}px`,
                 fontWeight: 600,
+                opacity: 0.9
             }}
         >
             {fixture.name.replace('（4尺）', '').replace('平台', '')}

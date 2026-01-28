@@ -19,6 +19,17 @@ import { StoreLayoutEditor } from '../../components/layout/StoreLayoutEditor';
 
 type ViewMode = 'list' | 'layout';
 
+// 什器タイプごとの色定義（パステルカラー）
+const FIXTURE_COLORS: Record<string, string> = {
+    'multi-tier': '#f0f0f0',           // 多段: ソフトグレー
+    'flat-refrigerated': '#e0f7fa',    // 平台冷蔵: ペールシアン
+    'flat-frozen': '#e3f2fd',          // 平台冷凍: ペールブルー
+    'end-cap-refrigerated': '#b2ebf2', // エンド冷蔵: ソフトシアン
+    'end-cap-frozen': '#bbdefb',       // エンド冷凍: ソフトブルー
+    'gondola': '#fff8e1',              // ゴンドラ: ペールアンバー
+    'default': 'var(--bg-tertiary)'
+};
+
 // ドラッグ可能な什器アイテム
 function DraggableFixture({ fixture }: { fixture: Fixture }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -26,9 +37,15 @@ function DraggableFixture({ fixture }: { fixture: Fixture }) {
         data: { fixture }
     });
 
+    const bgColor = fixture.fixtureType ? (FIXTURE_COLORS[fixture.fixtureType] || FIXTURE_COLORS['default']) : FIXTURE_COLORS['default'];
+    // 背景色が明るいパステルカラーなので、テキストは濃い色にする
+    const textColor = fixture.fixtureType ? '#334155' : 'var(--text-primary)';
+
     const style = {
         transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-        opacity: isDragging ? 0.5 : 1
+        opacity: isDragging ? 0.5 : 1,
+        background: bgColor,
+        color: textColor
     };
 
     return (
@@ -44,11 +61,11 @@ function DraggableFixture({ fixture }: { fixture: Fixture }) {
             <div className="flex items-center gap-sm">
                 <span style={{ fontSize: '1.5rem' }}>🗄️</span>
                 <div>
-                    <div style={{ fontWeight: 500 }}>{fixture.name}</div>
-                    <div className="text-xs text-muted">
+                    <div style={{ fontWeight: 600 }}>{fixture.name}</div>
+                    <div className="text-xs" style={{ opacity: 0.8 }}>
                         <UnitDisplay valueCm={fixture.width} /> × <UnitDisplay valueCm={fixture.height} />
                     </div>
-                    <div className="text-xs text-muted">{fixture.shelfCount}段</div>
+                    <div className="text-xs" style={{ opacity: 0.8 }}>{fixture.shelfCount}段</div>
                 </div>
             </div>
         </div>
@@ -64,11 +81,16 @@ function PlacedFixture({
     fixture: Fixture;
     onRemove: () => void;
 }) {
+    const bgColor = fixture.fixtureType ? (FIXTURE_COLORS[fixture.fixtureType] || FIXTURE_COLORS['default']) : FIXTURE_COLORS['default'];
+    // 背景色が明るいパステルカラーなので、テキストは濃い色にする
+    const textColor = fixture.fixtureType ? '#334155' : 'var(--text-primary)';
+
     return (
         <div
             className="card"
             style={{
-                background: 'var(--bg-tertiary)',
+                background: bgColor,
+                color: textColor,
                 padding: '0.75rem',
                 display: 'flex',
                 alignItems: 'center',
@@ -79,8 +101,8 @@ function PlacedFixture({
             <div className="flex items-center gap-sm">
                 <span style={{ fontSize: '1.25rem' }}>🗄️</span>
                 <div>
-                    <div style={{ fontWeight: 500, fontSize: '0.875rem' }}>{fixture.name}</div>
-                    <div className="text-xs text-muted">
+                    <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{fixture.name}</div>
+                    <div className="text-xs" style={{ opacity: 0.8 }}>
                         <UnitDisplay valueCm={fixture.width} /> / {fixture.shelfCount}段
                     </div>
                 </div>
