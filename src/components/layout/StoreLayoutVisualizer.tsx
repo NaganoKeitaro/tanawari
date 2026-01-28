@@ -85,11 +85,33 @@ export function StoreLayoutVisualizer({
         return stats;
     }, [groupedPlacements]);
 
+    // 結合されたプラットフォーム（平台）グループを作成
+    const combinedPlatforms = useMemo(() => {
+        // 冷蔵系
+        const refrigerated = [
+            ...groupedPlacements['平台冷蔵'],
+            ...groupedPlacements['平台冷蔵エンド']
+        ].sort((a, b) => a.placement.order - b.placement.order);
+
+        // 冷凍系
+        const frozen = [
+            ...groupedPlacements['平台冷凍'],
+            ...groupedPlacements['平台冷凍エンド']
+        ].sort((a, b) => a.placement.order - b.placement.order);
+
+        return { refrigerated, frozen };
+    }, [groupedPlacements]);
+
     // レイアウト幅の計算（最大幅を取得）
     const maxWidth = Math.max(
         zoneStats['多段'].totalWidth,
-        zoneStats['平台冷蔵'].totalWidth + zoneStats['平台冷蔵エンド'].totalWidth,
-        zoneStats['平台冷凍'].totalWidth + zoneStats['平台冷凍エンド'].totalWidth,
+        // 平台は結合して計算（エンドの扱いによるが、簡易的に合計）
+        combinedPlatforms.refrigerated.reduce((sum, item) => {
+            // エンドの場合は幅ではなく奥行きを使用するように視覚的にはなるが、
+            // 総幅としては単純合計で一旦計算
+            return sum + item.fixture.width;
+        }, 0),
+        combinedPlatforms.frozen.reduce((sum, item) => sum + item.fixture.width, 0),
         1560 // 最小幅
     );
 
@@ -102,17 +124,36 @@ export function StoreLayoutVisualizer({
         const colors = ZONE_COLORS[zone];
         const isSelected = selectedPlacementId === placement.id;
 
+        // エンド判定
+        const isEndCap = zone.includes('エンド') || (fixture.fixtureType || '').includes('end-cap');
+
+        // 寸法計算
+        // 通常: 幅=fixture.width, 奥行(高さ)=固定(例:90cm)
+        // エンド(横置き): 幅=奥行(例:60cm), 高さ=fixture.width
+        const DEPTH_VISUAL_CM = 90; // メイン什器の奥行き（仮定）
+        const END_CAP_DEPTH_CM = 60; // エンド什器の奥行き（仮定）
+
+        let visualWidth = fixture.width;
+        let visualHeight = DEPTH_VISUAL_CM;
+
+        if (isEndCap) {
+            visualWidth = END_CAP_DEPTH_CM;
+            visualHeight = fixture.width; // 横置きにするので、什器の幅が視覚的な高さになる
+        } else if (zone === '多段') {
+            visualHeight = fixture.height * 0.8; // 多段は高さをある程度反映
+        }
+
         return (
             <div
                 key={placement.id}
                 style={{
-                    width: `${fixture.width * scale}px`,
-                    height: zone === '多段' ? `${fixture.height * scale * 0.8}px` : `${60 * scale}px`,
+                    width: `${visualWidth * scale}px`,
+                    height: `${visualHeight * scale}px`,
                     background: colors.bg,
                     border: `2px solid ${isSelected ? 'var(--color-primary)' : colors.border}`,
                     borderRadius: '4px',
                     display: 'flex',
-                    flexDirection: 'column',
+                    flexDirection: isEndCap ? 'row' : 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
@@ -120,7 +161,8 @@ export function StoreLayoutVisualizer({
                     fontSize: `${Math.max(9, 11 * scale)}px`,
                     color: colors.text,
                     transition: 'all 0.2s ease',
-                    boxShadow: isSelected ? '0 0 0 3px rgba(99, 102, 241, 0.3)' : 'none'
+                    boxShadow: isSelected ? '0 0 0 3px rgba(99, 102, 241, 0.3)' : 'none',
+                    writingMode: isEndCap ? 'vertical-rl' : 'horizontal-tb'
                 }}
                 onClick={() => onPlacementClick?.(placement, fixture)}
                 title={`${fixture.name}\n${fixture.width}cm × ${fixture.shelfCount}段`}
@@ -128,12 +170,9 @@ export function StoreLayoutVisualizer({
                 <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90%' }}>
                     {fixture.name.replace('（4尺）', '').replace('平台', '')}
                 </div>
-                <div style={{ fontSize: `${Math.max(8, 9 * scale)}px`, opacity: 0.8 }}>
-                    {Math.round(fixture.width / 30)}尺
-                </div>
-                {zone === '多段' && (
-                    <div style={{ fontSize: `${Math.max(7, 8 * scale)}px`, opacity: 0.7 }}>
-                        {fixture.shelfCount}段
+                {!isEndCap && (
+                    <div style={{ fontSize: `${Math.max(8, 9 * scale)}px`, opacity: 0.8 }}>
+                        {Math.round(fixture.width / 30)}尺
                     </div>
                 )}
                 {onRemovePlacement && isSelected && (
@@ -152,7 +191,8 @@ export function StoreLayoutVisualizer({
                             fontSize: '12px',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            writingMode: 'horizontal-tb'
                         }}
                         onClick={(e) => {
                             e.stopPropagation();
@@ -167,12 +207,10 @@ export function StoreLayoutVisualizer({
     };
 
     // ゾーン行レンダリング
-    const renderZoneRow = (zone: ZoneType, label: string) => {
-        const items = groupedPlacements[zone];
-        const stats = zoneStats[zone];
-        const colors = ZONE_COLORS[zone];
-
+    const renderZoneRow = (items: Array<{ placement: StoreFixturePlacement; fixture: Fixture }>, label: string) => {
         if (items.length === 0) return null;
+
+        const totalWidth = items.reduce((sum, item) => sum + item.fixture.width, 0);
 
         return (
             <div style={{ marginBottom: '1rem' }}>
@@ -184,31 +222,32 @@ export function StoreLayoutVisualizer({
                         style={{
                             width: '12px',
                             height: '12px',
-                            background: colors.bg,
-                            border: `2px solid ${colors.border}`,
+                            background: 'var(--color-primary)', // 簡易色
                             borderRadius: '2px'
                         }}
                     />
-                    <span style={{ fontWeight: 600, color: colors.text }}>{label}</span>
+                    <span style={{ fontWeight: 600 }}>{label}</span>
                     <span className="text-muted">
-                        ({stats.count}台 / <UnitDisplay valueCm={stats.totalWidth} />)
+                        ({items.length}台 / <UnitDisplay valueCm={totalWidth} />)
                     </span>
                 </div>
                 <div
                     style={{
                         display: 'flex',
-                        gap: '2px',
                         flexWrap: 'wrap',
-                        padding: '0.5rem',
+                        alignItems: 'flex-start', // 上揃え（エンドの高さが異なる場合に対応）
+                        gap: '0', // ぴったりくっつける
+                        padding: '1rem', // 余白
                         background: 'var(--bg-secondary)',
                         borderRadius: 'var(--radius-md)',
-                        border: `1px solid ${colors.border}`,
-                        minHeight: zone === '多段' ? '100px' : '50px'
+                        border: '1px solid var(--border-color)',
+                        minHeight: '120px'
                     }}
                 >
-                    {items.map(({ placement, fixture }) =>
-                        renderFixture(placement, fixture, zone)
-                    )}
+                    {items.map(({ placement, fixture }) => {
+                        const zone = placement.zone || inferZoneFromFixture(fixture);
+                        return renderFixture(placement, fixture, zone);
+                    })}
                 </div>
             </div>
         );
@@ -232,7 +271,7 @@ export function StoreLayoutVisualizer({
             {/* レイアウト表示 */}
             <div style={{ overflowX: 'auto', padding: '1rem' }}>
                 {/* 多段ゾーン */}
-                {renderZoneRow('多段', '多段ゾーン')}
+                {renderZoneRow(groupedPlacements['多段'], '多段ゾーン')}
 
                 {/* 平台ゾーン */}
                 <div
@@ -247,20 +286,12 @@ export function StoreLayoutVisualizer({
                         📦 平台ゾーン
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                        {/* 冷蔵側 */}
-                        <div>
-                            <div className="text-xs text-muted mb-sm">🧊 冷蔵エリア</div>
-                            {renderZoneRow('平台冷蔵', '冷蔵')}
-                            {renderZoneRow('平台冷蔵エンド', '冷蔵エンド')}
-                        </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
+                        {/* 冷蔵側（エンド含む） */}
+                        {renderZoneRow(combinedPlatforms.refrigerated, '冷蔵エリア（エンド含む）')}
 
-                        {/* 冷凍側 */}
-                        <div>
-                            <div className="text-xs text-muted mb-sm">❄️ 冷凍エリア</div>
-                            {renderZoneRow('平台冷凍', '冷凍')}
-                            {renderZoneRow('平台冷凍エンド', '冷凍エンド')}
-                        </div>
+                        {/* 冷凍側（エンド含む） */}
+                        {renderZoneRow(combinedPlatforms.frozen, '冷凍エリア（エンド含む）')}
                     </div>
                 </div>
             </div>

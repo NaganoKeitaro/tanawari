@@ -11,7 +11,8 @@ import type {
     ShelfBlock,
     StandardPlanogram,
     StorePlanogram,
-    StoreFixturePlacement
+    StoreFixturePlacement,
+    FixtureType
 } from './types';
 import {
     productRepository,
@@ -584,48 +585,38 @@ function generateFixtures(): Omit<Fixture, 'id'>[] {
 }
 
 // テスト用棚ブロック生成
-function generateSeedShelfBlocks(products: Product[]): Omit<ShelfBlock, 'id'>[] {
+// テスト用棚ブロック生成
+function generateSeedShelfBlocks(products: Product[], shelfCount: number = 5, suffix: string = ''): Omit<ShelfBlock, 'id'>[] {
     const blockTypes = [
-        { name: 'テスト棚ブロック（牛肉）', category: '牛肉' },
-        { name: 'テスト棚ブロック（豚肉）', category: '豚肉' },
-        { name: 'テスト棚ブロック（鶏肉）', category: '鶏肉' },
-        { name: 'テスト棚ブロック（BBQ）', category: '焼肉セット' },
-        { name: 'テスト棚ブロック（骨物）', category: '骨付き肉' },
-        { name: 'テスト棚ブロック（MS）', category: 'おつまみ' }
+        { name: `テスト棚ブロック（牛肉）${suffix}`, category: '牛肉' },
+        { name: `テスト棚ブロック（豚肉）${suffix}`, category: '豚肉' },
+        { name: `テスト棚ブロック（鶏肉）${suffix}`, category: '鶏肉' },
     ];
 
     return blockTypes.map(type => {
         const categoryProducts = products.filter(p => p.category === type.category);
-        // カテゴリ商品がない場合は全体から補填
         const sourceProducts = categoryProducts.length > 0 ? categoryProducts : products.slice(0, 10);
 
         const placements: any[] = [];
         const BLOCK_WIDTH = 120;
-        const SHELF_COUNT = 5;
+        let pIdx = 0;
+        console.log(`Generating blocks for ${type.name} with shelfCount: ${shelfCount}`);
 
-        let pIdx = 0; // 棚またぎで商品を循環させる
-
-        for (let i = 0; i < SHELF_COUNT; i++) {
+        for (let i = 0; i < shelfCount; i++) {
             let currentX = 0;
 
-            // 幅がいっぱいになるまで商品を配置
             while (currentX < BLOCK_WIDTH) {
-                // 商品を循環させる
                 const product = sourceProducts[pIdx % sourceProducts.length];
-                const width = product.width || 10; // デフォルト10cm
+                const width = product.width || 10;
 
-                // 残り幅計算
                 const remainingWidth = BLOCK_WIDTH - currentX;
-                //配置可能な最大フェース数
                 const maxFaces = Math.floor(remainingWidth / width);
 
-                if (maxFaces === 0) break; // もう入らない
+                if (maxFaces === 0) break;
 
-                // 統合ロジック：
-                // 同じ商品を横に並べる（4〜8フェース程度まとめて配置し、バラバラになるのを防ぐ）
                 let faces = 1;
                 if (maxFaces >= 2) {
-                    const targetFaces = Math.floor(Math.random() * 5) + 4; // 4-8フェース
+                    const targetFaces = Math.floor(Math.random() * 5) + 4;
                     faces = Math.min(targetFaces, maxFaces);
                 }
 
@@ -644,61 +635,14 @@ function generateSeedShelfBlocks(products: Product[]): Omit<ShelfBlock, 'id'>[] 
 
         return {
             name: type.name,
-            width: BLOCK_WIDTH, // 4尺
-            height: 180,
-            shelfCount: SHELF_COUNT,
+            width: BLOCK_WIDTH,
+            height: shelfCount * 35 + 10, // 簡易計算
+            shelfCount: shelfCount,
             productPlacements: placements,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
     });
-}
-
-// テスト用標準棚割生成
-function generateSeedStandardPlanograms(blocks: ShelfBlock[], products: Product[]): Omit<StandardPlanogram, 'id'>[] {
-    const BLOCK_WIDTH = 120;
-
-    // ブロックIDをマップ（位置を設定）
-    const blockMappings = blocks.map((b, i) => ({
-        id: crypto.randomUUID(),
-        blockId: b.id,
-        positionX: i * BLOCK_WIDTH, // 横に並べる
-        positionY: 0
-    }));
-
-    // 商品配置（ブロック内の商品を展開する）
-    // StandardPlanogramには、ブロック配置情報(blocks)と、展開された商品情報(products)の両方を持たせるのが一般的
-    // アプリケーションの実装によっては blocks から動的に展開する場合もあるが、
-    // ここではデータの整合性を保つために展開した状態で保存する
-    const allProductsInPlanogram: any[] = [];
-
-    blocks.forEach((block, index) => {
-        const xOffset = index * BLOCK_WIDTH;
-        if (block.productPlacements) {
-            block.productPlacements.forEach(pp => {
-                allProductsInPlanogram.push({
-                    id: crypto.randomUUID(),
-                    productId: pp.productId,
-                    shelfIndex: pp.shelfIndex,
-                    positionX: pp.positionX + xOffset, // オフセットを加算
-                    faceCount: pp.faceCount
-                });
-            });
-        }
-    });
-
-    return [{
-        name: 'テスト標準棚割',
-        fmt: 'MEGA',
-        baseStoreId: '', // 標準棚割なのでなし
-        width: BLOCK_WIDTH * blocks.length, // ブロック数分
-        height: 180,
-        shelfCount: 5,
-        blocks: blockMappings,
-        products: allProductsInPlanogram, // 展開済み商品リスト
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-    }];
 }
 
 // テスト店舗用什器配置生成
@@ -842,18 +786,78 @@ export async function seedData(): Promise<{
         savedFixtures.push(saved);
     }
 
-    // テスト棚ブロック生成・保存
-    const shelfBlocksData = generateSeedShelfBlocks(savedProducts);
+    // テスト棚ブロック生成・保存（スキップし、以下で都度生成）
     const savedBlocks: ShelfBlock[] = [];
-    for (const block of shelfBlocksData) {
-        const saved = await shelfBlockRepository.create(block);
-        savedBlocks.push(saved);
-    }
 
     // テスト標準棚割生成・保存
-    const standardPlanogramsData = generateSeedStandardPlanograms(savedBlocks, savedProducts);
+    // const standardPlanogramsData = generateSeedStandardPlanograms(savedBlocks, savedProducts);
+    // 代わりにここでループ処理してブロックごと生成
     const savedStandardPlanograms: StandardPlanogram[] = [];
-    for (const sp of standardPlanogramsData) {
+
+    const typeSettings: Partial<Record<FixtureType, { name: string; height: number; shelfCount: number; width: number }>> = {
+        'multi-tier': { name: '多段', height: 180, shelfCount: 5, width: 120 },
+        'flat-refrigerated': { name: '平台冷蔵', height: 90, shelfCount: 1, width: 120 },
+        'end-cap-refrigerated': { name: '平台冷蔵エンド', height: 90, shelfCount: 1, width: 90 },
+        'flat-frozen': { name: '平台冷凍', height: 90, shelfCount: 1, width: 120 },
+        'end-cap-frozen': { name: '平台冷凍エンド', height: 90, shelfCount: 1, width: 90 }
+    };
+
+    const types = Object.entries(typeSettings).map(([type, setting]) => ({
+        type: type as FixtureType,
+        ...setting
+    }));
+
+    for (const { type, name, height, shelfCount, width } of types) {
+        console.log(`Generating Planogram: ${name}, Height: ${height}, ShelfCount: ${shelfCount}`);
+        // このタイプ専用のブロックを生成
+        const blocksData = generateSeedShelfBlocks(savedProducts, shelfCount, `（${name}）`);
+        const typeBlocks: ShelfBlock[] = [];
+
+        for (const block of blocksData) {
+            const saved = await shelfBlockRepository.create(block);
+            savedBlocks.push(saved);
+            typeBlocks.push(saved);
+        }
+
+        // Planogram作成
+        const selectedBlocks = typeBlocks.slice(0, 3);
+        const blockMappings = selectedBlocks.map((b, i) => ({
+            id: crypto.randomUUID(),
+            blockId: b.id,
+            positionX: i * width,
+            positionY: 0
+        }));
+
+        const allProductsInPlanogram: any[] = [];
+        selectedBlocks.forEach((block, index) => {
+            const xOffset = index * width;
+            if (block.productPlacements) {
+                block.productPlacements.forEach(pp => {
+                    allProductsInPlanogram.push({
+                        id: crypto.randomUUID(),
+                        productId: pp.productId,
+                        shelfIndex: pp.shelfIndex,
+                        positionX: pp.positionX + xOffset,
+                        faceCount: pp.faceCount
+                    });
+                });
+            }
+        });
+
+        const sp = {
+            fmt: 'MEGA' as FMT,
+            name: `テスト標準棚割（${name}）v3`,
+            baseStoreId: '',
+            fixtureType: type,
+            width: width * selectedBlocks.length,
+            height: height,
+            shelfCount: shelfCount,
+            blocks: blockMappings,
+            products: allProductsInPlanogram,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
         const saved = await standardPlanogramRepository.create(sp);
         savedStandardPlanograms.push(saved);
     }
@@ -868,9 +872,11 @@ export async function seedData(): Promise<{
 
         // テスト個店棚割生成・保存
         if (savedStandardPlanograms.length > 0) {
-            const storePlanogramsData = generateSeedStorePlanograms(testStore.id, savedStandardPlanograms[0]);
-            for (const sp of storePlanogramsData) {
-                await storePlanogramRepository.create(sp);
+            for (const std of savedStandardPlanograms) {
+                const storePlanogramsData = generateSeedStorePlanograms(testStore.id, std);
+                for (const sp of storePlanogramsData) {
+                    await storePlanogramRepository.create(sp);
+                }
             }
         }
     }
@@ -884,10 +890,9 @@ export async function seedData(): Promise<{
         fixtures: savedFixtures.length,
         shelfBlocks: savedBlocks.length,
         standardPlanograms: savedStandardPlanograms.length,
-        storePlanograms: 1
+        storePlanograms: savedStandardPlanograms.length // 標準棚割と同数生成
     };
 }
 
 // 初期化チェック用エクスポート（再エクスポート）
 export { isInitialized } from './repositories/localStorageRepository';
-

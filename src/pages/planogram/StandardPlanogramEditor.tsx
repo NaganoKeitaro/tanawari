@@ -20,7 +20,8 @@ import type {
     StandardPlanogramProduct,
     Product,
     FMT,
-    StoreFixturePlacement
+    StoreFixturePlacement,
+    FixtureType
 } from '../../data/types';
 import { FMTS } from '../../data/types';
 import {
@@ -36,6 +37,14 @@ import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
 
 const SCALE = 3; // 1cm = 3px
+
+const PLANOGRAM_TYPES: { id: FixtureType; label: string }[] = [
+    { id: 'multi-tier', label: '多段' },
+    { id: 'flat-refrigerated', label: '平台冷蔵' },
+    { id: 'end-cap-refrigerated', label: '平台冷蔵エンド' },
+    { id: 'flat-frozen', label: '平台冷凍' },
+    { id: 'end-cap-frozen', label: '平台冷凍エンド' },
+];
 
 // ドラッグ可能な棚ブロック
 function DraggableBlock({ block }: { block: ShelfBlock }) {
@@ -244,6 +253,7 @@ export function StandardPlanogramEditor() {
 
     const [selectedFmt, setSelectedFmt] = useState<FMT | ''>('');
     const [selectedStoreId, setSelectedStoreId] = useState<string>('');
+    const [selectedFixtureType, setSelectedFixtureType] = useState<FixtureType>('multi-tier');
     const [currentPlanogram, setCurrentPlanogram] = useState<StandardPlanogram | null>(null);
     const [activeBlock, setActiveBlock] = useState<ShelfBlock | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -290,10 +300,26 @@ export function StandardPlanogramEditor() {
         setCurrentPlanogram(null);
 
         if (fmt) {
-            // 既存の標準棚割を検索
-            const existing = planograms.find(p => p.fmt === fmt);
+            // 既存の標準棚割を検索 (現在の什器タイプで)
+            const existing = planograms.find(p => p.fmt === fmt && p.fixtureType === selectedFixtureType);
             if (existing) {
                 setCurrentPlanogram(existing);
+            }
+        }
+    };
+
+    // 什器タイプ変更時
+    const handleFixtureTypeChange = (type: FixtureType) => {
+        setSelectedFixtureType(type);
+        setCurrentPlanogram(null);
+
+        if (selectedFmt) {
+            const existing = planograms.find(p => p.fmt === selectedFmt && p.fixtureType === type);
+            if (existing) {
+                setCurrentPlanogram(existing);
+            } else {
+                // 店舗が選択されていれば、新規作成のチャンスのためにチェックするなどのロジックも可
+                // ここでは単にクリアのみ
             }
         }
     };
@@ -321,11 +347,12 @@ export function StandardPlanogramEditor() {
         }
 
         // 既存の標準棚割を検索または新規作成準備
-        const existing = planograms.find(p => p.fmt === selectedFmt);
+        const existing = planograms.find(p => p.fmt === selectedFmt && p.fixtureType === selectedFixtureType);
         if (existing) {
             setCurrentPlanogram(existing);
         } else {
-            setPlanogramName(`${selectedFmt}標準棚割`);
+            const typeLabel = PLANOGRAM_TYPES.find(t => t.id === selectedFixtureType)?.label || '';
+            setPlanogramName(`${selectedFmt}標準棚割（${typeLabel}）`);
             setIsCreateModalOpen(true);
         }
     };
@@ -341,7 +368,8 @@ export function StandardPlanogramEditor() {
 
         for (const placement of storePlacements) {
             const fixture = fixtures.find(f => f.id === placement.fixtureId);
-            if (fixture) {
+            // 什器タイプが一致するか確認
+            if (fixture && fixture.fixtureType === selectedFixtureType) {
                 totalWidth += fixture.width;
                 maxHeight = Math.max(maxHeight, fixture.height);
                 maxShelfCount = Math.max(maxShelfCount, fixture.shelfCount);
@@ -352,6 +380,7 @@ export function StandardPlanogramEditor() {
             fmt: selectedFmt,
             name: planogramName,
             baseStoreId: selectedStoreId,
+            fixtureType: selectedFixtureType,
             width: totalWidth,
             height: maxHeight || 180,
             shelfCount: maxShelfCount || 5,
@@ -526,6 +555,22 @@ export function StandardPlanogramEditor() {
                         ⚠️ このFMTで什器配置済みの店舗がありません。先に「店舗棚尺マスタ」で什器を配置してください。
                     </div>
                 )}
+            </div>
+
+            {/* 什器タイプタブ */}
+            <div className="flex border-b border-border mb-lg">
+                {PLANOGRAM_TYPES.map(type => (
+                    <button
+                        key={type.id}
+                        className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${selectedFixtureType === type.id
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-muted hover:text-foreground'
+                            }`}
+                        onClick={() => handleFixtureTypeChange(type.id)}
+                    >
+                        {type.label}
+                    </button>
+                ))}
             </div>
 
             {currentPlanogram && (
