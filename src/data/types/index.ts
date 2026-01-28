@@ -114,6 +114,7 @@ export interface StoreFixturePlacement {
   positionX: number;  // レイアウト上の位置
   positionY: number;
   order: number;      // 配置順序
+  direction?: number; // 向き（0, 90, 180, 270）
   zone?: ZoneType;    // ゾーン名
   label?: string;     // カスタムラベル
 }
@@ -166,6 +167,7 @@ export interface StandardPlanogram {
   fmt: FMT;
   name: string;
   baseStoreId: string;  // 基準となった店舗ID
+  fixtureType?: FixtureType; // 什器タイプ（多段、平台冷蔵等）
   width: number;        // 総幅
   height: number;       // 総高さ
   shelfCount: number;

@@ -15,7 +15,7 @@ import {
     storeFixturePlacementRepository
 } from '../../data/repositories/localStorageRepository';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
-import { StoreLayoutVisualizer } from '../../components/layout/StoreLayoutVisualizer';
+import { StoreLayoutEditor } from '../../components/layout/StoreLayoutEditor';
 
 type ViewMode = 'list' | 'layout';
 
@@ -188,7 +188,6 @@ export function StoreFixtureMaster() {
     // 表示モード
     const [viewMode, setViewMode] = useState<ViewMode>('layout');
     const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
-    const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(null);
 
     // データ読み込み
     const loadData = useCallback(async () => {
@@ -254,7 +253,29 @@ export function StoreFixtureMaster() {
     const handleRemovePlacement = async (placementId: string) => {
         await storeFixturePlacementRepository.delete(placementId);
         setPlacements(placements.filter(p => p.id !== placementId));
-        setSelectedPlacementId(null);
+    };
+
+    // 配置変更 (2Dエディタ用)
+    const handlePlacementChange = async (id: string, updates: Partial<StoreFixturePlacement>) => {
+        const updated = await storeFixturePlacementRepository.update(id, updates);
+        if (updated) {
+            setPlacements(placements.map(p => p.id === id ? updated : p));
+        }
+    };
+
+    // 新しい什器をグリッドに追加（2Dエディタ用）
+    const handlePlacementAdd = async (fixtureId: string, x: number, y: number) => {
+        if (!selectedStoreId) return;
+        const existingPlacements = placements.filter(p => p.storeId === selectedStoreId);
+        const newPlacement = await storeFixturePlacementRepository.create({
+            storeId: selectedStoreId,
+            fixtureId,
+            positionX: x,
+            positionY: y,
+            order: existingPlacements.length,
+            direction: 0
+        });
+        setPlacements([...placements, newPlacement]);
     };
 
     // フィルター適用
@@ -320,10 +341,7 @@ export function StoreFixtureMaster() {
                             <select
                                 className="form-select"
                                 value={selectedStoreId || ''}
-                                onChange={(e) => {
-                                    setSelectedStoreId(e.target.value);
-                                    setSelectedPlacementId(null);
-                                }}
+                                onChange={(e) => setSelectedStoreId(e.target.value)}
                                 style={{ minWidth: '200px' }}
                             >
                                 <option value="">店舗を選択...</option>
@@ -340,17 +358,13 @@ export function StoreFixtureMaster() {
 
             {/* レイアウト表示モード */}
             {viewMode === 'layout' && selectedStore && (
-                <StoreLayoutVisualizer
+                <StoreLayoutEditor
                     store={selectedStore}
                     placements={selectedStorePlacements}
                     fixtures={fixtures}
-                    selectedPlacementId={selectedPlacementId}
-                    onPlacementClick={(placement) => {
-                        setSelectedPlacementId(
-                            selectedPlacementId === placement.id ? null : placement.id
-                        );
-                    }}
-                    onRemovePlacement={handleRemovePlacement}
+                    onPlacementChange={handlePlacementChange}
+                    onPlacementAdd={handlePlacementAdd}
+                    onPlacementRemove={handleRemovePlacement}
                 />
             )}
 
