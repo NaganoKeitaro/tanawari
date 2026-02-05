@@ -82,30 +82,41 @@ function DraggableBlock({ block }: { block: ShelfBlock }) {
 function PlanogramCanvas({
     planogram,
     products,
+    blockMasters,
     analyticsMode,
-    selectedMetric
+    selectedMetric,
+    onDeleteBlock
 }: {
     planogram: StandardPlanogram;
     products: Product[];
+    blockMasters: ShelfBlock[];
     analyticsMode?: boolean;
     selectedMetric?: 'sales' | 'grossProfit' | 'quantity' | 'traffic';
+    onDeleteBlock?: (blockId: string) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: 'planogram-canvas',
         data: { type: 'canvas' }
     });
 
+    // ブロック配置の計算
+    const blockLayouts = planogram.blocks.map(pb => {
+        const master = blockMasters.find(b => b.id === pb.blockId);
+        if (!master) return null;
+        return {
+            id: pb.id,
+            name: master.name,
+            x: pb.positionX,
+            width: master.width,
+            masterId: master.id
+        };
+    }).filter((b): b is NonNullable<typeof b> => !!b);
+
     // メトリクスの最大値を計算(ヒートマップ用)
     const maxMetricValue = analyticsMode && selectedMetric ? Math.max(
         ...products.map(p => p[selectedMetric] || 0),
         1
     ) : 1;
-
-    // メトリクス値から色を計算 (Deprecated: Using shared util)
-    // const getHeatmapColor ... 
-
-    // メトリクス値をフォーマット (Deprecated: Using shared util)
-    // const formatMetricValue ...
 
     return (
         <div
@@ -116,16 +127,78 @@ function PlanogramCanvas({
                 borderRadius: 'var(--radius-md)',
                 padding: '1rem',
                 minHeight: '400px',
-                overflow: 'auto'
+                overflow: 'auto',
+                position: 'relative'
             }}
         >
             <div
                 className="shelf-grid"
                 style={{
                     width: `${planogram.width * SCALE}px`,
-                    minHeight: `${planogram.height * SCALE}px`
+                    minHeight: `${planogram.height * SCALE}px`,
+                    position: 'relative'
                 }}
             >
+                {/* ブロック表示レイヤー (背面に表示) */}
+                {!analyticsMode && blockLayouts.map(block => (
+                    <div
+                        key={block.id}
+                        style={{
+                            position: 'absolute',
+                            left: `${block.x * SCALE}px`,
+                            top: 0,
+                            bottom: 0,
+                            width: `${block.width * SCALE}px`,
+                            border: '2px dashed #cbd5e1',
+                            borderTop: 'none', // 上部は商品と被るため少し控えめに
+                            borderBottom: 'none',
+                            pointerEvents: 'none', // クリックを透過
+                            zIndex: 0
+                        }}
+                    >
+                        {/* ブロック名表示 */}
+                        <div style={{
+                            position: 'absolute',
+                            top: '-25px',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            background: 'var(--bg-secondary)',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.75rem',
+                            fontWeight: 'bold',
+                            border: '1px solid var(--border-color)',
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            pointerEvents: 'auto' // ボタンなどはクリック可能に
+                        }}>
+                            <span>{block.name}</span>
+                            {onDeleteBlock && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onDeleteBlock(block.id);
+                                    }}
+                                    className="text-danger hover:text-danger-hover"
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        padding: '0 4px',
+                                        fontSize: '1rem',
+                                        lineHeight: 1
+                                    }}
+                                    title="このブロックを削除"
+                                >
+                                    ×
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                ))}
+
                 {/* 段ごとに表示 */}
                 {Array.from({ length: planogram.shelfCount }).map((_, shelfIndex) => {
                     const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
@@ -141,7 +214,8 @@ function PlanogramCanvas({
                             className="shelf-row"
                             style={{
                                 height: `${Math.max(60, (planogram.height / planogram.shelfCount) * SCALE)}px`,
-                                position: 'relative'
+                                position: 'relative',
+                                zIndex: 1 // ブロック線より手前
                             }}
                         >
                             {/* 配置済み商品 */}
@@ -414,22 +488,43 @@ export function StandardPlanogramEditor() {
 
         // ブロック内の商品を展開
         const newProducts: StandardPlanogramProduct[] = [];
-        let currentX = currentPlanogram.products.reduce((max, p) => {
-            const product = products.find(pr => pr.id === p.productId);
-            if (!product) return max;
-            return Math.max(max, p.positionX + product.width * p.faceCount);
-        }, 0);
 
-        // スペースチェック
-        const blockWidth = block.productPlacements.reduce((sum, pp) => {
-            const product = products.find(p => p.id === pp.productId);
-            return sum + (product ? product.width * pp.faceCount : 0);
-        }, 0);
+        // 配置位置を計算 (空いている場所を探す)
+        // 既存のブロックを位置順にソート
+        const sortedBlocks = [...currentPlanogram.blocks].sort((a, b) => a.positionX - b.positionX);
+        const newBlockWidth = block.width;
+        let insertX = -1;
+        let currentScanX = 0;
 
-        if (currentX + blockWidth > currentPlanogram.width) {
+        // 隙間を探す
+        for (const placedBlock of sortedBlocks) {
+            // 現在のキャンバス位置(currentScanX)と、次のブロックの開始位置(placedBlock.positionX)の間の隙間
+            const gap = placedBlock.positionX - currentScanX;
+            // 誤差許容
+            if (gap >= newBlockWidth - 0.1) {
+                insertX = currentScanX;
+                break;
+            }
+            // 次の探索開始位置は、このブロックの終わり
+            const master = blocks.find(b => b.id === placedBlock.blockId);
+            const placedBlockWidth = master ? master.width : 0;
+            currentScanX = placedBlock.positionX + placedBlockWidth;
+        }
+
+        // 途中に隙間がなければ、最後尾をチェック
+        if (insertX === -1) {
+            const gap = currentPlanogram.width - currentScanX;
+            if (gap >= newBlockWidth - 0.1) {
+                insertX = currentScanX;
+            }
+        }
+
+        if (insertX === -1) {
             alert('スペースが足りません。先に既存の商品を調整してください。');
             return;
         }
+
+        const placementX = insertX;
 
         for (const placement of block.productPlacements) {
             const product = products.find(p => p.id === placement.productId);
@@ -439,7 +534,7 @@ export function StandardPlanogramEditor() {
                 id: crypto.randomUUID(),
                 productId: placement.productId,
                 shelfIndex: placement.shelfIndex,
-                positionX: currentX + placement.positionX,
+                positionX: placementX + placement.positionX,
                 faceCount: placement.faceCount
             });
         }
@@ -448,7 +543,7 @@ export function StandardPlanogramEditor() {
         const newBlock: StandardPlanogramBlock = {
             id: crypto.randomUUID(),
             blockId: block.id,
-            positionX: currentX,
+            positionX: placementX,
             positionY: 0
         };
 
@@ -456,6 +551,51 @@ export function StandardPlanogramEditor() {
             ...currentPlanogram,
             blocks: [...currentPlanogram.blocks, newBlock],
             products: [...currentPlanogram.products, ...newProducts],
+            updatedAt: new Date().toISOString()
+        };
+
+        await standardPlanogramRepository.update(currentPlanogram.id, updatedPlanogram);
+        setCurrentPlanogram(updatedPlanogram);
+        setPlanograms(planograms.map(p => p.id === currentPlanogram.id ? updatedPlanogram : p));
+    };
+
+    // ブロック削除
+    const handleDeleteBlock = async (planogramBlockId: string) => {
+        if (!currentPlanogram) return;
+        if (!confirm('このブロックを削除してもよろしいですか？')) return;
+
+        const targetBlock = currentPlanogram.blocks.find(b => b.id === planogramBlockId);
+        if (!targetBlock) return;
+
+        const masterBlock = blocks.find(b => b.id === targetBlock.blockId);
+        const blockWidth = masterBlock ? masterBlock.width : 0;
+        const startX = targetBlock.positionX;
+        const endX = startX + blockWidth;
+
+        // ブロックと、その範囲内の商品を削除
+        const updatedBlocks = currentPlanogram.blocks.filter(b => b.id !== planogramBlockId);
+
+        // 範囲内の商品を削除
+        // 厳密には、ブロックに属していた商品を削除すべきだが、ここでは位置ベースで削除
+        // ブロック配置時に商品を展開しているので、位置が一致するものを削除する
+        // ※ 0.1mmの誤差許容
+        const margin = 0.1;
+        const updatedProducts = currentPlanogram.products.filter(p => {
+            const product = products.find(pr => pr.id === p.productId);
+            if (!product) return true; // 商品見つからない場合は残す（安全策）
+
+            const pCenter = p.positionX + (product.width * p.faceCount / 2);
+            // 中心がブロック範囲内にあるか
+            return !(pCenter >= startX - margin && pCenter <= endX + margin);
+        });
+
+        // 削除後に位置を詰める機能は実装しない（要望になかったため）
+        // そのまま隙間があく仕様（「間違えた際に...」とあるので、即座に修正する用途と思われる）
+
+        const updatedPlanogram = {
+            ...currentPlanogram,
+            blocks: updatedBlocks,
+            products: updatedProducts,
             updatedAt: new Date().toISOString()
         };
 
@@ -543,8 +683,8 @@ export function StandardPlanogramEditor() {
 
                     {currentPlanogram && (
                         <div style={{ marginLeft: 'auto' }}>
-                            <button className="btn btn-danger" onClick={handleClearPlanogram}>
-                                棚割をクリア
+                            <button className="btn btn-secondary text-danger" onClick={handleClearPlanogram}>
+                                全てクリア
                             </button>
                         </div>
                     )}
@@ -563,8 +703,8 @@ export function StandardPlanogramEditor() {
                     <button
                         key={type.id}
                         className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${selectedFixtureType === type.id
-                                ? 'border-primary text-primary'
-                                : 'border-transparent text-muted hover:text-foreground'
+                            ? 'border-primary text-primary'
+                            : 'border-transparent text-muted hover:text-foreground'
                             }`}
                         onClick={() => handleFixtureTypeChange(type.id)}
                     >
@@ -646,8 +786,10 @@ export function StandardPlanogramEditor() {
                                     <PlanogramCanvas
                                         planogram={currentPlanogram}
                                         products={products}
+                                        blockMasters={blocks}
                                         analyticsMode={analyticsMode}
                                         selectedMetric={selectedMetric}
+                                        onDeleteBlock={handleDeleteBlock}
                                     />
                                 </div>
                             </div>
