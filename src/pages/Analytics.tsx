@@ -98,30 +98,7 @@ export function Analytics() {
     }, [scope, selectedId, standardPlanograms, storePlanograms, shelfBlocks]);
 
     // For Store Planogram: Resolve Parent Blocks for Visualization
-    const targetBlocks = useMemo(() => {
-        if (!targetPlanogram) return [];
 
-        // If Standard, uses its own blocks
-        if ('blocks' in targetPlanogram) {
-            return shelfBlocks; // Pass all masters, Visualizer maps by ID
-        }
-
-        // If Store, find parent Standard Planogram to get block layout
-        const storeP = targetPlanogram as StorePlanogram;
-        if (storeP.standardPlanogramId) {
-            // We only can map blocks if we transform the Parent's block layout to this?
-            // Actually, StorePlanogram is "copy" of Standard, so dimensions match generally.
-            // However, StorePlanogram visualizer needs 'shelfBlocks' prop to be the masters.
-            // It also needs the LAYOUT of blocks (`planogram.blocks`).
-            // StorePlanogram type DOES NOT have `blocks`.
-            // So PlanogramVisualizer needs to know the BLOCK LAYOUT array from the parent.
-
-            // Implementation Detail: PlanogramVisualizer currently expects `planogram` to be the source of `blocks`.
-            // We might need to trick it or extend it.
-            // For now, if Store Planogram, Block Level might be unavailable or we need to pass a "Proxy" planogram that has blocks attached.
-        }
-        return shelfBlocks;
-    }, [targetPlanogram, shelfBlocks]); // Simplified: just pass masters. Visualizer logic needs update to handle Store blocks overlay.
 
     // Helper for Planogram Level Stats
     const planogramStats = useMemo(() => {
