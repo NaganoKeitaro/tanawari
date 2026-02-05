@@ -107,7 +107,8 @@ export function StoreMaster() {
             'MEGA': 'var(--color-primary)',
             'SuC': 'var(--color-success)',
             'SMART': 'var(--color-warning)',
-            'GO': 'var(--color-secondary)'
+            'GO': 'var(--color-secondary)',
+            'FC': 'var(--color-info)'
         };
         return colors[fmt];
     };

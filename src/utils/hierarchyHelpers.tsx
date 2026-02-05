@@ -1,5 +1,5 @@
 // 階層表示用のヘルパー関数
-import React from 'react';
+import type { JSX } from 'react';
 
 export function countProductsInHierarchy(obj: any): number {
     if (Array.isArray(obj)) {
@@ -24,7 +24,6 @@ export function renderHierarchyLevel(
     openModal: (product: any) => void
 ): JSX.Element[] {
     const levelIcons = ['📁', '📂', '📋', '📊', '📈', '📉', '📄', '📌'];
-    const levelNames = ['事業部', 'ディビジョン', 'ライン', '部門', 'カテゴリー', 'サブカテゴリー', 'セグメント', 'サブセグメント'];
 
     return Object.entries(data).map(([key, value]) => {
         const nodeKey = `${parentKey}-${level}-${key}`;
@@ -32,7 +31,6 @@ export function renderHierarchyLevel(
         const isProductArray = Array.isArray(value);
         const count = countProductsInHierarchy(value);
         const icon = levelIcons[level] || '📄';
-        const levelName = levelNames[level] || '';
 
         if (isProductArray) {
             // 最下層：商品リスト

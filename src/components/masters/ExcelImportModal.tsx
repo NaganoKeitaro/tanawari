@@ -27,7 +27,6 @@ export function ExcelImportModal({
     existingProducts
 }: ExcelImportModalProps) {
     const [step, setStep] = useState<ImportStep>('upload');
-    const [file, setFile] = useState<File | null>(null);
     const [previewData, setPreviewData] = useState<Partial<Product>[]>([]);
     const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
     const [validationWarnings, setValidationWarnings] = useState<ValidationError[]>([]);
@@ -44,8 +43,6 @@ export function ExcelImportModal({
             alert('Excel（.xlsx, .xls）またはCSV（.csv）ファイルを選択してください');
             return;
         }
-
-        setFile(selectedFile);
 
         try {
             // ファイルを読み込み（形式自動判定）
@@ -69,7 +66,6 @@ export function ExcelImportModal({
             }
         } catch (error) {
             alert('ファイルの読み込みに失敗しました: ' + (error as Error).message);
-            setFile(null);
         }
     };
 
@@ -100,7 +96,6 @@ export function ExcelImportModal({
     // モーダルを閉じる
     const handleClose = () => {
         setStep('upload');
-        setFile(null);
         setPreviewData([]);
         setValidationErrors([]);
         setValidationWarnings([]);

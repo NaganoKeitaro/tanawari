@@ -24,7 +24,7 @@ export const formatMetricValue = (value: number): string => {
 export const calculateHeatmapColor = (
     value: number,
     maxValue: number,
-    minValue: number = 0
+    _minValue: number = 0
 ): string => {
     if (maxValue === 0) return COLORS.none;
 
