@@ -7,15 +7,19 @@ import type {
     StandardPlanogram,
     Product,
     StorePlanogramProduct,
-    FixtureType
+    FixtureType,
+    ShelfBlock
 } from '../../data/types';
 import {
     storeRepository,
     storePlanogramRepository,
     standardPlanogramRepository,
-    productRepository
+    productRepository,
+    storeFixturePlacementRepository,
+    fixtureRepository,
+    shelfBlockRepository
 } from '../../data/repositories/localStorageRepository';
-import { syncStorePlanogram } from '../../services/automationService';
+import { syncStorePlanogram, generateStorePlanogram } from '../../services/automationService';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
 
@@ -38,6 +42,9 @@ export function StorePlanogramEditor() {
 
     const [allStorePlanograms, setAllStorePlanograms] = useState<StorePlanogram[]>([]);
     const [allStandardPlanograms, setAllStandardPlanograms] = useState<StandardPlanogram[]>([]);
+
+
+
     const [selectedFixtureType, setSelectedFixtureType] = useState<FixtureType>('multi-tier');
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
@@ -52,11 +59,12 @@ export function StorePlanogramEditor() {
         1
     ) : 1;
 
-    // メトリクス値から色を計算 (Deprecated: Using shared util)
-    // const getHeatmapColor ...
-
     // メトリクス値をフォーマット (Deprecated: Using shared util)
     // const formatMetricValue ...
+
+    const [blocks, setBlocks] = useState<ShelfBlock[]>([]);
+    const [storeTotalWidth, setStoreTotalWidth] = useState(0);
+    const [maxShelfCount, setMaxShelfCount] = useState(0);
 
     // データ読み込み
     const loadData = useCallback(async () => {
@@ -64,20 +72,44 @@ export function StorePlanogramEditor() {
 
         setLoading(true);
 
-        const [storeData, planogramsData, productsData, standardsData] = await Promise.all([
+        const [storeData, planogramsData, productsData, standardsData, placementsData, fixturesData, blocksData] = await Promise.all([
             storeRepository.getById(storeId),
             storePlanogramRepository.query(p => p.storeId === storeId),
             productRepository.getAll(),
-            standardPlanogramRepository.getAll()
+            standardPlanogramRepository.getAll(),
+            storeFixturePlacementRepository.query(p => p.storeId === storeId),
+            fixtureRepository.getAll(),
+            shelfBlockRepository.getAll()
         ]);
 
         setStore(storeData);
         setProducts(productsData);
         setAllStorePlanograms(planogramsData);
         setAllStandardPlanograms(standardsData);
+        setBlocks(blocksData);
+
+        // 店舗の総棚幅と最大段数を計算
+        let totalWidth = 0;
+        let currentMaxShelf = 0;
+
+        for (const placement of placementsData) {
+            const fixture = fixturesData.find(f => f.id === placement.fixtureId);
+            // 選択中の什器タイプに合致するもののみ計算
+            if (fixture && fixture.fixtureType === selectedFixtureType) {
+                totalWidth += fixture.width;
+                currentMaxShelf = Math.max(currentMaxShelf, fixture.shelfCount);
+            }
+        }
+
+        setStoreTotalWidth(totalWidth);
+        setMaxShelfCount(currentMaxShelf || 0);
+
+        // placements/fixturesもstateに保持しておく（今回は使用しないため削除）
+        // setStorePlacements(placementsData);
+        // setFixtures(fixturesData);
 
         setLoading(false);
-    }, [storeId]);
+    }, [storeId, selectedFixtureType]);
 
     useEffect(() => {
         loadData();
@@ -106,7 +138,16 @@ export function StorePlanogramEditor() {
             setStandardPlanogram(std || null);
         } else {
             setPlanogram(null);
-            setStandardPlanogram(null);
+            // 個店棚割がない場合でも、該当する標準棚割を探してセットする（提案用）
+            if (store) {
+                const std = allStandardPlanograms.find(s =>
+                    s.fmt === store.fmt &&
+                    s.fixtureType === selectedFixtureType
+                );
+                setStandardPlanogram(std || null);
+            } else {
+                setStandardPlanogram(null);
+            }
         }
     }, [selectedFixtureType, allStorePlanograms, allStandardPlanograms]);
 
@@ -282,13 +323,72 @@ export function StorePlanogramEditor() {
             </div>
 
             {!planogram && (
-                <div className="card text-center text-muted">
-                    このゾーン（{PLANOGRAM_TYPES.find(t => t.id === selectedFixtureType)?.label}）の棚割はまだ生成されていません
-                    <div className="mt-md">
-                        <Link to="/planogram/store" className="btn btn-primary">
-                            棚割生成画面へ
-                        </Link>
-                    </div>
+                <div className="card text-center text-muted" style={{ padding: '3rem' }}>
+                    <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📋</div>
+                    <h3 className="text-xl font-bold text-foreground mb-md">この店舗の棚割はまだ作成されていません</h3>
+
+                    {standardPlanogram ? (
+                        <div className="max-w-md mx-auto">
+                            <p className="mb-lg">
+                                以下の標準棚割を基に、店舗の棚幅に合わせて最適化された棚割を提案します。
+                            </p>
+
+                            <div className="bg-secondary p-md rounded text-left mb-lg border border-border">
+                                <div className="mb-sm">
+                                    <span className="text-muted text-sm block">基準 (標準棚割)</span>
+                                    <div className="font-bold">{standardPlanogram.name}</div>
+                                    <div className="text-sm">FMT: {standardPlanogram.fmt} / 幅: <UnitDisplay valueCm={standardPlanogram.width} /></div>
+                                </div>
+                                <div className="border-t border-border my-sm"></div>
+                                <div>
+                                    <span className="text-muted text-sm block">適用先 (この店舗)</span>
+                                    <div className="font-bold">{store.name}</div>
+                                    <div className="text-sm">幅: <UnitDisplay valueCm={storeTotalWidth} /> / {store.region}</div>
+                                </div>
+                            </div>
+
+                            <button
+                                className="btn btn-primary btn-lg w-full shadow-lg shadow-primary/20 hover:shadow-primary/40 transition-all"
+                                onClick={async () => {
+                                    if (!confirm('標準棚割を基に、この店舗用の棚割を自動生成しますか？\n（店舗の棚サイズに合わせて自動的にカット・拡張が行われます）')) return;
+
+                                    setLoading(true);
+                                    try {
+                                        const result = await generateStorePlanogram(store.id, standardPlanogram);
+                                        if (result.status === 'error') {
+                                            alert(`生成エラー: ${result.message}`);
+                                        } else {
+                                            // 成功したらリロード
+                                            await loadData();
+                                            if (result.message) {
+                                                // 警告等あれば表示（リロード後なのでalertで簡易表示、本来は通知トーストなどが良い）
+                                                console.log(result.message);
+                                            }
+                                        }
+                                    } catch (e) {
+                                        alert('予期せぬエラーが発生しました');
+                                        console.error(e);
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }}
+                            >
+                                ✨ 自動棚割提案を作成
+                            </button>
+                            <p className="text-xs text-muted mt-sm">
+                                店舗の棚サイズに合わせて自動的にカット・拡張を行います
+                            </p>
+                        </div>
+                    ) : (
+                        <div>
+                            <p className="text-danger mb-md">
+                                このFMT・什器タイプに対応する標準棚割が見つかりませんでした。
+                            </p>
+                            <Link to="/planogram/store" className="btn btn-secondary">
+                                一覧に戻る
+                            </Link>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -396,9 +496,51 @@ export function StorePlanogramEditor() {
                         >
                             <div
                                 className="shelf-grid"
-                                style={{ width: `${planogram.width * SCALE}px` }}
+                                style={{ width: `${planogram.width * SCALE}px`, position: 'relative' }}
                             >
-                                {Array.from({ length: planogram.shelfCount }).map((_, shelfIndex) => {
+                                {/* 背景：標準棚割のブロック表示 */}
+                                {standardPlanogram && standardPlanogram.blocks.map(block => {
+                                    const masterBlock = blocks.find(b => b.id === block.blockId);
+                                    if (!masterBlock) return null;
+
+                                    // 標準棚割上の位置を表示（現在の棚幅に合わせてクリップ等はしていないが、目安として表示）
+                                    // ただし、個店棚割の幅を超えている場合ははみ出す可能性があるため、overflow: hiddenは親側で効いているはず
+
+                                    return (
+                                        <div
+                                            key={block.id}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${block.positionX * SCALE}px`,
+                                                top: 0,
+                                                bottom: 0,
+                                                width: `${masterBlock.width * SCALE}px`,
+                                                border: '2px dashed rgba(203, 213, 225, 0.5)', // 薄い破線
+                                                borderTop: 'none',
+                                                borderBottom: 'none',
+                                                pointerEvents: 'none',
+                                                zIndex: 0,
+                                                display: 'flex',
+                                                justifyContent: 'center'
+                                            }}
+                                        >
+                                            <div style={{
+                                                marginTop: '-20px',
+                                                background: 'rgba(255, 255, 255, 0.8)',
+                                                padding: '2px 8px',
+                                                borderRadius: '4px',
+                                                fontSize: '0.7rem',
+                                                color: 'var(--text-muted)',
+                                                whiteSpace: 'nowrap',
+                                                border: '1px solid var(--border-color)'
+                                            }}>
+                                                {masterBlock.name}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+
+                                {Array.from({ length: Math.max(planogram.shelfCount, maxShelfCount || 0) }).map((_, shelfIndex) => {
                                     const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
                                     const usedWidth = usedWidthByShelf[shelfIndex] || 0;
                                     const emptyWidth = planogram.width - usedWidth;
