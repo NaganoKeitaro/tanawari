@@ -124,12 +124,35 @@ function DraggablePlacement({
                     color: textColor
                 }}
             >
-                <span style={{ fontWeight: 600, pointerEvents: 'none', userSelect: 'none' }}>
+                <span style={{ fontWeight: 600, pointerEvents: 'none', userSelect: 'none', position: 'relative', zIndex: 2 }}>
                     {fixture.name.replace('（4尺）', '').replace('平台', '')}
                 </span>
-                <span style={{ fontSize: `${Math.max(7, 8 * scale)}px`, opacity: 0.8, pointerEvents: 'none', userSelect: 'none' }}>
-                    {Math.round(fixture.width / 30)}尺
+                <span style={{ fontSize: `${Math.max(7, 8 * scale)}px`, opacity: 0.8, pointerEvents: 'none', userSelect: 'none', position: 'relative', zIndex: 2 }}>
+                    {Math.round(fixture.width / 30)}尺 / {fixture.shelfCount}段
                 </span>
+
+                {/* Visual Tiers Overlay */}
+                {fixture.shelfCount > 1 && (
+                    <div style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        flexDirection: isRotated ? 'row' : 'column',
+                        pointerEvents: 'none',
+                        zIndex: 1
+                    }}>
+                        {Array.from({ length: fixture.shelfCount }).map((_, i) => (
+                            <div key={i} style={{
+                                flex: 1,
+                                borderBottom: !isRotated && i < fixture.shelfCount - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none',
+                                borderRight: isRotated && i < fixture.shelfCount - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none'
+                            }} />
+                        ))}
+                    </div>
+                )}
             </div>
         </div>
     );

@@ -555,7 +555,7 @@ function generateFixtures(): Omit<Fixture, 'id'>[] {
         { name: 'エンド什器', width: 90, height: 150, shelfCount: 4, fixtureType: 'end-cap-refrigerated' as const },
         { name: 'ゴンドラ什器', width: 100, height: 180, shelfCount: 5, fixtureType: 'gondola' as const },
         // 精肉部門用什器
-        { name: '多段棚（4尺）', width: 120, height: 180, shelfCount: 12, fixtureType: 'multi-tier' as const },
+        { name: '多段棚（4尺）', width: 120, height: 180, shelfCount: 4, fixtureType: 'multi-tier' as const },
         { name: '平台冷蔵', width: 120, height: 100, shelfCount: 1, fixtureType: 'flat-refrigerated' as const },
         { name: '平台冷蔵エンド', width: 90, height: 100, shelfCount: 1, fixtureType: 'end-cap-refrigerated' as const },
         { name: '平台冷凍', width: 120, height: 100, shelfCount: 1, fixtureType: 'flat-frozen' as const },
@@ -795,7 +795,7 @@ export async function seedData(): Promise<{
     const savedStandardPlanograms: StandardPlanogram[] = [];
 
     const typeSettings: Partial<Record<FixtureType, { name: string; height: number; shelfCount: number; width: number }>> = {
-        'multi-tier': { name: '多段', height: 180, shelfCount: 5, width: 120 },
+        'multi-tier': { name: '多段', height: 180, shelfCount: 4, width: 120 },
         'flat-refrigerated': { name: '平台冷蔵', height: 90, shelfCount: 1, width: 120 },
         'end-cap-refrigerated': { name: '平台冷蔵エンド', height: 90, shelfCount: 1, width: 90 },
         'flat-frozen': { name: '平台冷凍', height: 90, shelfCount: 1, width: 120 },
