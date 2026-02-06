@@ -208,7 +208,7 @@ export function HomePage() {
                         <ol style={{ margin: 0, paddingLeft: '1.25rem', color: 'var(--text-secondary)' }}>
                             <li>棚ブロックで商品グループを作成</li>
                             <li>FMT標準棚割でブロックを配置</li>
-                            <li>個店棚割で一括自動生成</li>
+                            <li>個店棚割で自動棚割提案</li>
                             <li>必要に応じて個店を手動調整</li>
                         </ol>
                     </div>

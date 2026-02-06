@@ -22,6 +22,8 @@ import {
 import { syncStorePlanogram, generateStorePlanogram } from '../../services/automationService';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
+import { StoreLayoutVisualizer } from '../../components/layout/StoreLayoutVisualizer';
+import type { Fixture, StoreFixturePlacement } from '../../data/types';
 
 const SCALE = 3;
 
@@ -421,6 +423,8 @@ export function StorePlanogramEditor() {
     const [allStandardPlanograms, setAllStandardPlanograms] = useState<StandardPlanogram[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
     const [blocks, setBlocks] = useState<ShelfBlock[]>([]);
+    const [fixtures, setFixtures] = useState<Fixture[]>([]);
+    const [placements, setPlacements] = useState<StoreFixturePlacement[]>([]);
 
     // 選択されたグループ
     const [selectedGroup, setSelectedGroup] = useState<FixtureGroup>('multi-tier');
@@ -460,6 +464,8 @@ export function StorePlanogramEditor() {
         setProducts(productsData);
         setAllStandardPlanograms(standardsData);
         setBlocks(blocksData);
+        setFixtures(fixturesData);
+        setPlacements(placementsData);
 
         // 幅集計
         let multiW = 0;
@@ -619,6 +625,29 @@ export function StorePlanogramEditor() {
                     />
                 );
             })}
+
+            {/* 売り場レイアウト表示 */}
+            <div className="mt-lg">
+                <StoreLayoutVisualizer
+                    store={store}
+                    placements={placements}
+                    fixtures={fixtures}
+                    blocks={blocks}
+                    planogramBlocks={
+                        allStorePlanograms
+                            .map(sp => {
+                                const std = allStandardPlanograms.find(s => s.id === sp.standardPlanogramId);
+                                const group = std?.fixtureType && FIXTURE_GROUPS['flat'].types.includes(std.fixtureType) ? 'flat' : 'multi-tier';
+                                if (group !== selectedGroup) return null;
+                                return std?.blocks || [];
+                            })
+                            .filter(Boolean)
+                            .flat() as any
+                    }
+                    scale={0.6}
+                    products={products}
+                />
+            </div>
         </div>
     );
 }

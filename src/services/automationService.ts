@@ -19,9 +19,10 @@ import {
 } from '../data/repositories/localStorageRepository';
 
 /**
- * 店舗の総棚幅を計算
+ * 店舗の棚総幅を計算
+ * fixtureTypeが指定された場合は、そのタイプの什器のみを集計する
  */
-async function getStoreTotalWidth(storeId: string): Promise<{ totalWidth: number; totalShelfCount: number }> {
+async function getStoreTotalWidth(storeId: string, fixtureType?: string): Promise<{ totalWidth: number; totalShelfCount: number }> {
     const placements = await storeFixturePlacementRepository.query(p => p.storeId === storeId);
     const fixtures = await fixtureRepository.getAll();
 
@@ -31,6 +32,13 @@ async function getStoreTotalWidth(storeId: string): Promise<{ totalWidth: number
     for (const placement of placements) {
         const fixture = fixtures.find(f => f.id === placement.fixtureId);
         if (fixture) {
+            // fixtureTypeでのフィルタリング
+            // 指定がない場合は全て、指定がある場合は一致するもののみ
+            // または、グループとして扱うべきか？現状は厳密一致とする（エディタの表示単位に合わせる）
+            if (fixtureType && fixture.fixtureType !== fixtureType) {
+                continue;
+            }
+
             totalWidth += fixture.width;
             totalShelfCount = Math.max(totalShelfCount, fixture.shelfCount);
         }
@@ -224,15 +232,16 @@ export async function generateStorePlanogram(
     }
 
     try {
-        // 店舗の棚情報を取得
-        const { totalWidth, totalShelfCount } = await getStoreTotalWidth(storeId);
+        // 店舗の棚情報を取得（標準棚割のタイプに一致するもののみ）
+        const { totalWidth, totalShelfCount } = await getStoreTotalWidth(storeId, standardPlanogram.fixtureType);
 
         if (totalWidth === 0) {
+            // このタイプの什器がない場合、エラーにはせずワーニングか、あるいはスキップメッセージを返す
             return {
                 storeId,
                 storeName: store.name,
                 status: 'warning',
-                message: '店舗に什器が配置されていません'
+                message: `店舗に${standardPlanogram.fixtureType || '指定'}タイプの什器が配置されていません`
             };
         }
 

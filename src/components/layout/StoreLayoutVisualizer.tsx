@@ -1,8 +1,9 @@
 // 棚割管理システム - 店舗レイアウトビジュアライザー
-import { useMemo } from 'react';
-import type { Store, Fixture, StoreFixturePlacement, ZoneType } from '../../data/types';
+import { useMemo, useState } from 'react';
+import type { Store, Fixture, StoreFixturePlacement, ZoneType, ShelfBlock, StandardPlanogramBlock, FixtureType, Product } from '../../data/types';
 import { ZONE_TYPES } from '../../data/types';
 import { UnitDisplay } from '../common/UnitDisplay';
+import { Modal } from '../common/Modal';
 
 // ゾーンごとの色定義
 const ZONE_COLORS: Record<ZoneType, { bg: string; border: string; text: string }> = {
@@ -12,6 +13,32 @@ const ZONE_COLORS: Record<ZoneType, { bg: string; border: string; text: string }
     '平台冷凍': { bg: 'rgba(249, 115, 22, 0.3)', border: '#F97316', text: '#C2410C' },
     '平台冷凍エンド': { bg: 'rgba(249, 115, 22, 0.5)', border: '#EA580C', text: '#C2410C' }
 };
+
+// ブロック色パレット（視認性の高い色）
+const BLOCK_COLORS = [
+    '#f472b6', // Pink
+    '#a78bfa', // Violet
+    '#60a5fa', // Blue
+    '#34d399', // Emerald
+    '#fbbf24', // Amber
+    '#fb923c', // Orange
+    '#f87171', // Red
+    '#4ade80', // Green
+    '#22d3ee', // Cyan
+    '#e879f9', // Fuchsia
+];
+
+// ブロックマッピング型定義
+interface BlockMapping {
+    blockId: string;
+    blockName: string;
+    placementId: string;
+    fixtureId: string;
+    relativeStartX: number;
+    relativeEndX: number;
+    originalWidth: number;
+    colorIndex: number;
+}
 
 // 什器タイプからゾーンを推測
 function inferZoneFromFixture(fixture: Fixture): ZoneType {
@@ -35,6 +62,12 @@ interface StoreLayoutVisualizerProps {
     onRemovePlacement?: (placementId: string) => void;
     selectedPlacementId?: string | null;
     scale?: number;
+    // 棚割ブロック表示用（オプション）
+    blocks?: ShelfBlock[];
+    planogramBlocks?: StandardPlanogramBlock[];
+    fixtureTypeFilter?: FixtureType;
+    onBlockClick?: (block: ShelfBlock) => void;
+    products?: Product[];
 }
 
 export function StoreLayoutVisualizer({
@@ -44,8 +77,14 @@ export function StoreLayoutVisualizer({
     onPlacementClick,
     onRemovePlacement,
     selectedPlacementId,
-    scale = 0.5
+    scale = 0.5,
+    blocks = [],
+    planogramBlocks = [],
+    fixtureTypeFilter,
+    onBlockClick,
+    products = []
 }: StoreLayoutVisualizerProps) {
+    const [selectedBlock, setSelectedBlock] = useState<ShelfBlock | null>(null);
     // ゾーン別に什器をグループ化
     const groupedPlacements = useMemo(() => {
         const groups: Record<ZoneType, Array<{ placement: StoreFixturePlacement; fixture: Fixture }>> = {
@@ -114,6 +153,71 @@ export function StoreLayoutVisualizer({
         combinedPlatforms.frozen.reduce((sum, item) => sum + item.fixture.width, 0),
         1560 // 最小幅
     );
+
+    // ブロック→什器マッピング計算
+    const blockMappings = useMemo(() => {
+        if (!planogramBlocks.length || !blocks.length) return new Map<string, BlockMapping[]>();
+
+        const mappings = new Map<string, BlockMapping[]>();
+
+        // fixtureTypeFilterでフィルタリング
+        let filteredPlacements = [...placements];
+        if (fixtureTypeFilter) {
+            filteredPlacements = placements.filter(p => {
+                const fixture = fixtures.find(f => f.id === p.fixtureId);
+                return fixture?.fixtureType === fixtureTypeFilter;
+            });
+        }
+
+        // order順にソート
+        filteredPlacements.sort((a, b) => a.order - b.order);
+
+        // 累積幅マップを構築
+        const fixtureRanges: Map<string, { startX: number; endX: number }> = new Map();
+        let cumulativeX = 0;
+        for (const placement of filteredPlacements) {
+            const fixture = fixtures.find(f => f.id === placement.fixtureId);
+            if (!fixture) continue;
+            fixtureRanges.set(placement.id, { startX: cumulativeX, endX: cumulativeX + fixture.width });
+            cumulativeX += fixture.width;
+        }
+
+        // 各ブロックをどの什器に割り当てるか計算
+        planogramBlocks.forEach((pb, index) => {
+            const master = blocks.find(b => b.id === pb.blockId);
+            if (!master) return;
+
+            const blockStartX = pb.positionX;
+            const blockEndX = pb.positionX + master.width;
+
+            for (const placement of filteredPlacements) {
+                const range = fixtureRanges.get(placement.id);
+                if (!range) continue;
+
+                const overlapStart = Math.max(blockStartX, range.startX);
+                const overlapEnd = Math.min(blockEndX, range.endX);
+
+                if (overlapStart < overlapEnd) {
+                    const mapping: BlockMapping = {
+                        blockId: master.id,
+                        blockName: master.name,
+                        placementId: pb.id,
+                        fixtureId: placement.id,
+                        relativeStartX: overlapStart - range.startX,
+                        relativeEndX: overlapEnd - range.startX,
+                        originalWidth: master.width,
+                        colorIndex: index % BLOCK_COLORS.length
+                    };
+
+                    const existing = mappings.get(placement.id) || [];
+                    existing.push(mapping);
+                    mappings.set(placement.id, existing);
+                }
+            }
+        });
+
+        return mappings;
+    }, [placements, fixtures, blocks, planogramBlocks, fixtureTypeFilter]);
 
     // 什器レンダリング
     const renderFixture = (
@@ -202,6 +306,46 @@ export function StoreLayoutVisualizer({
                         ×
                     </button>
                 )}
+
+                {/* ブロック表示レイヤー */}
+                {blockMappings.get(placement.id)?.map((mapping, idx) => (
+                    <div
+                        key={`${mapping.placementId}-${idx}`}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            const master = blocks.find(b => b.id === mapping.blockId);
+                            if (master) {
+                                setSelectedBlock(master);
+                                onBlockClick?.(master);
+                            }
+                        }}
+                        style={{
+                            position: 'absolute',
+                            left: `${mapping.relativeStartX * scale}px`,
+                            top: '15%',
+                            width: `${(mapping.relativeEndX - mapping.relativeStartX) * scale}px`,
+                            height: '70%',
+                            border: `3px solid ${BLOCK_COLORS[mapping.colorIndex]}`,
+                            borderRadius: '4px',
+                            background: `${BLOCK_COLORS[mapping.colorIndex]}20`,
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: `${Math.max(7, 8 * scale)}px`,
+                            fontWeight: 600,
+                            color: '#1e293b',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            zIndex: 5,
+                            writingMode: 'horizontal-tb'
+                        }}
+                        title={`${mapping.blockName}\n幅: ${mapping.originalWidth}cm\nクリックで詳細表示`}
+                    >
+                        {mapping.blockName}
+                    </div>
+                ))}
             </div>
         );
     };
@@ -234,14 +378,16 @@ export function StoreLayoutVisualizer({
                 <div
                     style={{
                         display: 'flex',
-                        flexWrap: 'wrap',
-                        alignItems: 'flex-start', // 上揃え（エンドの高さが異なる場合に対応）
-                        gap: '0', // ぴったりくっつける
-                        padding: '1rem', // 余白
+                        flexWrap: 'nowrap',
+                        alignItems: 'flex-start',
+                        gap: '0',
+                        padding: '1rem',
                         background: 'var(--bg-secondary)',
                         borderRadius: 'var(--radius-md)',
                         border: '1px solid var(--border-color)',
-                        minHeight: '120px'
+                        minHeight: '120px',
+                        overflowX: 'auto',
+                        maxWidth: '100%'
                     }}
                 >
                     {items.map(({ placement, fixture }) => {
@@ -330,6 +476,112 @@ export function StoreLayoutVisualizer({
                     );
                 })}
             </div>
+
+            {/* ブロック凡例（ブロックが指定されている場合） */}
+            {planogramBlocks.length > 0 && (
+                <div
+                    style={{
+                        display: 'flex',
+                        gap: '1rem',
+                        justifyContent: 'center',
+                        padding: '0.75rem',
+                        borderTop: '1px solid var(--border-color)',
+                        background: 'var(--bg-secondary)',
+                        flexWrap: 'wrap'
+                    }}
+                >
+                    <span className="text-xs text-muted" style={{ marginRight: '0.5rem' }}>棚ブロック:</span>
+                    {planogramBlocks.map((pb, index) => {
+                        const master = blocks.find(b => b.id === pb.blockId);
+                        if (!master) return null;
+                        return (
+                            <div
+                                key={pb.id}
+                                className="flex items-center gap-sm text-xs"
+                                style={{ cursor: 'pointer' }}
+                                onClick={() => setSelectedBlock(master)}
+                            >
+                                <div
+                                    style={{
+                                        width: '12px',
+                                        height: '12px',
+                                        border: `2px solid ${BLOCK_COLORS[index % BLOCK_COLORS.length]}`,
+                                        borderRadius: '2px',
+                                        background: `${BLOCK_COLORS[index % BLOCK_COLORS.length]}30`
+                                    }}
+                                />
+                                <span>{master.name}</span>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* ブロック詳細モーダル */}
+            <Modal
+                isOpen={!!selectedBlock}
+                onClose={() => setSelectedBlock(null)}
+                title={`棚ブロック: ${selectedBlock?.name}`}
+            >
+                {selectedBlock && (
+                    <div>
+                        <div className="mb-md">
+                            <div className="text-sm text-muted">サイズ</div>
+                            <div><UnitDisplay valueCm={selectedBlock.width} /> × {selectedBlock.shelfCount}段</div>
+                        </div>
+                        {selectedBlock.description && (
+                            <div className="mb-md">
+                                <div className="text-sm text-muted">説明</div>
+                                <div>{selectedBlock.description}</div>
+                            </div>
+                        )}
+                        <div className="mb-md">
+                            <div className="text-sm text-muted">配置商品 ({selectedBlock.productPlacements.length}商品)</div>
+                        </div>
+                        <div style={{
+                            maxHeight: '300px',
+                            overflowY: 'auto',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: 'var(--radius-sm)',
+                            background: 'var(--bg-secondary)'
+                        }}>
+                            {selectedBlock.productPlacements.length === 0 ? (
+                                <div className="text-center text-muted" style={{ padding: '1rem' }}>
+                                    商品が配置されていません
+                                </div>
+                            ) : (
+                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid var(--border-color)', background: 'var(--bg-tertiary)' }}>
+                                            <th className="text-left text-xs" style={{ padding: '0.5rem' }}>商品名</th>
+                                            <th className="text-center text-xs" style={{ padding: '0.5rem', width: '60px' }}>フェイス</th>
+                                            <th className="text-center text-xs" style={{ padding: '0.5rem', width: '60px' }}>段</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {selectedBlock.productPlacements.map((pp, idx) => {
+                                            const product = products.find(p => p.id === pp.productId);
+                                            return (
+                                                <tr key={pp.id || idx} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                    <td className="text-sm" style={{ padding: '0.5rem' }}>
+                                                        {product?.name || '不明な商品'}
+                                                    </td>
+                                                    <td className="text-center text-sm" style={{ padding: '0.5rem' }}>
+                                                        {pp.faceCount}
+                                                    </td>
+                                                    <td className="text-center text-sm" style={{ padding: '0.5rem' }}>
+                                                        {pp.shelfIndex + 1}段目
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }

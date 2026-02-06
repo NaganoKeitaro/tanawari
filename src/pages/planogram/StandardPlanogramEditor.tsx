@@ -35,6 +35,7 @@ import {
 import { Modal } from '../../components/common/Modal';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
+import { StoreLayoutVisualizer } from '../../components/layout/StoreLayoutVisualizer';
 
 const SCALE = 3; // 1cm = 3px
 
@@ -714,108 +715,126 @@ export function StandardPlanogramEditor() {
             </div>
 
             {currentPlanogram && (
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                >
-                    <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '1.5rem' }}>
-                        {/* ブロックパレット */}
-                        <div>
-                            <div className="card">
-                                <h3 className="card-title mb-md">棚ブロック</h3>
-                                <div className="text-sm text-muted mb-md">
-                                    ブロックをドラッグして配置
-                                </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    {blocks.map(block => (
-                                        <DraggableBlock key={block.id} block={block} />
-                                    ))}
-                                </div>
-                                {blocks.length === 0 && (
-                                    <div className="text-center text-muted" style={{ padding: '1rem' }}>
-                                        棚ブロックがありません
+                <>
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '1.5rem' }}>
+                            {/* ブロックパレット */}
+                            <div>
+                                <div className="card">
+                                    <h3 className="card-title mb-md">棚ブロック</h3>
+                                    <div className="text-sm text-muted mb-md">
+                                        ブロックをドラッグして配置
                                     </div>
-                                )}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        {blocks.map(block => (
+                                            <DraggableBlock key={block.id} block={block} />
+                                        ))}
+                                    </div>
+                                    {blocks.length === 0 && (
+                                        <div className="text-center text-muted" style={{ padding: '1rem' }}>
+                                            棚ブロックがありません
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* キャンバス */}
+                            <div>
+                                <div className="card">
+                                    <div className="card-header">
+                                        <div>
+                                            <h3 className="card-title">{currentPlanogram.name}</h3>
+                                            <div className="text-sm text-muted">
+                                                <UnitDisplay valueCm={currentPlanogram.width} /> × <UnitDisplay valueCm={currentPlanogram.height} /> / {currentPlanogram.shelfCount}段
+                                            </div>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
+                                            {/* 分析モードトグル */}
+                                            <label className="flex items-center gap-sm" style={{ cursor: 'pointer' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={analyticsMode}
+                                                    onChange={(e) => setAnalyticsMode(e.target.checked)}
+                                                />
+                                                <span className="text-sm">📊 分析モード</span>
+                                            </label>
+
+                                            {analyticsMode && (
+                                                <select
+                                                    className="form-select"
+                                                    value={selectedMetric}
+                                                    onChange={(e) => setSelectedMetric(e.target.value as any)}
+                                                    style={{ width: '150px' }}
+                                                >
+                                                    <option value="sales">売上金額</option>
+                                                    <option value="grossProfit">粗利</option>
+                                                    <option value="quantity">売上数量</option>
+                                                    <option value="traffic">客数</option>
+                                                </select>
+                                            )}
+
+                                            <div className="text-sm">
+                                                配置商品: <strong>{currentPlanogram.products.length}</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ paddingLeft: '40px' }}>
+                                        <PlanogramCanvas
+                                            planogram={currentPlanogram}
+                                            products={products}
+                                            blockMasters={blocks}
+                                            analyticsMode={analyticsMode}
+                                            selectedMetric={selectedMetric}
+                                            onDeleteBlock={handleDeleteBlock}
+                                        />
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
-                        {/* キャンバス */}
-                        <div>
-                            <div className="card">
-                                <div className="card-header">
-                                    <div>
-                                        <h3 className="card-title">{currentPlanogram.name}</h3>
-                                        <div className="text-sm text-muted">
-                                            <UnitDisplay valueCm={currentPlanogram.width} /> × <UnitDisplay valueCm={currentPlanogram.height} /> / {currentPlanogram.shelfCount}段
-                                        </div>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
-                                        {/* 分析モードトグル */}
-                                        <label className="flex items-center gap-sm" style={{ cursor: 'pointer' }}>
-                                            <input
-                                                type="checkbox"
-                                                checked={analyticsMode}
-                                                onChange={(e) => setAnalyticsMode(e.target.checked)}
-                                            />
-                                            <span className="text-sm">📊 分析モード</span>
-                                        </label>
-
-                                        {analyticsMode && (
-                                            <select
-                                                className="form-select"
-                                                value={selectedMetric}
-                                                onChange={(e) => setSelectedMetric(e.target.value as any)}
-                                                style={{ width: '150px' }}
-                                            >
-                                                <option value="sales">売上金額</option>
-                                                <option value="grossProfit">粗利</option>
-                                                <option value="quantity">売上数量</option>
-                                                <option value="traffic">客数</option>
-                                            </select>
-                                        )}
-
-                                        <div className="text-sm">
-                                            配置商品: <strong>{currentPlanogram.products.length}</strong>
-                                        </div>
+                        <DragOverlay>
+                            {activeBlock ? (
+                                <div
+                                    className="card"
+                                    style={{
+                                        padding: '0.75rem',
+                                        background: 'var(--color-primary)',
+                                        color: 'white',
+                                        opacity: 0.9,
+                                        cursor: 'grabbing'
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 500 }}>{activeBlock.name}</div>
+                                    <div className="text-xs" style={{ opacity: 0.8 }}>
+                                        {activeBlock.productPlacements.length} 商品
                                     </div>
                                 </div>
+                            ) : null}
+                        </DragOverlay>
+                    </DndContext>
 
-                                <div style={{ paddingLeft: '40px' }}>
-                                    <PlanogramCanvas
-                                        planogram={currentPlanogram}
-                                        products={products}
-                                        blockMasters={blocks}
-                                        analyticsMode={analyticsMode}
-                                        selectedMetric={selectedMetric}
-                                        onDeleteBlock={handleDeleteBlock}
-                                    />
-                                </div>
-                            </div>
+                    {/* 売り場レイアウト表示 */}
+                    {selectedStoreId && (
+                        <div className="mt-lg">
+                            <StoreLayoutVisualizer
+                                store={stores.find(s => s.id === selectedStoreId)!}
+                                placements={placements.filter(p => p.storeId === selectedStoreId)}
+                                fixtures={fixtures}
+                                blocks={blocks}
+                                planogramBlocks={currentPlanogram?.blocks || []}
+                                fixtureTypeFilter={selectedFixtureType}
+                                scale={0.6}
+                                products={products}
+                            />
                         </div>
-                    </div>
-
-                    <DragOverlay>
-                        {activeBlock ? (
-                            <div
-                                className="card"
-                                style={{
-                                    padding: '0.75rem',
-                                    background: 'var(--color-primary)',
-                                    color: 'white',
-                                    opacity: 0.9,
-                                    cursor: 'grabbing'
-                                }}
-                            >
-                                <div style={{ fontWeight: 500 }}>{activeBlock.name}</div>
-                                <div className="text-xs" style={{ opacity: 0.8 }}>
-                                    {activeBlock.productPlacements.length} 商品
-                                </div>
-                            </div>
-                        ) : null}
-                    </DragOverlay>
-                </DndContext>
+                    )}
+                </>
             )}
 
             {!currentPlanogram && selectedFmt && (

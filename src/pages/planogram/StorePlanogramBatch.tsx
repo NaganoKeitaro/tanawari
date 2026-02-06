@@ -64,8 +64,8 @@ export function StorePlanogramBatch() {
             return;
         }
 
-        const standardPlanogram = planograms.find(p => p.fmt === selectedFmt);
-        if (!standardPlanogram) {
+        const targetPlanograms = planograms.filter(p => p.fmt === selectedFmt);
+        if (targetPlanograms.length === 0) {
             alert('このFMTの標準棚割がありません。先に標準棚割を作成してください。');
             return;
         }
@@ -76,21 +76,25 @@ export function StorePlanogramBatch() {
             return;
         }
 
-        if (!confirm(`${selectedFmt}の${targetStores.length}店舗に対して棚割を一括生成しますか？`)) {
+        if (!confirm(`${selectedFmt}の${targetStores.length}店舗に対して、${targetPlanograms.length}種類の棚割を一括で提案作成（更新）しますか？`)) {
             return;
         }
 
         setIsGenerating(true);
-        setProgress({ current: 0, total: targetStores.length });
+        // 総処理数は 店舗数 × 標準棚割数
+        const totalOps = targetStores.length * targetPlanograms.length;
+        setProgress({ current: 0, total: totalOps });
         setResults([]);
 
-        await batchGenerateStorePlanograms(
-            standardPlanogram,
-            (current, total, result) => {
-                setProgress({ current, total });
+        let completedOps = 0;
+
+        for (const std of targetPlanograms) {
+            await batchGenerateStorePlanograms(std, (_c, _t, result) => {
+                completedOps++;
+                setProgress({ current: completedOps, total: totalOps });
                 setResults(prev => [...prev, result]);
-            }
-        );
+            });
+        }
 
         setIsGenerating(false);
         // 生成後にデータを再読み込み
@@ -167,7 +171,7 @@ export function StorePlanogramBatch() {
         <div className="animate-fadeIn">
             <div className="page-header">
                 <h1 className="page-title">個店棚割管理</h1>
-                <p className="page-subtitle">一括自動生成または個別店舗の棚割編集</p>
+                <p className="page-subtitle">自動棚割提案または個別店舗の棚割編集</p>
             </div>
 
             {/* タブ切り替え */}
@@ -184,7 +188,7 @@ export function StorePlanogramBatch() {
                         }}
                         onClick={() => setActiveTab('batch')}
                     >
-                        🚀 一括自動生成
+                        🚀 自動棚割提案
                     </button>
                     <button
                         className={`btn ${activeTab === 'individual' ? 'btn-primary' : 'btn-secondary'}`}
@@ -261,7 +265,7 @@ export function StorePlanogramBatch() {
                                 disabled={isGenerating || !selectedFmt}
                                 style={{ marginLeft: 'auto' }}
                             >
-                                {isGenerating ? '生成中...' : '🚀 一括自動生成'}
+                                {isGenerating ? '生成中...' : '🚀 自動棚割提案を作成'}
                             </button>
                         </div>
                     </div>
