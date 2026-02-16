@@ -10,7 +10,7 @@ import {
     storePlanogramRepository,
     isInitialized
 } from '../data/repositories/localStorageRepository';
-import { seedData } from '../data/seedData';
+import { seedStoreData } from '../data/seedData';
 
 interface Stats {
     products: number;
@@ -54,19 +54,16 @@ export function HomePage() {
         loadStats();
     }, [loadStats]);
 
-    const handleSeedData = async () => {
-        if (!confirm('ダミーデータを生成しますか？既存のデータはすべて削除されます。')) {
+    const handleSeedStoreData = async () => {
+        if (!confirm('店舗マスタデータを生成しますか？')) {
             return;
         }
 
         setSeeding(true);
 
         try {
-            const result = await seedData();
-            alert(`データ生成完了！
-- 商品: ${result.products}件
-- 店舗: ${result.stores}件
-- 什器: ${result.fixtures}件`);
+            const result = await seedStoreData();
+            alert(`店舗マスタ生成完了！\n- 店舗: ${result.stores}件`);
             await loadStats();
         } catch (error) {
             alert('データ生成中にエラーが発生しました');
@@ -93,7 +90,7 @@ export function HomePage() {
                 <p className="page-subtitle">Planogram Management System MVP</p>
             </div>
 
-            {/* 初期化案内 */}
+            {/* 初期化案内（店舗マスタが未登録の場合） */}
             {!initialized && (
                 <div
                     className="card mb-lg"
@@ -106,16 +103,16 @@ export function HomePage() {
                         <div>
                             <h3 style={{ marginBottom: '0.5rem' }}>🚀 はじめに</h3>
                             <p className="text-sm text-muted">
-                                システムを使用するには、まずダミーデータを生成してください。<br />
-                                商品・店舗・什器のサンプルデータが自動生成されます。
+                                システムを使用するには、まず店舗マスタデータを生成してください。<br />
+                                店舗のサンプルデータが自動生成されます。
                             </p>
                         </div>
                         <button
                             className="btn btn-primary btn-lg"
-                            onClick={handleSeedData}
+                            onClick={handleSeedStoreData}
                             disabled={seeding}
                         >
-                            {seeding ? '生成中...' : '📦 ダミーデータ生成'}
+                            {seeding ? '生成中...' : '🏪 店舗マスタ生成'}
                         </button>
                     </div>
                 </div>
@@ -248,19 +245,6 @@ export function HomePage() {
                     </div>
                 </div>
             </div>
-
-            {/* ダミーデータ再生成（初期化済みの場合） */}
-            {initialized && (
-                <div className="text-right mt-lg">
-                    <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={handleSeedData}
-                        disabled={seeding}
-                    >
-                        {seeding ? '生成中...' : '🔄 データ再生成'}
-                    </button>
-                </div>
-            )}
 
             {/* 単位説明 */}
             <div className="card mt-lg" style={{ background: 'var(--bg-glass)' }}>
