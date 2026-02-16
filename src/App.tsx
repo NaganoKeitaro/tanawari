@@ -13,6 +13,7 @@ import { StorePlanogramEditor } from './pages/planogram/StorePlanogramEditor';
 import { Dashboard } from './pages/Dashboard';
 import { Analytics } from './pages/Analytics';
 import { BulkDelete } from './pages/BulkDelete';
+import { InstructionSheet } from './pages/InstructionSheet';
 
 function App() {
   return (
@@ -40,6 +41,9 @@ function App() {
           <Route path="/planogram/standard" element={<StandardPlanogramEditor />} />
           <Route path="/planogram/store" element={<StorePlanogramBatch />} />
           <Route path="/planogram/store/:storeId" element={<StorePlanogramEditor />} />
+
+          {/* 指示書 */}
+          <Route path="/instruction-sheet" element={<InstructionSheet />} />
 
           {/* データ管理 */}
           <Route path="/bulk-delete" element={<BulkDelete />} />
