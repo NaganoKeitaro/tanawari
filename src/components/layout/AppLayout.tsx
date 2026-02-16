@@ -42,6 +42,12 @@ const navSections: NavSection[] = [
             { path: '/planogram/standard', label: 'FMT標準棚割', icon: '📋' },
             { path: '/planogram/store', label: '個店棚割管理', icon: '🏬' }
         ]
+    },
+    {
+        title: 'データ管理',
+        items: [
+            { path: '/bulk-delete', label: 'データ一括削除', icon: '🗑️' }
+        ]
     }
 ];
 

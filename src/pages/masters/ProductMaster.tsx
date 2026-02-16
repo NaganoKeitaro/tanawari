@@ -260,17 +260,7 @@ export function ProductMaster() {
         URL.revokeObjectURL(url);
     };
 
-    // 全件データ削除
-    const handleDeleteAll = async () => {
-        if (confirm('全ての商品データを削除します。この操作は取り消せません。本当に実行しますか?')) {
-            if (confirm('最終確認: 本当に全商品データを削除しますか?')) {
-                for (const product of products) {
-                    await productRepository.delete(product.id);
-                }
-                loadProducts();
-            }
-        }
-    };
+
 
     // 全選択/全解除
     const toggleSelectAll = () => {
@@ -416,9 +406,7 @@ export function ProductMaster() {
                         <button className="btn btn-secondary" onClick={handleDownloadAll}>
                             📥 全件データDL
                         </button>
-                        <button className="btn btn-danger" onClick={handleDeleteAll}>
-                            🗑️ 全件データ削除
-                        </button>
+
 
                         <button className="btn btn-secondary" onClick={() => setIsImportModalOpen(true)}>
                             📤 CSVインポート
