@@ -30,6 +30,7 @@ const navSections: NavSection[] = [
         title: 'マスタ管理',
         items: [
             { path: '/masters/products', label: '商品マスタ', icon: '📦' },
+            { path: '/masters/hierarchy', label: '商品階層管理', icon: '🌳' },
             { path: '/masters/fixtures', label: '棚マスタ', icon: '🗄️' },
             { path: '/masters/stores', label: '店舗マスタ', icon: '🏪' },
             { path: '/masters/store-fixtures', label: '店舗棚尺マスタ', icon: '📐' }
