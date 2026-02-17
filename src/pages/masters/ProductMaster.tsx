@@ -1,5 +1,5 @@
 // 棚割管理システム - 商品マスタ
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product } from '../../data/types';
 import { productRepository } from '../../data/repositories/localStorageRepository';
 import { Modal } from '../../components/common/Modal';
@@ -9,22 +9,10 @@ import { ExcelImportModal } from '../../components/masters/ExcelImportModal';
 import { BulkEditModal } from '../../components/masters/BulkEditModal';
 import { exportProductsToCSV, calculateSalesRank } from '../../utils/excelUtils';
 import { renderHierarchyLevel } from '../../utils/hierarchyHelpers';
+import { productHierarchyRepository } from '../../data/repositories/productHierarchyRepository';
+import type { HierarchyEntry } from '../../data/types/productHierarchy';
 
-// カテゴリ一覧
-const CATEGORIES = [
-    '焼肉セット',
-    '精肉',
-    '鮮魚',
-    '野菜',
-    '果物',
-    '惣菜',
-    '乳製品',
-    '飲料',
-    'パン',
-    '菓子',
-    '調味料',
-    '冷凍食品'
-];
+// カテゴリ一覧は hierarchyData から動的に生成するため削除
 
 interface ProductFormData extends Partial<Product> {
     jan: string;
@@ -43,7 +31,7 @@ const initialFormData: ProductFormData = {
     width: 10,
     height: 15,
     depth: 8,
-    category: CATEGORIES[0],
+    category: '',
     imageUrl: '',
     salesRank: 50
 };
@@ -61,7 +49,89 @@ export function ProductMaster() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [currentTab, setCurrentTab] = useState<'basic' | 'hierarchy'>('basic');
     const [viewMode, setViewMode] = useState<'table' | 'hierarchy'>('table');
+
     const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+    const [hierarchyData, setHierarchyData] = useState<HierarchyEntry[]>([]);
+
+    // 階層データの読み込み
+    useEffect(() => {
+        productHierarchyRepository.getAll().then(setHierarchyData);
+    }, []);
+
+    // 階層データからカテゴリ一覧を生成
+    const uniqueCategories = useMemo(() => {
+        const categories = new Set(hierarchyData.map(h => h.categoryName).filter(Boolean));
+        return Array.from(categories).sort();
+    }, [hierarchyData]);
+
+    // 階層の選択肢を取得するヘルパー
+    const getHierarchyOptions = (
+        level: keyof HierarchyEntry,
+        nameKey: keyof HierarchyEntry,
+        parentFilter?: { [key in keyof HierarchyEntry]?: string }
+    ) => {
+        let filtered = hierarchyData;
+
+        if (parentFilter) {
+            filtered = filtered.filter(item => {
+                return Object.entries(parentFilter).every(([key, value]) => item[key as keyof HierarchyEntry] === value);
+            });
+        }
+
+        const uniqueMap = new Map<string, string>();
+        filtered.forEach(item => {
+            const code = String(item[level]);
+            const name = String(item[nameKey]);
+            if (code && !uniqueMap.has(code)) {
+                uniqueMap.set(code, name);
+            }
+        });
+
+        return Array.from(uniqueMap.entries()).map(([code, name]) => ({ code, name }));
+    };
+
+    // 階層選択時のハンドラ
+    // 階層選択時のハンドラ
+    const handleHierarchyChange = (
+        level: keyof HierarchyEntry,
+        nameLevel: keyof HierarchyEntry,
+        codeKey: keyof ProductFormData,
+        nameKey: keyof ProductFormData,
+        value: string,
+        parentFilter: { [key in keyof HierarchyEntry]?: string }
+    ) => {
+        // 選択された値に対応する名前を取得
+        const options = getHierarchyOptions(level, nameLevel, parentFilter);
+        const selectedOption = options.find(o => o.code === value);
+        const nameValue = selectedOption ? selectedOption.name : '';
+
+        // 更新対象のデータ
+        const updates: Partial<ProductFormData> = {
+            [codeKey]: value,
+            [nameKey]: nameValue
+        };
+
+        // 下位階層をリセットするロジック
+        const hierarchyOrder: (keyof ProductFormData)[] = [
+            'divisionCode', 'divisionSubCode', 'lineCode', 'departmentCode',
+            'categoryCode', 'subCategoryCode', 'segmentCode', 'subSegmentCode'
+        ];
+
+        const nameKeys: (keyof ProductFormData)[] = [
+            'divisionName', 'divisionSubName', 'lineName', 'departmentName',
+            'categoryName', 'subCategoryName', 'segmentName', 'subSegmentName'
+        ];
+
+        const currentIndex = hierarchyOrder.indexOf(codeKey);
+        if (currentIndex !== -1 && currentIndex < hierarchyOrder.length - 1) {
+            for (let i = currentIndex + 1; i < hierarchyOrder.length; i++) {
+                updates[hierarchyOrder[i]] = undefined;
+                updates[nameKeys[i]] = undefined;
+            }
+        }
+
+        setFormData(prev => ({ ...prev, ...updates }));
+    };
 
     // データ読み込み
     const loadProducts = useCallback(async () => {
@@ -196,7 +266,7 @@ export function ProductMaster() {
                         width: product.width || 10,
                         height: product.height || 15,
                         depth: product.depth || 8,
-                        category: product.categoryName || product.category || CATEGORIES[0],
+                        category: product.categoryName || product.category || '',
                         imageUrl: product.imageUrl || '',
                         salesRank: product.salesRank || 50,
                     } as Omit<Product, 'id'>);
@@ -375,7 +445,7 @@ export function ProductMaster() {
                             onChange={(e) => setFilterCategory(e.target.value)}
                         >
                             <option value="">全カテゴリ</option>
-                            {CATEGORIES.map(cat => (
+                            {uniqueCategories.map(cat => (
                                 <option key={cat} value={cat}>{cat}</option>
                             ))}
                         </select>
@@ -617,7 +687,8 @@ export function ProductMaster() {
                                 value={formData.category}
                                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                             >
-                                {CATEGORIES.map(cat => (
+                                <option value="">選択してください</option>
+                                {uniqueCategories.map(cat => (
                                     <option key={cat} value={cat}>{cat}</option>
                                 ))}
                             </select>
@@ -662,165 +733,166 @@ export function ProductMaster() {
                         </div>
                     </>
                 ) : (
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-md)' }}>
+                    <div className="grid grid-cols-2 gap-md">
                         {/* 事業部 */}
                         <div className="form-group">
-                            <label className="form-label">事業部CD</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.divisionCode || ''}
-                                onChange={(e) => setFormData({ ...formData, divisionCode: e.target.value })}
-                            />
+                            <label className="form-label">事業部</label>
+                            <div className="flex gap-sm">
+                                <select
+                                    className="form-select"
+                                    value={formData.divisionCode || ''}
+                                    onChange={(e) => handleHierarchyChange('divisionCode', 'divisionName', 'divisionCode', 'divisionName', e.target.value, {})}
+                                >
+                                    <option value="">選択してください</option>
+                                    {getHierarchyOptions('divisionCode', 'divisionName').map(opt => (
+                                        <option key={opt.code} value={opt.code}>{opt.code}: {opt.name}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                         <div className="form-group">
-                            <label className="form-label">事業部</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.divisionName || ''}
-                                onChange={(e) => setFormData({ ...formData, divisionName: e.target.value })}
-                            />
+                            <label className="form-label">事業部名</label>
+                            <input type="text" className="form-input" value={formData.divisionName || ''} readOnly />
                         </div>
 
                         {/* ディビジョン */}
                         <div className="form-group">
-                            <label className="form-label">ディビジョンCD</label>
-                            <input
-                                type="text"
-                                className="form-input"
+                            <label className="form-label">ディビジョン</label>
+                            <select
+                                className="form-select"
                                 value={formData.divisionSubCode || ''}
-                                onChange={(e) => setFormData({ ...formData, divisionSubCode: e.target.value })}
-                            />
+                                onChange={(e) => handleHierarchyChange('divisionSubCode', 'divisionSubName', 'divisionSubCode', 'divisionSubName', e.target.value, { divisionCode: formData.divisionCode })}
+                                disabled={!formData.divisionCode}
+                            >
+                                <option value="">選択してください</option>
+                                {getHierarchyOptions('divisionSubCode', 'divisionSubName', { divisionCode: formData.divisionCode }).map(opt => (
+                                    <option key={opt.code} value={opt.code}>{opt.code}: {opt.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="form-group">
                             <label className="form-label">ディビジョン名</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.divisionSubName || ''}
-                                onChange={(e) => setFormData({ ...formData, divisionSubName: e.target.value })}
-                            />
+                            <input type="text" className="form-input" value={formData.divisionSubName || ''} readOnly />
                         </div>
 
                         {/* ライン */}
                         <div className="form-group">
-                            <label className="form-label">ラインCD</label>
-                            <input
-                                type="text"
-                                className="form-input"
+                            <label className="form-label">ライン</label>
+                            <select
+                                className="form-select"
                                 value={formData.lineCode || ''}
-                                onChange={(e) => setFormData({ ...formData, lineCode: e.target.value })}
-                            />
+                                onChange={(e) => handleHierarchyChange('lineCode', 'lineName', 'lineCode', 'lineName', e.target.value, { divisionSubCode: formData.divisionSubCode })}
+                                disabled={!formData.divisionSubCode}
+                            >
+                                <option value="">選択してください</option>
+                                {getHierarchyOptions('lineCode', 'lineName', { divisionSubCode: formData.divisionSubCode }).map(opt => (
+                                    <option key={opt.code} value={opt.code}>{opt.code}: {opt.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="form-group">
                             <label className="form-label">ライン名</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.lineName || ''}
-                                onChange={(e) => setFormData({ ...formData, lineName: e.target.value })}
-                            />
+                            <input type="text" className="form-input" value={formData.lineName || ''} readOnly />
                         </div>
 
                         {/* 部門 */}
                         <div className="form-group">
-                            <label className="form-label">部門CD</label>
-                            <input
-                                type="text"
-                                className="form-input"
+                            <label className="form-label">部門</label>
+                            <select
+                                className="form-select"
                                 value={formData.departmentCode || ''}
-                                onChange={(e) => setFormData({ ...formData, departmentCode: e.target.value })}
-                            />
+                                onChange={(e) => handleHierarchyChange('departmentCode', 'departmentName', 'departmentCode', 'departmentName', e.target.value, { lineCode: formData.lineCode })}
+                                disabled={!formData.lineCode}
+                            >
+                                <option value="">選択してください</option>
+                                {getHierarchyOptions('departmentCode', 'departmentName', { lineCode: formData.lineCode }).map(opt => (
+                                    <option key={opt.code} value={opt.code}>{opt.code}: {opt.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="form-group">
                             <label className="form-label">部門名</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.departmentName || ''}
-                                onChange={(e) => setFormData({ ...formData, departmentName: e.target.value })}
-                            />
+                            <input type="text" className="form-input" value={formData.departmentName || ''} readOnly />
                         </div>
 
-                        {/* カテゴリー */}
+                        {/* カテゴリ */}
                         <div className="form-group">
-                            <label className="form-label">カテゴリーCD</label>
-                            <input
-                                type="text"
-                                className="form-input"
+                            <label className="form-label">カテゴリ</label>
+                            <select
+                                className="form-select"
                                 value={formData.categoryCode || ''}
-                                onChange={(e) => setFormData({ ...formData, categoryCode: e.target.value })}
-                            />
+                                onChange={(e) => handleHierarchyChange('categoryCode', 'categoryName', 'categoryCode', 'categoryName', e.target.value, { departmentCode: formData.departmentCode })}
+                                disabled={!formData.departmentCode}
+                            >
+                                <option value="">選択してください</option>
+                                {getHierarchyOptions('categoryCode', 'categoryName', { departmentCode: formData.departmentCode }).map(opt => (
+                                    <option key={opt.code} value={opt.code}>{opt.code}: {opt.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="form-group">
                             <label className="form-label">カテゴリ名</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.categoryName || ''}
-                                onChange={(e) => setFormData({ ...formData, categoryName: e.target.value })}
-                            />
+                            <input type="text" className="form-input" value={formData.categoryName || ''} readOnly />
                         </div>
 
-                        {/* サブカテゴリー */}
+                        {/* サブカテゴリ */}
                         <div className="form-group">
-                            <label className="form-label">サブカテゴリーCD</label>
-                            <input
-                                type="text"
-                                className="form-input"
+                            <label className="form-label">サブカテゴリ</label>
+                            <select
+                                className="form-select"
                                 value={formData.subCategoryCode || ''}
-                                onChange={(e) => setFormData({ ...formData, subCategoryCode: e.target.value })}
-                            />
+                                onChange={(e) => handleHierarchyChange('subCategoryCode', 'subCategoryName', 'subCategoryCode', 'subCategoryName', e.target.value, { categoryCode: formData.categoryCode })}
+                                disabled={!formData.categoryCode}
+                            >
+                                <option value="">選択してください</option>
+                                {getHierarchyOptions('subCategoryCode', 'subCategoryName', { categoryCode: formData.categoryCode }).map(opt => (
+                                    <option key={opt.code} value={opt.code}>{opt.code}: {opt.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="form-group">
                             <label className="form-label">サブカテゴリ名</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.subCategoryName || ''}
-                                onChange={(e) => setFormData({ ...formData, subCategoryName: e.target.value })}
-                            />
+                            <input type="text" className="form-input" value={formData.subCategoryName || ''} readOnly />
                         </div>
 
                         {/* セグメント */}
                         <div className="form-group">
-                            <label className="form-label">セグメントCD</label>
-                            <input
-                                type="text"
-                                className="form-input"
+                            <label className="form-label">セグメント</label>
+                            <select
+                                className="form-select"
                                 value={formData.segmentCode || ''}
-                                onChange={(e) => setFormData({ ...formData, segmentCode: e.target.value })}
-                            />
+                                onChange={(e) => handleHierarchyChange('segmentCode', 'segmentName', 'segmentCode', 'segmentName', e.target.value, { subCategoryCode: formData.subCategoryCode })}
+                                disabled={!formData.subCategoryCode}
+                            >
+                                <option value="">選択してください</option>
+                                {getHierarchyOptions('segmentCode', 'segmentName', { subCategoryCode: formData.subCategoryCode }).map(opt => (
+                                    <option key={opt.code} value={opt.code}>{opt.code}: {opt.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="form-group">
                             <label className="form-label">セグメント名</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.segmentName || ''}
-                                onChange={(e) => setFormData({ ...formData, segmentName: e.target.value })}
-                            />
+                            <input type="text" className="form-input" value={formData.segmentName || ''} readOnly />
                         </div>
 
                         {/* サブセグメント */}
                         <div className="form-group">
-                            <label className="form-label">サブセグメントCD</label>
-                            <input
-                                type="text"
-                                className="form-input"
+                            <label className="form-label">サブセグメント</label>
+                            <select
+                                className="form-select"
                                 value={formData.subSegmentCode || ''}
-                                onChange={(e) => setFormData({ ...formData, subSegmentCode: e.target.value })}
-                            />
+                                onChange={(e) => handleHierarchyChange('subSegmentCode', 'subSegmentName', 'subSegmentCode', 'subSegmentName', e.target.value, { segmentCode: formData.segmentCode })}
+                                disabled={!formData.segmentCode}
+                            >
+                                <option value="">選択してください</option>
+                                {getHierarchyOptions('subSegmentCode', 'subSegmentName', { segmentCode: formData.segmentCode }).map(opt => (
+                                    <option key={opt.code} value={opt.code}>{opt.code}: {opt.name}</option>
+                                ))}
+                            </select>
                         </div>
                         <div className="form-group">
                             <label className="form-label">サブセグメント名</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.subSegmentName || ''}
-                                onChange={(e) => setFormData({ ...formData, subSegmentName: e.target.value })}
-                            />
+                            <input type="text" className="form-input" value={formData.subSegmentName || ''} readOnly />
                         </div>
                     </div>
                 )}
@@ -841,6 +913,6 @@ export function ProductMaster() {
                 selectedProducts={products.filter(p => selectedIds.has(p.id))}
                 onSave={handleBulkEdit}
             />
-        </div>
+        </div >
     );
 }

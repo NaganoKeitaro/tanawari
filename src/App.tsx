@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AppLayout } from './components/layout/AppLayout';
 import { HomePage } from './pages/HomePage';
 import { ProductMaster } from './pages/masters/ProductMaster';
+import { ProductHierarchyMaster } from './pages/masters/ProductHierarchyMaster';
 import { FixtureMaster } from './pages/masters/FixtureMaster';
 import { StoreMaster } from './pages/masters/StoreMaster';
 import { StoreFixtureMaster } from './pages/masters/StoreFixtureMaster';
@@ -30,6 +31,7 @@ function App() {
 
           {/* マスタ管理 */}
           <Route path="/masters/products" element={<ProductMaster />} />
+          <Route path="/masters/hierarchy" element={<ProductHierarchyMaster />} />
           <Route path="/masters/fixtures" element={<FixtureMaster />} />
           <Route path="/masters/stores" element={<StoreMaster />} />
           <Route path="/masters/store-fixtures" element={<StoreFixtureMaster />} />
