@@ -187,8 +187,8 @@ export function ProductMaster() {
 
     // 保存処理
     const handleSave = async () => {
-        if (!formData.name || !formData.jan) {
-            alert('商品名とJANコードは必須です');
+        if (!formData.name) {
+            alert('商品名は必須です');
             return;
         }
 
@@ -537,7 +537,9 @@ export function ProductMaster() {
                                             </span>
                                         </td>
                                         <td className="text-xs" style={{ fontFamily: 'var(--font-mono)' }}>
-                                            {product.jan}
+                                            {product.jan ? product.jan : (
+                                                <span className="badge" style={{ background: 'var(--color-warning)', color: 'white', fontSize: '0.7rem' }}>JANなし</span>
+                                            )}
                                         </td>
                                         <td>
                                             <div className="flex items-center gap-sm">
@@ -658,7 +660,7 @@ export function ProductMaster() {
                 {currentTab === 'basic' ? (
                     <>
                         <div className="form-group">
-                            <label className="form-label">JANコード *</label>
+                            <label className="form-label">JANコード</label>
                             <input
                                 type="text"
                                 className="form-input"

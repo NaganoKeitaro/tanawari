@@ -192,12 +192,12 @@ export function validateProductData(
     data.forEach((product, index) => {
         const rowNum = index + 2; // Excelの行番号（ヘッダー分+1）
 
-        // 必須項目チェック
+        // JAN未入力は警告（必須ではない）
         if (!product.jan || product.jan.trim() === '') {
-            errors.push({
+            warnings.push({
                 row: rowNum,
                 field: 'JAN',
-                message: 'JANコードは必須です'
+                message: 'JANコードが未入力です（JANなし商品として登録されます）'
             });
         }
 
@@ -252,13 +252,10 @@ export function categorizeImportData(
     const updateProducts: Partial<Product>[] = [];
     const errors: ValidationError[] = [];
 
-    data.forEach((product, index) => {
+    data.forEach((product) => {
         if (!product.jan) {
-            errors.push({
-                row: index + 2,
-                field: 'JAN',
-                message: 'JANコードがありません'
-            });
+            // JANなし商品は新規として登録
+            newProducts.push(product);
             return;
         }
 
