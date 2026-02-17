@@ -99,7 +99,7 @@ export function BulkEditModal({
                     >
                         {selectedProducts.map((product, idx) => (
                             <div key={product.id} className="text-sm" style={{ padding: '0.25rem' }}>
-                                {idx + 1}. {product.name} ({product.jan})
+                                {idx + 1}. {product.name} ({product.jan || 'JANなし'})
                             </div>
                         ))}
                     </div>

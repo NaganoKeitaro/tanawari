@@ -151,10 +151,10 @@ export function ExcelImportModal({
                                 <strong>対応形式:</strong> Excel (.xlsx, .xls), CSV (.csv)
                             </div>
                             <div className="text-sm text-muted mb-sm">
-                                <strong>必須カラム:</strong> JAN, 商品名
+                                <strong>必須カラム:</strong> 商品名
                             </div>
                             <div className="text-sm text-muted mb-sm">
-                                <strong>任意カラム:</strong> 事業部CD, 事業部, ディビジョンCD, ディビジョン名,
+                                <strong>任意カラム:</strong> JAN, 事業部CD, 事業部, ディビジョンCD, ディビジョン名,
                                 ラインCD, ライン名, 部門CD, 部門名, カテゴリーCD, カテゴリ名,
                                 サブカテゴリーCD, サブカテゴリ名, セグメントCD, セグメント名,
                                 サブセグメントCD, サブセグメント名

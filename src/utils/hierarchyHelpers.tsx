@@ -95,7 +95,9 @@ export function renderHierarchyLevel(
                                                 </span>
                                             </td>
                                             <td style={{ padding: '0.25rem', fontFamily: 'var(--font-mono)' }}>
-                                                {product.jan}
+                                                {product.jan ? product.jan : (
+                                                    <span className="badge" style={{ background: 'var(--color-warning)', color: 'white', fontSize: '0.7rem' }}>JANなし</span>
+                                                )}
                                             </td>
                                             <td style={{ padding: '0.25rem' }}>{product.name}</td>
                                             <td style={{ padding: '0.25rem', textAlign: 'right' }}>
