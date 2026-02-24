@@ -1,27 +1,45 @@
 // 棚割管理システム - 棚マスタ（什器マスタ）
 import { useState, useEffect, useCallback } from 'react';
-import type { Fixture } from '../../data/types';
+import type { Fixture, FixtureType } from '../../data/types';
+import { FIXTURE_TYPES } from '../../data/types';
 import { fixtureRepository } from '../../data/repositories/localStorageRepository';
 import { Modal } from '../../components/common/Modal';
 import { UnitInput } from '../../components/common/UnitInput';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 
+// 什器タイプの日本語ラベル
+const FIXTURE_TYPE_LABELS: Record<FixtureType, string> = {
+    'multi-tier': '多段',
+    'flat-refrigerated': '平台冷蔵',
+    'flat-frozen': '平台冷凍',
+    'end-cap-refrigerated': '平台冷蔵エンド',
+    'end-cap-frozen': '平台冷凍エンド',
+    'gondola': 'ゴンドラ'
+};
+
 interface FixtureFormData {
     name: string;
     width: number;
     height: number;
+    depth: number;
     shelfCount: number;
+    fixtureType: FixtureType;
     manufacturer: string;
     modelNumber: string;
     installDate: string;
     warrantyEndDate: string;
 }
 
+// 平台系かどうか判定するヘルパー
+const isFlatFixtureType = (type: FixtureType) => type !== 'multi-tier' && type !== 'gondola';
+
 const initialFormData: FixtureFormData = {
     name: '',
     width: 90,
     height: 180,
+    depth: 60,
     shelfCount: 5,
+    fixtureType: 'multi-tier',
     manufacturer: '',
     modelNumber: '',
     installDate: '',
@@ -55,7 +73,9 @@ export function FixtureMaster() {
                 name: fixture.name,
                 width: fixture.width,
                 height: fixture.height,
+                depth: fixture.depth || 60,
                 shelfCount: fixture.shelfCount,
+                fixtureType: fixture.fixtureType || 'multi-tier',
                 manufacturer: fixture.manufacturer || '',
                 modelNumber: fixture.modelNumber || '',
                 installDate: fixture.installDate || '',
@@ -138,8 +158,9 @@ export function FixtureMaster() {
                             <thead>
                                 <tr>
                                     <th>什器名</th>
+                                    <th>什器タイプ</th>
                                     <th>幅</th>
-                                    <th>高さ</th>
+                                    <th>高さ/奥行</th>
                                     <th>段数</th>
                                     <th>メーカー / 型番</th>
                                     <th>設置日</th>
@@ -164,16 +185,38 @@ export function FixtureMaster() {
                                                         borderRadius: 'var(--radius-sm)',
                                                         fontSize: '1rem'
                                                     }}>
-                                                        🗄️
+                                                        {fixture.fixtureType && fixture.fixtureType !== 'multi-tier' ? '📦' : '🗄️'}
                                                     </span>
                                                     <span>{fixture.name}</span>
                                                 </div>
                                             </td>
                                             <td>
+                                                <span className="badge" style={{
+                                                    backgroundColor: fixture.fixtureType && fixture.fixtureType !== 'multi-tier'
+                                                        ? 'rgba(34, 197, 94, 0.15)'
+                                                        : 'rgba(99, 102, 241, 0.15)',
+                                                    color: fixture.fixtureType && fixture.fixtureType !== 'multi-tier'
+                                                        ? '#22C55E'
+                                                        : 'var(--color-primary)'
+                                                }}>
+                                                    {FIXTURE_TYPE_LABELS[fixture.fixtureType || 'multi-tier']}
+                                                </span>
+                                            </td>
+                                            <td>
                                                 <UnitDisplay valueCm={fixture.width} className="text-sm" />
                                             </td>
                                             <td>
-                                                <UnitDisplay valueCm={fixture.height} className="text-sm" />
+                                                {isFlatFixtureType(fixture.fixtureType || 'multi-tier') ? (
+                                                    <span className="text-sm">
+                                                        <span className="text-xs text-muted">奥行 </span>
+                                                        <UnitDisplay valueCm={fixture.depth || fixture.height} className="text-sm" />
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-sm">
+                                                        <span className="text-xs text-muted">高さ </span>
+                                                        <UnitDisplay valueCm={fixture.height} className="text-sm" />
+                                                    </span>
+                                                )}
                                             </td>
                                             <td>
                                                 <span className="badge badge-primary">{fixture.shelfCount}段</span>
@@ -257,6 +300,35 @@ export function FixtureMaster() {
                     />
                 </div>
 
+                <div className="form-group">
+                    <label className="form-label">什器タイプ</label>
+                    <select
+                        className="form-select"
+                        value={formData.fixtureType}
+                        onChange={(e) => {
+                            const newType = e.target.value as FixtureType;
+                            const isFlat = isFlatFixtureType(newType);
+                            setFormData({
+                                ...formData,
+                                fixtureType: newType,
+                                // 平台系：段数1、高さリセット、奥行きデフォルト60
+                                ...(isFlat ? { shelfCount: 1, height: 0, depth: formData.depth || 60 } : {}),
+                                // 多段系：高さ復帰
+                                ...(!isFlat && formData.height === 0 ? { height: 180, shelfCount: 5 } : {})
+                            });
+                        }}
+                    >
+                        {FIXTURE_TYPES.map(type => (
+                            <option key={type} value={type}>
+                                {FIXTURE_TYPE_LABELS[type]}
+                            </option>
+                        ))}
+                    </select>
+                    <div className="form-hint">
+                        平台系は高さの代わりに奥行きを入力します
+                    </div>
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                     <UnitInput
                         label="幅 (W)"
@@ -265,13 +337,23 @@ export function FixtureMaster() {
                         min={30}
                         max={300}
                     />
-                    <UnitInput
-                        label="高さ (H)"
-                        value={formData.height}
-                        onChange={(h) => setFormData({ ...formData, height: h })}
-                        min={60}
-                        max={300}
-                    />
+                    {isFlatFixtureType(formData.fixtureType) ? (
+                        <UnitInput
+                            label="奥行き (D)"
+                            value={formData.depth}
+                            onChange={(d) => setFormData({ ...formData, depth: d })}
+                            min={20}
+                            max={200}
+                        />
+                    ) : (
+                        <UnitInput
+                            label="高さ (H)"
+                            value={formData.height}
+                            onChange={(h) => setFormData({ ...formData, height: h })}
+                            min={60}
+                            max={300}
+                        />
+                    )}
                 </div>
 
                 <div className="form-group">

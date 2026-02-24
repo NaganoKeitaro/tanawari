@@ -90,7 +90,8 @@ export interface Fixture {
   id: string;
   name: string;
   width: number;       // cm
-  height: number;      // cm
+  height: number;      // cm（多段・ゴンドラの場合）
+  depth?: number;      // cm（平台の場合の奥行き）
   shelfCount: number;  // 段数
   manufacturer?: string;
   modelNumber?: string;
