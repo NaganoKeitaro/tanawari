@@ -815,7 +815,7 @@ export function StandardPlanogramEditor() {
                                                     return (
                                                         <>
                                                             {compositionText}
-                                                            （総幅: {currentPlanogram.width}cm ({totalShaku > 0 ? `${totalShaku}尺` : ''})）
+                                                            （総幅: {totalShaku * 30}cm ({totalShaku > 0 ? `${totalShaku}尺` : ''})）
                                                         </>
                                                     );
                                                 })()}
