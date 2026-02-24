@@ -70,7 +70,8 @@ function DraggableBlock({ block }: { block: ShelfBlock }) {
         >
             <div style={{ fontWeight: 500 }}>{block.name}</div>
             <div className="text-xs text-muted">
-                <UnitDisplay valueCm={block.width} /> × {block.blockType === 'flat' ? '（奥行）' : `${block.shelfCount}段`}
+                <UnitDisplay valueCm={block.width} /> × <UnitDisplay valueCm={block.blockType === 'flat' ? (block as any).depth || 0 : block.height} />
+                {block.blockType !== 'flat' && ` / ${block.shelfCount}段`}
             </div>
             <div className="text-xs text-muted">
                 {block.productPlacements.length} 商品
@@ -443,11 +444,18 @@ export function StandardPlanogramEditor() {
 
         for (const placement of storePlacements) {
             const fixture = fixtures.find(f => f.id === placement.fixtureId);
-            // 什器タイプが一致するか確認
-            if (fixture && fixture.fixtureType === selectedFixtureType) {
+            if (!fixture) continue;
+
+            // 什器タイプが一致するか確認 (多段系は multi-tier, gondola / 平台系は flat-xxx)
+            const fType = fixture.fixtureType || '';
+            const isMatch = (selectedFixtureType === 'multi-tier' && ['multi-tier', 'gondola'].includes(fType as any)) ||
+                (selectedFixtureType === fType);
+
+            if (isMatch) {
                 totalWidth += fixture.width;
-                maxHeight = Math.max(maxHeight, fixture.height);
-                maxShelfCount = Math.max(maxShelfCount, fixture.shelfCount);
+                const isFlatOrEnd = String(fixture.fixtureType).includes('flat') || String(fixture.fixtureType).includes('end-cap');
+                maxHeight = Math.max(maxHeight, isFlatOrEnd ? ((fixture as any).depth || fixture.height) : fixture.height);
+                maxShelfCount = Math.max(maxShelfCount, isFlatOrEnd ? 1 : fixture.shelfCount);
             }
         }
 
@@ -622,6 +630,50 @@ export function StandardPlanogramEditor() {
         setPlanograms(planograms.map(p => p.id === currentPlanogram.id ? updated : p));
     };
 
+    // 什器構成テキストの生成
+    const generateFixtureCompositionText = useCallback(() => {
+        if (!currentPlanogram || !selectedStoreId) return { compositionText: '', totalShaku: 0 };
+
+        const storePlacements = placements.filter(p => p.storeId === selectedStoreId);
+        const composition: { [key: string]: number } = {};
+
+        for (const placement of storePlacements) {
+            const fixture = fixtures.find(f => f.id === placement.fixtureId);
+            if (!fixture) continue;
+
+            const fType = fixture.fixtureType || '';
+            const isMatch = (selectedFixtureType === 'multi-tier' && ['multi-tier', 'gondola'].includes(fType as any)) ||
+                (selectedFixtureType === fType);
+
+            if (isMatch) {
+                const isFlatOrEnd = String(fixture.fixtureType).includes('flat') || String(fixture.fixtureType).includes('end-cap');
+                const shaku = Math.round(fixture.width / 30);
+
+                let key = '';
+                if (isFlatOrEnd) {
+                    key = `${shaku}尺平台`;
+                } else {
+                    key = `${shaku}尺${fixture.shelfCount}段棚`;
+                }
+
+                composition[key] = (composition[key] || 0) + 1;
+            }
+        }
+
+        let totalShaku = 0;
+        const parts = Object.entries(composition).map(([key, count]) => {
+            // "3尺平台" や "4尺4段棚" から最初の数字（尺数）を抽出
+            const match = key.match(/^(\d+)尺/);
+            if (match) {
+                totalShaku += parseInt(match[1], 10) * count;
+            }
+            return `${key}×${count}`;
+        });
+
+        const compositionText = parts.length > 0 ? parts.join('、') : '什器なし';
+        return { compositionText, totalShaku };
+    }, [currentPlanogram, selectedStoreId, placements, fixtures, selectedFixtureType]);
+
     // FMTでフィルターした店舗（什器配置済みのみ）
     const availableStores = stores.filter(s => {
         if (selectedFmt && s.fmt !== selectedFmt) return false;
@@ -758,7 +810,15 @@ export function StandardPlanogramEditor() {
                                         <div>
                                             <h3 className="card-title">{currentPlanogram.name}</h3>
                                             <div className="text-sm text-muted">
-                                                <UnitDisplay valueCm={currentPlanogram.width} /> × <UnitDisplay valueCm={currentPlanogram.height} /> / {currentPlanogram.shelfCount}段
+                                                {(() => {
+                                                    const { compositionText, totalShaku } = generateFixtureCompositionText();
+                                                    return (
+                                                        <>
+                                                            {compositionText}
+                                                            （総幅: {currentPlanogram.width}cm ({totalShaku > 0 ? `${totalShaku}尺` : ''})）
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--spacing-md)' }}>
