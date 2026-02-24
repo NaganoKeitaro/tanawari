@@ -280,6 +280,10 @@ export function InstructionSheet() {
     const [standardPlanograms, setStandardPlanograms] = useState<StandardPlanogram[]>([]);
     const [loading, setLoading] = useState(false);
 
+    // 検索フィルタ
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterFmt, setFilterFmt] = useState('');
+
     // 指示書ヘッダー情報
     const [sheetTitle, setSheetTitle] = useState('棚割変更指示書');
     const [effectiveDate, setEffectiveDate] = useState(new Date().toISOString().split('T')[0]);
@@ -328,6 +332,40 @@ export function InstructionSheet() {
         setSelectedStoreId(storeId);
         loadStoreData(storeId);
     };
+
+    // フィルター適用
+    const filteredStores = useMemo(() => {
+        return stores.filter(store => {
+            // FMTフィルター
+            if (filterFmt && store.fmt !== filterFmt) {
+                return false;
+            }
+            // テキスト検索フィルター (店舗名、店舗コード)
+            if (searchQuery) {
+                // 全角・半角・大文字・小文字を無視して比較するために正規化
+                const normalizeStr = (str: string) => str.normalize('NFKC').toLowerCase();
+                const lowerQuery = normalizeStr(searchQuery);
+                const matchName = normalizeStr(store.name).includes(lowerQuery);
+                const matchCode = normalizeStr(store.code).includes(lowerQuery);
+                if (!matchName && !matchCode) {
+                    return false;
+                }
+            }
+            return true;
+        });
+    }, [stores, searchQuery, filterFmt]);
+
+    // フィルタ結果が変わった際に、選択中の店舗がフィルタ結果に含まれなくなった場合は選択を解除する
+    useEffect(() => {
+        if (selectedStoreId && !filteredStores.some(s => s.id === selectedStoreId)) {
+            // フィルタ結果が空でなければ先頭を選択、空なら未選択にする
+            if (filteredStores.length > 0) {
+                handleStoreChange(filteredStores[0].id);
+            } else {
+                handleStoreChange('');
+            }
+        }
+    }, [filteredStores, selectedStoreId, loadStoreData]);
 
     const selectedStore = stores.find(s => s.id === selectedStoreId);
 
@@ -397,7 +435,39 @@ export function InstructionSheet() {
 
             {/* ===== 設定セクション（印刷時非表示） ===== */}
             <div className="card mb-lg no-print">
-                <h3 className="card-title mb-md">指示書設定</h3>
+                <h3 className="card-title mb-md">対象店舗の検索・選択</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) auto', gap: '1rem', alignItems: 'end', marginBottom: '1rem' }}>
+                    <div>
+                        <label className="form-label">店舗名・コード検索</label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="検索..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                    </div>
+                    <div>
+                        <label className="form-label">FMT</label>
+                        <div className="flex items-center gap-xs">
+                            <button
+                                className={`btn btn-sm ${!filterFmt ? 'btn-primary' : 'btn-secondary'}`}
+                                onClick={() => setFilterFmt('')}
+                            >
+                                全て
+                            </button>
+                            {['MEGA', 'SuC', 'SMART', 'GO'].map(fmt => (
+                                <button
+                                    key={fmt}
+                                    className={`btn btn-sm ${filterFmt === fmt ? 'btn-primary' : 'btn-secondary'}`}
+                                    onClick={() => setFilterFmt(fmt)}
+                                >
+                                    {fmt}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', alignItems: 'end' }}>
                     <div>
                         <label className="form-label">対象店舗</label>
@@ -407,7 +477,7 @@ export function InstructionSheet() {
                             onChange={e => handleStoreChange(e.target.value)}
                         >
                             <option value="">-- 店舗を選択 --</option>
-                            {stores.map(s => (
+                            {filteredStores.map(s => (
                                 <option key={s.id} value={s.id}>{s.code} - {s.name} ({s.fmt})</option>
                             ))}
                         </select>
