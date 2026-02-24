@@ -235,9 +235,21 @@ export function ProductMaster() {
             }
         }
 
+        // 新規商品をJANで重複排除（同一JANは後の行が優先＝上書き）
+        const deduplicatedNew = new Map<string, Partial<Product>>();
+        const noJanProducts: Partial<Product>[] = [];
+        for (const product of newProductsWithRank) {
+            if (product.jan && product.jan.trim() !== '') {
+                deduplicatedNew.set(product.jan, product);
+            } else {
+                noJanProducts.push(product);
+            }
+        }
+        const uniqueNewProducts = [...deduplicatedNew.values(), ...noJanProducts];
+
         // 新規商品を一括作成（createBulkで1回のread/writeで全件追加）
-        if (newProductsWithRank.length > 0) {
-            const newItems = newProductsWithRank.map(product => ({
+        if (uniqueNewProducts.length > 0) {
+            const newItems = uniqueNewProducts.map(product => ({
                 ...product,
                 width: product.width || 10,
                 height: product.height || 15,
@@ -247,7 +259,7 @@ export function ProductMaster() {
                 salesRank: product.salesRank || 50,
             } as Omit<Product, 'id'>));
             await productRepository.createBulk(newItems);
-            console.log(`新規商品 ${newProductsWithRank.length}件を一括登録しました`);
+            console.log(`新規商品 ${uniqueNewProducts.length}件を一括登録しました`);
         }
 
         // 既存商品を一括更新（updateBulkで1回のread/writeで全件更新）
