@@ -87,7 +87,8 @@ function PlanogramCanvas({
     blockMasters,
     analyticsMode,
     selectedMetric,
-    onDeleteBlock
+    onDeleteBlock,
+    actualWidth
 }: {
     planogram: StandardPlanogram;
     products: Product[];
@@ -95,6 +96,7 @@ function PlanogramCanvas({
     analyticsMode?: boolean;
     selectedMetric?: 'sales' | 'grossProfit' | 'quantity' | 'traffic';
     onDeleteBlock?: (blockId: string) => void;
+    actualWidth?: number;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: 'planogram-canvas',
@@ -136,7 +138,7 @@ function PlanogramCanvas({
             <div
                 className="shelf-grid"
                 style={{
-                    width: `${planogram.width * SCALE}px`,
+                    width: `${(actualWidth || planogram.width) * SCALE}px`,
                     minHeight: `${planogram.height * SCALE}px`,
                     position: 'relative'
                 }}
@@ -522,7 +524,10 @@ export function StandardPlanogramEditor() {
 
         // 途中に隙間がなければ、最後尾をチェック
         if (insertX === -1) {
-            const gap = currentPlanogram.width - currentScanX;
+            // 什器構成から動的に算出した総幅を使用（作成時の固定値ではなく）
+            const { totalShaku } = generateFixtureCompositionText();
+            const actualWidth = totalShaku > 0 ? totalShaku * 30 : currentPlanogram.width;
+            const gap = actualWidth - currentScanX;
             if (gap >= newBlockWidth - 0.1) {
                 insertX = currentScanX;
             }
@@ -860,6 +865,10 @@ export function StandardPlanogramEditor() {
                                             analyticsMode={analyticsMode}
                                             selectedMetric={selectedMetric}
                                             onDeleteBlock={handleDeleteBlock}
+                                            actualWidth={(() => {
+                                                const { totalShaku } = generateFixtureCompositionText();
+                                                return totalShaku > 0 ? totalShaku * 30 : currentPlanogram.width;
+                                            })()}
                                         />
                                     </div>
                                 </div>
