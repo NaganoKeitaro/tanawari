@@ -180,6 +180,7 @@ function BlockCard({
     onClick: () => void;
     onDelete: () => void;
 }) {
+    const isFlat = block.blockType === 'flat';
     return (
         <div className="card" style={{ cursor: 'pointer' }} onClick={onClick}>
             <div className="flex items-center justify-between mb-sm">
@@ -192,9 +193,10 @@ function BlockCard({
                 </button>
             </div>
             <div className="text-sm text-muted">
-                <UnitDisplay valueCm={block.width} /> × <UnitDisplay valueCm={block.height} />
+                <UnitDisplay valueCm={block.width} /> × <UnitDisplay valueCm={block.height} /> {isFlat ? '（奥行）' : '（高さ）'}
             </div>
-            <div className="text-sm text-muted">{block.shelfCount}段 / {block.productPlacements.length}商品</div>
+            {!isFlat && <div className="text-sm text-muted">{block.shelfCount}段 / {block.productPlacements.length}商品</div>}
+            {isFlat && <div className="text-sm text-muted">{block.productPlacements.length}商品</div>}
             {block.description && (
                 <div className="text-xs text-muted mt-sm">{block.description}</div>
             )}
@@ -210,11 +212,20 @@ export function ShelfBlockEditor() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [activeProduct, setActiveProduct] = useState<Product | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [activeTab, setActiveTab] = useState<'multi-tier' | 'flat'>('multi-tier');
 
     // 新規ブロックフォーム
-    const [newBlock, setNewBlock] = useState({
+    const [newBlock, setNewBlock] = useState<{
+        name: string;
+        description: string;
+        blockType: 'multi-tier' | 'flat';
+        width: number;
+        height: number;
+        shelfCount: number;
+    }>({
         name: '',
         description: '',
+        blockType: activeTab,
         width: 90,
         height: 180,
         shelfCount: 5
@@ -256,9 +267,10 @@ export function ShelfBlockEditor() {
         const created = await shelfBlockRepository.create({
             name: newBlock.name,
             description: newBlock.description,
+            blockType: newBlock.blockType,
             width: newBlock.width,
             height: newBlock.height,
-            shelfCount: newBlock.shelfCount,
+            shelfCount: newBlock.blockType === 'flat' ? 1 : newBlock.shelfCount,
             productPlacements: [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
@@ -266,7 +278,7 @@ export function ShelfBlockEditor() {
 
         setBlocks([...blocks, created]);
         setIsCreateModalOpen(false);
-        setNewBlock({ name: '', description: '', width: 90, height: 180, shelfCount: 5 });
+        setNewBlock({ name: '', description: '', blockType: activeTab, width: 90, height: 180, shelfCount: 5 });
         setSelectedBlock(created);
     };
 
@@ -439,16 +451,49 @@ export function ShelfBlockEditor() {
                 <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 280px', gap: '1.5rem' }}>
                     {/* ブロック一覧 */}
                     <div>
+                        {/* タブ */}
+                        <div className="flex border-b border-border mb-md">
+                            <button
+                                className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'multi-tier'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted hover:text-foreground'
+                                    }`}
+                                onClick={() => {
+                                    setActiveTab('multi-tier');
+                                    setNewBlock(prev => ({ ...prev, blockType: 'multi-tier' }));
+                                    setSelectedBlock(null);
+                                }}
+                            >
+                                多段
+                            </button>
+                            <button
+                                className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'flat'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted hover:text-foreground'
+                                    }`}
+                                onClick={() => {
+                                    setActiveTab('flat');
+                                    setNewBlock(prev => ({ ...prev, blockType: 'flat' }));
+                                    setSelectedBlock(null);
+                                }}
+                            >
+                                平台
+                            </button>
+                        </div>
+
                         <div className="card mb-md">
                             <button
                                 className="btn btn-primary w-full"
-                                onClick={() => setIsCreateModalOpen(true)}
+                                onClick={() => {
+                                    setNewBlock({ name: '', description: '', blockType: activeTab, width: 90, height: activeTab === 'flat' ? 90 : 180, shelfCount: 5 });
+                                    setIsCreateModalOpen(true);
+                                }}
                             >
                                 ＋ 新規ブロック
                             </button>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            {blocks.map(block => (
+                            {blocks.filter(b => (b.blockType || 'multi-tier') === activeTab).map(block => (
                                 <BlockCard
                                     key={block.id}
                                     block={block}
@@ -456,7 +501,7 @@ export function ShelfBlockEditor() {
                                     onDelete={() => handleDeleteBlock(block.id)}
                                 />
                             ))}
-                            {blocks.length === 0 && (
+                            {blocks.filter(b => (b.blockType || 'multi-tier') === activeTab).length === 0 && (
                                 <div className="text-center text-muted" style={{ padding: '2rem' }}>
                                     ブロックがありません
                                 </div>
@@ -472,7 +517,7 @@ export function ShelfBlockEditor() {
                                     <div>
                                         <h3 className="card-title">{selectedBlock.name}</h3>
                                         <div className="text-sm text-muted">
-                                            <UnitDisplay valueCm={selectedBlock.width} /> × <UnitDisplay valueCm={selectedBlock.height} /> / {selectedBlock.shelfCount}段
+                                            <UnitDisplay valueCm={selectedBlock.width} /> × <UnitDisplay valueCm={selectedBlock.height} /> {selectedBlock.blockType === 'flat' ? '（奥行）' : ` / ${selectedBlock.shelfCount}段`}
                                         </div>
                                     </div>
                                 </div>
@@ -593,7 +638,7 @@ export function ShelfBlockEditor() {
                         className="form-input"
                         value={newBlock.name}
                         onChange={(e) => setNewBlock({ ...newBlock, name: e.target.value })}
-                        placeholder="焼肉セットブロック"
+                        placeholder={newBlock.blockType === 'flat' ? "精肉平台ブロック" : "焼肉セットブロック"}
                     />
                 </div>
 
@@ -615,24 +660,26 @@ export function ShelfBlockEditor() {
                         min={30}
                     />
                     <UnitInput
-                        label="高さ"
+                        label={newBlock.blockType === 'flat' ? '奥行き' : '高さ'}
                         value={newBlock.height}
                         onChange={(h) => setNewBlock({ ...newBlock, height: h })}
-                        min={60}
+                        min={30}
                     />
                 </div>
 
-                <div className="form-group">
-                    <label className="form-label">段数</label>
-                    <input
-                        type="number"
-                        className="form-input"
-                        value={newBlock.shelfCount}
-                        onChange={(e) => setNewBlock({ ...newBlock, shelfCount: parseInt(e.target.value) || 1 })}
-                        min={1}
-                        max={10}
-                    />
-                </div>
+                {newBlock.blockType === 'multi-tier' && (
+                    <div className="form-group">
+                        <label className="form-label">段数</label>
+                        <input
+                            type="number"
+                            className="form-input"
+                            value={newBlock.shelfCount}
+                            onChange={(e) => setNewBlock({ ...newBlock, shelfCount: parseInt(e.target.value) || 1 })}
+                            min={1}
+                            max={10}
+                        />
+                    </div>
+                )}
             </Modal>
         </div>
     );

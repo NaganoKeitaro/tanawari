@@ -136,9 +136,10 @@ export interface ShelfBlock {
   id: string;
   name: string;
   description?: string;
+  blockType?: 'multi-tier' | 'flat'; // ブロックの種別（多段 / 平台）
   width: number;       // cm（ブロック幅）
-  height: number;      // cm（ブロック高さ）
-  shelfCount: number;  // 段数
+  height: number;      // cm（ブロック高さ / 平台の場合は奥行きとして扱う）
+  shelfCount: number;  // 段数（平台の場合は実質1となる）
   productPlacements: ProductPlacement[];
   createdAt: string;
   updatedAt: string;
