@@ -37,6 +37,22 @@ import type { Fixture, StoreFixturePlacement } from '../../data/types';
 
 const SCALE = 3;
 
+// ブロックオーバーレイ用カラーパレット
+const BLOCK_OVERLAY_COLORS = [
+    { bg: 'rgba(99, 102, 241, 0.35)', border: 'rgba(99, 102, 241, 0.7)', text: '#4338ca' },   // Indigo
+    { bg: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.7)', text: '#065f46' },   // Emerald
+    { bg: 'rgba(245, 158, 11, 0.35)', border: 'rgba(245, 158, 11, 0.7)', text: '#92400e' },   // Amber
+    { bg: 'rgba(239, 68, 68, 0.35)', border: 'rgba(239, 68, 68, 0.7)', text: '#991b1b' },   // Red
+    { bg: 'rgba(59, 130, 246, 0.35)', border: 'rgba(59, 130, 246, 0.7)', text: '#1e40af' },   // Blue
+    { bg: 'rgba(168, 85, 247, 0.35)', border: 'rgba(168, 85, 247, 0.7)', text: '#6b21a8' },   // Purple
+    { bg: 'rgba(236, 72, 153, 0.35)', border: 'rgba(236, 72, 153, 0.7)', text: '#9d174d' },   // Pink
+    { bg: 'rgba(20, 184, 166, 0.35)', border: 'rgba(20, 184, 166, 0.7)', text: '#115e59' },   // Teal
+];
+
+function getBlockOverlayColor(index: number) {
+    return BLOCK_OVERLAY_COLORS[index % BLOCK_OVERLAY_COLORS.length];
+}
+
 // 什器グループ定義
 type FixtureGroup = 'multi-tier' | 'flat';
 
@@ -867,6 +883,81 @@ export function StorePlanogramEditor() {
                                         };
                                     };
 
+                                    // ブロック→什器マッピング計算
+                                    // 什器種別ごとに、配置順に並べた什器の累積幅と、標準棚割のブロック位置を対応させる
+                                    type FixtureBlockOverlay = {
+                                        blockName: string;
+                                        colorIndex: number;
+                                        relativeStartX: number; // 什器内の開始位置 (cm)
+                                        relativeEndX: number;   // 什器内の終了位置 (cm)
+                                        fixtureWidth: number;   // 什器幅 (cm)
+                                        isOverflow: boolean;    // はみ出し
+                                    };
+                                    const fixtureBlockOverlays = new Map<string, FixtureBlockOverlay[]>();
+
+                                    // 各什器タイプグループごとにブロックマッピングを生成
+                                    for (const groupKey of Object.keys(FIXTURE_GROUPS) as FixtureGroup[]) {
+                                        const groupTypes = FIXTURE_GROUPS[groupKey].types;
+
+                                        // このグループに対応する標準棚割を探す
+                                        for (const fType of groupTypes) {
+                                            const storePlan = allStorePlanograms.find(sp => {
+                                                const std = allStandardPlanograms.find(s => s.id === sp.standardPlanogramId);
+                                                return (std?.fixtureType || 'multi-tier') === fType;
+                                            });
+                                            const stdPlan = storePlan
+                                                ? allStandardPlanograms.find(s => s.id === storePlan.standardPlanogramId)
+                                                : null;
+                                            if (!stdPlan || !stdPlan.blocks.length) continue;
+
+                                            // このタイプの什器配置を取得（order順）
+                                            const typePlacements = placements
+                                                .filter(p => {
+                                                    const f = fixtures.find(fix => fix.id === p.fixtureId);
+                                                    return f && (f.fixtureType || 'multi-tier') === fType;
+                                                })
+                                                .sort((a, b) => a.order - b.order);
+
+                                            // 累積幅マップ
+                                            const ranges: { placementId: string; startX: number; endX: number; width: number }[] = [];
+                                            let cumX = 0;
+                                            for (const tp of typePlacements) {
+                                                const f = fixtures.find(fix => fix.id === tp.fixtureId);
+                                                if (!f) continue;
+                                                ranges.push({ placementId: tp.id, startX: cumX, endX: cumX + f.width, width: f.width });
+                                                cumX += f.width;
+                                            }
+
+                                            // 各ブロックをどの什器に重なるか計算
+                                            stdPlan.blocks.forEach((pb, blockIdx) => {
+                                                const master = blocks.find(b => b.id === pb.blockId);
+                                                if (!master) return;
+
+                                                const blockStart = pb.positionX;
+                                                const blockEnd = pb.positionX + master.width;
+
+                                                for (const range of ranges) {
+                                                    const overlapStart = Math.max(blockStart, range.startX);
+                                                    const overlapEnd = Math.min(blockEnd, range.endX);
+
+                                                    if (overlapStart < overlapEnd) {
+                                                        const overlay: FixtureBlockOverlay = {
+                                                            blockName: master.name,
+                                                            colorIndex: blockIdx,
+                                                            relativeStartX: overlapStart - range.startX,
+                                                            relativeEndX: overlapEnd - range.startX,
+                                                            fixtureWidth: range.width,
+                                                            isOverflow: blockEnd > cumX
+                                                        };
+                                                        const existing = fixtureBlockOverlays.get(range.placementId) || [];
+                                                        existing.push(overlay);
+                                                        fixtureBlockOverlays.set(range.placementId, existing);
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    }
+
                                     // レイアウト範囲を計算
                                     let maxX = 0;
                                     let maxY = 0;
@@ -976,6 +1067,67 @@ export function StorePlanogramEditor() {
                                                                     ))}
                                                                 </div>
                                                             )}
+
+                                                            {/* 棚ブロックオーバーレイ */}
+                                                            {fixtureBlockOverlays.get(p.id)?.map((overlay, overlayIdx) => {
+                                                                const color = getBlockOverlayColor(overlay.colorIndex);
+                                                                const overlayWidthCm = overlay.relativeEndX - overlay.relativeStartX;
+                                                                return (
+                                                                    <div
+                                                                        key={`block-${overlayIdx}`}
+                                                                        style={{
+                                                                            position: 'absolute',
+                                                                            left: `${overlay.relativeStartX * LAYOUT_SCALE}px`,
+                                                                            top: 0,
+                                                                            width: `${overlayWidthCm * LAYOUT_SCALE}px`,
+                                                                            height: '100%',
+                                                                            background: color.bg,
+                                                                            border: `1.5px dashed ${color.border}`,
+                                                                            borderRadius: '3px',
+                                                                            pointerEvents: 'none',
+                                                                            zIndex: 3,
+                                                                            display: 'flex',
+                                                                            alignItems: 'flex-end',
+                                                                            justifyContent: 'center',
+                                                                            overflow: 'hidden'
+                                                                        }}
+                                                                    >
+                                                                        {/* ブロック名ラベル */}
+                                                                        <div style={{
+                                                                            fontSize: `${Math.max(7, 8 * LAYOUT_SCALE)}px`,
+                                                                            fontWeight: 600,
+                                                                            color: color.text,
+                                                                            background: 'rgba(255,255,255,0.8)',
+                                                                            padding: '1px 4px',
+                                                                            borderRadius: '2px',
+                                                                            whiteSpace: 'nowrap',
+                                                                            overflow: 'hidden',
+                                                                            textOverflow: 'ellipsis',
+                                                                            maxWidth: '100%',
+                                                                            marginBottom: '2px',
+                                                                            lineHeight: 1.2
+                                                                        }}>
+                                                                            {overlay.blockName}
+                                                                        </div>
+                                                                        {/* はみ出し警告 */}
+                                                                        {overlay.isOverflow && (
+                                                                            <div style={{
+                                                                                position: 'absolute',
+                                                                                top: '2px',
+                                                                                right: '2px',
+                                                                                fontSize: `${Math.max(6, 7 * LAYOUT_SCALE)}px`,
+                                                                                fontWeight: 700,
+                                                                                color: '#dc2626',
+                                                                                background: 'rgba(255,255,255,0.9)',
+                                                                                padding: '0px 3px',
+                                                                                borderRadius: '2px'
+                                                                            }}>
+                                                                                ⚠
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     </div>
                                                 );
