@@ -33,7 +33,6 @@ import {
 import { syncStorePlanogram, generateStorePlanogram } from '../../services/automationService';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
-import { StoreLayoutVisualizer } from '../../components/layout/StoreLayoutVisualizer';
 import type { Fixture, StoreFixturePlacement } from '../../data/types';
 
 const SCALE = 3;
@@ -832,27 +831,159 @@ export function StorePlanogramEditor() {
                             );
                         })}
 
-                        {/* 売り場レイアウト表示 */}
-                        <div className="mt-lg">
-                            <StoreLayoutVisualizer
-                                store={store}
-                                placements={placements}
-                                fixtures={fixtures}
-                                blocks={blocks}
-                                planogramBlocks={
-                                    allStorePlanograms
-                                        .map(sp => {
-                                            const std = allStandardPlanograms.find(s => s.id === sp.standardPlanogramId);
-                                            const group = std?.fixtureType && FIXTURE_GROUPS['flat'].types.includes(std.fixtureType) ? 'flat' : 'multi-tier';
-                                            if (group !== selectedGroup) return null;
-                                            return std?.blocks || [];
-                                        })
-                                        .filter(Boolean)
-                                        .flat() as any
-                                }
-                                scale={0.6}
-                                products={products}
-                            />
+                        {/* 売り場レイアウト表示（2Dグリッド） */}
+                        <div className="mt-lg card">
+                            <div className="card-header">
+                                <div>
+                                    <h3 className="card-title">{store.name} レイアウト</h3>
+                                    <div className="text-sm text-muted">
+                                        什器数: {placements.length}台 / 総幅: <UnitDisplay valueCm={placements.reduce((sum, p) => {
+                                            const f = fixtures.find(fix => fix.id === p.fixtureId);
+                                            return sum + (f?.width || 0);
+                                        }, 0)} />
+                                    </div>
+                                </div>
+                            </div>
+                            <div style={{ overflow: 'auto', padding: '1rem', background: '#f8fafc', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}>
+                                {(() => {
+                                    const LAYOUT_SCALE = 1.5;
+                                    const FIXTURE_BG: Record<string, string> = {
+                                        'multi-tier': '#f0f0f0',
+                                        'flat-refrigerated': '#e0f7fa',
+                                        'flat-frozen': '#e3f2fd',
+                                        'end-cap-refrigerated': '#b2ebf2',
+                                        'end-cap-frozen': '#bbdefb',
+                                        'gondola': '#fff8e1',
+                                        'default': '#f1f5f9'
+                                    };
+
+                                    // 什器の寸法計算（StoreLayoutEditorと同じロジック）
+                                    const getFixDims = (fixture: Fixture, direction: number = 0) => {
+                                        const depth = fixture.fixtureType?.includes('end-cap') ? 60 : 90;
+                                        const isRotated = direction === 90 || direction === 270;
+                                        return {
+                                            width: isRotated ? depth : fixture.width,
+                                            height: isRotated ? fixture.width : depth,
+                                        };
+                                    };
+
+                                    // レイアウト範囲を計算
+                                    let maxX = 0;
+                                    let maxY = 0;
+                                    for (const p of placements) {
+                                        const f = fixtures.find(fix => fix.id === p.fixtureId);
+                                        if (!f) continue;
+                                        const { width, height } = getFixDims(f, p.direction || 0);
+                                        maxX = Math.max(maxX, p.positionX + width);
+                                        maxY = Math.max(maxY, p.positionY + height);
+                                    }
+
+                                    // 余白を追加
+                                    maxX += 30;
+                                    maxY += 30;
+
+                                    if (placements.length === 0) {
+                                        return (
+                                            <div className="text-center text-muted" style={{ padding: '2rem' }}>
+                                                什器が配置されていません
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <div
+                                            style={{
+                                                width: `${maxX * LAYOUT_SCALE}px`,
+                                                height: `${maxY * LAYOUT_SCALE}px`,
+                                                position: 'relative',
+                                                backgroundImage: `
+                                                    linear-gradient(to right, rgba(148, 163, 184, 0.15) 1px, transparent 1px),
+                                                    linear-gradient(to bottom, rgba(148, 163, 184, 0.15) 1px, transparent 1px)
+                                                `,
+                                                backgroundSize: `${5 * LAYOUT_SCALE}px ${5 * LAYOUT_SCALE}px`,
+                                            }}
+                                        >
+                                            {placements.map(p => {
+                                                const fixture = fixtures.find(f => f.id === p.fixtureId);
+                                                if (!fixture) return null;
+
+                                                const direction = p.direction || 0;
+                                                const isRotated = direction === 90 || direction === 270;
+                                                const { width: vw, height: vh } = getFixDims(fixture, direction);
+                                                const bgColor = fixture.fixtureType
+                                                    ? (FIXTURE_BG[fixture.fixtureType] || FIXTURE_BG['default'])
+                                                    : FIXTURE_BG['default'];
+
+                                                return (
+                                                    <div
+                                                        key={p.id}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            left: `${p.positionX * LAYOUT_SCALE}px`,
+                                                            top: `${p.positionY * LAYOUT_SCALE}px`,
+                                                            width: `${vw * LAYOUT_SCALE}px`,
+                                                            height: `${vh * LAYOUT_SCALE}px`,
+                                                        }}
+                                                    >
+                                                        <div
+                                                            style={{
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                background: bgColor,
+                                                                border: '2px solid rgba(148, 163, 184, 0.6)',
+                                                                borderRadius: '6px',
+                                                                boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                flexDirection: 'column',
+                                                                overflow: 'hidden',
+                                                                writingMode: isRotated ? 'vertical-rl' : 'horizontal-tb',
+                                                                color: '#334155',
+                                                                fontSize: `${Math.max(9, 10 * LAYOUT_SCALE)}px`,
+                                                            }}
+                                                        >
+                                                            <span style={{ fontWeight: 600, pointerEvents: 'none', position: 'relative', zIndex: 2 }}>
+                                                                {fixture.name.replace('（4尺）', '').replace('平台', '')}
+                                                            </span>
+                                                            <span style={{
+                                                                fontSize: `${Math.max(7, 8 * LAYOUT_SCALE)}px`,
+                                                                opacity: 0.8,
+                                                                pointerEvents: 'none',
+                                                                position: 'relative',
+                                                                zIndex: 2
+                                                            }}>
+                                                                {Math.round(fixture.width / 30)}尺 / {fixture.shelfCount}段
+                                                            </span>
+
+                                                            {/* 段のストライプ表示 */}
+                                                            {fixture.shelfCount > 1 && (
+                                                                <div style={{
+                                                                    position: 'absolute',
+                                                                    top: 0, left: 0,
+                                                                    width: '100%', height: '100%',
+                                                                    display: 'flex',
+                                                                    flexDirection: isRotated ? 'row' : 'column',
+                                                                    pointerEvents: 'none',
+                                                                    zIndex: 1
+                                                                }}>
+                                                                    {Array.from({ length: fixture.shelfCount }).map((_, i) => (
+                                                                        <div key={i} style={{
+                                                                            flex: 1,
+                                                                            borderBottom: !isRotated && i < fixture.shelfCount - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none',
+                                                                            borderRight: isRotated && i < fixture.shelfCount - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none'
+                                                                        }} />
+                                                                    ))}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
                         </div>
                     </div> {/* --- 左側 終了 --- */}
 
