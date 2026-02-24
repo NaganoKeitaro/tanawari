@@ -70,7 +70,7 @@ function DraggableBlock({ block }: { block: ShelfBlock }) {
         >
             <div style={{ fontWeight: 500 }}>{block.name}</div>
             <div className="text-xs text-muted">
-                <UnitDisplay valueCm={block.width} /> × {block.shelfCount}段
+                <UnitDisplay valueCm={block.width} /> × {block.blockType === 'flat' ? '（奥行）' : `${block.shelfCount}段`}
             </div>
             <div className="text-xs text-muted">
                 {block.productPlacements.length} 商品
@@ -731,15 +731,23 @@ export function StandardPlanogramEditor() {
                                         ブロックをドラッグして配置
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                        {blocks.map(block => (
+                                        {blocks.filter(b => {
+                                            const isFlat = b.blockType === 'flat';
+                                            const isMultiTierFixture = selectedFixtureType === 'multi-tier' || selectedFixtureType === 'gondola';
+                                            return isMultiTierFixture ? !isFlat : isFlat;
+                                        }).map(block => (
                                             <DraggableBlock key={block.id} block={block} />
                                         ))}
                                     </div>
-                                    {blocks.length === 0 && (
-                                        <div className="text-center text-muted" style={{ padding: '1rem' }}>
-                                            棚ブロックがありません
-                                        </div>
-                                    )}
+                                    {blocks.filter(b => {
+                                        const isFlat = b.blockType === 'flat';
+                                        const isMultiTierFixture = selectedFixtureType === 'multi-tier' || selectedFixtureType === 'gondola';
+                                        return isMultiTierFixture ? !isFlat : isFlat;
+                                    }).length === 0 && (
+                                            <div className="text-center text-muted" style={{ padding: '1rem' }}>
+                                                棚ブロックがありません
+                                            </div>
+                                        )}
                                 </div>
                             </div>
 
