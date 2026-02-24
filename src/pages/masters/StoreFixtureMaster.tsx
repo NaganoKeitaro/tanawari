@@ -206,6 +206,7 @@ export function StoreFixtureMaster() {
     const [loading, setLoading] = useState(true);
     const [activeFixture, setActiveFixture] = useState<Fixture | null>(null);
     const [filterFmt, setFilterFmt] = useState<string>('');
+    const [searchQuery, setSearchQuery] = useState<string>('');
 
     // 表示モード
     const [viewMode, setViewMode] = useState<ViewMode>('layout');
@@ -301,9 +302,36 @@ export function StoreFixtureMaster() {
     };
 
     // フィルター適用
-    const filteredStores = filterFmt
-        ? stores.filter(s => s.fmt === filterFmt)
-        : stores;
+    const filteredStores = stores.filter(store => {
+        // FMTフィルター
+        if (filterFmt && store.fmt !== filterFmt) {
+            return false;
+        }
+        // テキスト検索フィルター (店舗名、店舗コード)
+        if (searchQuery) {
+            // 全角・半角・大文字・小文字を無視して比較するために正規化
+            const normalizeStr = (str: string) => str.normalize('NFKC').toLowerCase();
+            const lowerQuery = normalizeStr(searchQuery);
+            const matchName = normalizeStr(store.name).includes(lowerQuery);
+            const matchCode = normalizeStr(store.code).includes(lowerQuery);
+            if (!matchName && !matchCode) {
+                return false;
+            }
+        }
+        return true;
+    });
+
+    // フィルタ結果が変わった際に、選択中の店舗がフィルタ結果に含まれなくなった場合は選択を解除する
+    useEffect(() => {
+        if (selectedStoreId && !filteredStores.some(s => s.id === selectedStoreId)) {
+            // フィルタ結果が空でなければ先頭を選択、空なら未選択にする
+            if (filteredStores.length > 0) {
+                setSelectedStoreId(filteredStores[0].id);
+            } else {
+                setSelectedStoreId(null);
+            }
+        }
+    }, [filteredStores, selectedStoreId]);
 
     // 選択された店舗
     const selectedStore = stores.find(s => s.id === selectedStoreId);
@@ -327,7 +355,7 @@ export function StoreFixtureMaster() {
                 <p className="page-subtitle">店舗に対して棚什器をドラッグ＆ドロップで配置</p>
             </div>
 
-            {/* 表示モード切り替え */}
+            {/* 表示モード切り替えと検索フィルタ */}
             <div className="card mb-lg" style={{ padding: 0, overflow: 'hidden' }}>
                 <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
                     <button
@@ -355,6 +383,39 @@ export function StoreFixtureMaster() {
                     </button>
                 </div>
 
+                {/* 共通フィルタ領域 */}
+                <div style={{ padding: '1rem', background: 'var(--bg-secondary)', borderBottom: viewMode === 'layout' ? '1px solid var(--border-color)' : 'none' }}>
+                    <div className="flex items-center gap-md flex-wrap">
+                        <div className="flex-1" style={{ minWidth: '250px' }}>
+                            <input
+                                type="text"
+                                className="form-input"
+                                placeholder="店舗名または店舗コードで検索..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+                        <div className="flex items-center gap-sm">
+                            <span className="text-sm">FMT:</span>
+                            <button
+                                className={`btn btn-sm ${!filterFmt ? 'btn-primary' : 'btn-secondary'}`}
+                                onClick={() => setFilterFmt('')}
+                            >
+                                全て
+                            </button>
+                            {['MEGA', 'SuC', 'SMART', 'GO'].map(fmt => (
+                                <button
+                                    key={fmt}
+                                    className={`btn btn-sm ${filterFmt === fmt ? 'btn-primary' : 'btn-secondary'}`}
+                                    onClick={() => setFilterFmt(fmt)}
+                                >
+                                    {fmt}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
                 {/* 店舗選択（レイアウトモード用） */}
                 {viewMode === 'layout' && (
                     <div style={{ padding: '1rem', background: 'var(--bg-secondary)' }}>
@@ -364,15 +425,18 @@ export function StoreFixtureMaster() {
                                 className="form-select"
                                 value={selectedStoreId || ''}
                                 onChange={(e) => setSelectedStoreId(e.target.value)}
-                                style={{ minWidth: '200px' }}
+                                style={{ minWidth: '300px' }}
                             >
                                 <option value="">店舗を選択...</option>
-                                {stores.map(store => (
+                                {filteredStores.map(store => (
                                     <option key={store.id} value={store.id}>
                                         {store.name} ({store.code}) - {store.fmt}
                                     </option>
                                 ))}
                             </select>
+                            <span className="text-sm text-muted">
+                                {filteredStores.length}店舗から選択
+                            </span>
                         </div>
                     </div>
                 )}
@@ -427,28 +491,6 @@ export function StoreFixtureMaster() {
 
                         {/* 店舗エリア */}
                         <div>
-                            {/* FMTフィルター */}
-                            <div className="card mb-md">
-                                <div className="flex items-center gap-md">
-                                    <span className="text-sm">FMTフィルター:</span>
-                                    <button
-                                        className={`btn btn-sm ${!filterFmt ? 'btn-primary' : 'btn-secondary'}`}
-                                        onClick={() => setFilterFmt('')}
-                                    >
-                                        全て
-                                    </button>
-                                    {['MEGA', 'SuC', 'SMART', 'GO'].map(fmt => (
-                                        <button
-                                            key={fmt}
-                                            className={`btn btn-sm ${filterFmt === fmt ? 'btn-primary' : 'btn-secondary'}`}
-                                            onClick={() => setFilterFmt(fmt)}
-                                        >
-                                            {fmt}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-
                             {/* 店舗一覧 */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                 {filteredStores.map(store => (
