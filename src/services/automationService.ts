@@ -33,10 +33,11 @@ async function getStoreTotalWidth(storeId: string, fixtureType?: string): Promis
         const fixture = fixtures.find(f => f.id === placement.fixtureId);
         if (fixture) {
             // fixtureTypeでのフィルタリング
-            // 指定がない場合は全て、指定がある場合は一致するもののみ
-            // または、グループとして扱うべきか？現状は厳密一致とする（エディタの表示単位に合わせる）
-            if (fixtureType && fixture.fixtureType !== fixtureType) {
-                continue;
+            if (fixtureType) {
+                const fType = fixture.fixtureType || '';
+                const isMatch = (fixtureType === 'multi-tier' && ['multi-tier', 'gondola'].includes(fType)) ||
+                    (fixtureType === fType);
+                if (!isMatch) continue;
             }
 
             totalWidth += fixture.width;
@@ -155,59 +156,83 @@ function applyRuleB(
     const result: StorePlanogramProduct[] = [];
 
     for (const shelfIndex of shelfIndices) {
-        const shelfProducts = products.filter(p => p.shelfIndex === shelfIndex);
-        let posX = 0;
+        // この段の商品をコピー（faceCountを変更するため）
+        const shelfProducts = products
+            .filter(p => p.shelfIndex === shelfIndex)
+            .map(p => ({ ...p }));
 
+        // この段の現在の使用幅を計算
+        let currentUsed = 0;
         for (const sp of shelfProducts) {
+            const product = productMaster.find(p => p.id === sp.productId);
+            if (product) {
+                currentUsed += product.width * sp.faceCount;
+            }
+        }
+
+        // フェイス拡大: 売上ランク上位から順に処理（各商品で残り幅を逐次チェック）
+        // 1st pass: 2倍を試みる
+        for (const sp of shelfProducts) {
+            if (!top10Ids.has(sp.productId)) continue;
             const product = productMaster.find(p => p.id === sp.productId);
             if (!product) continue;
 
-            let newFaceCount = sp.faceCount;
+            const extraNeeded = product.width * sp.faceCount; // 2倍に必要な追加幅
+            const available = targetWidth - currentUsed;
 
-            // トップ10の場合、フェイス数拡張を試みる
-            if (top10Ids.has(sp.productId)) {
-                const currentUsed = shelfProducts.reduce((sum, p) => {
-                    const prod = productMaster.find(pm => pm.id === p.productId);
-                    return sum + (prod ? prod.width * p.faceCount : 0);
-                }, 0);
-
-                const available = targetWidth - currentUsed;
-                const extraNeeded = product.width * sp.faceCount; // 2倍にするために必要な追加幅
-
-                if (available >= extraNeeded) {
-                    // 2倍可能
-                    newFaceCount = sp.faceCount * 2;
-                    warnings.push(`${product.name}: フェイス2倍 (${sp.faceCount} → ${newFaceCount})`);
-                } else if (available >= extraNeeded * 0.5) {
-                    // 1.5倍で妥協
-                    newFaceCount = Math.floor(sp.faceCount * 1.5);
-                    if (newFaceCount > sp.faceCount) {
-                        warnings.push(`${product.name}: フェイス1.5倍 (${sp.faceCount} → ${newFaceCount})`);
-                    }
-                }
-                // それ以外は変更なし（余白として残す）
+            if (available >= extraNeeded) {
+                const oldFace = sp.faceCount;
+                sp.faceCount = oldFace * 2;
+                currentUsed += product.width * oldFace; // 追加分だけ加算
+                warnings.push(`${product.name}: フェイス2倍 (${oldFace} → ${sp.faceCount})`);
             }
+        }
+
+        // 2nd pass: まだ拡大されていないTOP10商品に対して1.5倍を試みる
+        for (const sp of shelfProducts) {
+            if (!top10Ids.has(sp.productId)) continue;
+            const product = productMaster.find(p => p.id === sp.productId);
+            if (!product) continue;
+
+            // 既に拡大済み（2倍済み）のものはスキップ
+            const originalSp = products.find(p => p.productId === sp.productId && p.shelfIndex === sp.shelfIndex);
+            if (!originalSp || sp.faceCount !== originalSp.faceCount) continue;
+
+            const newFaceCount = Math.floor(sp.faceCount * 1.5);
+            if (newFaceCount <= sp.faceCount) continue;
+
+            const extraNeeded = product.width * (newFaceCount - sp.faceCount);
+            const available = targetWidth - currentUsed;
+
+            if (available >= extraNeeded) {
+                const oldFace = sp.faceCount;
+                sp.faceCount = newFaceCount;
+                currentUsed += product.width * (newFaceCount - oldFace);
+                warnings.push(`${product.name}: フェイス1.5倍 (${oldFace} → ${sp.faceCount})`);
+            }
+        }
+
+        // 結果に追加（位置を再計算）
+        let posX = 0;
+        for (const sp of shelfProducts) {
+            const product = productMaster.find(p => p.id === sp.productId);
+            if (!product) continue;
 
             result.push({
                 id: crypto.randomUUID(),
                 productId: sp.productId,
                 shelfIndex: sp.shelfIndex,
                 positionX: posX,
-                faceCount: newFaceCount,
+                faceCount: sp.faceCount,
                 isAutoGenerated: true,
                 isCut: false
             });
-            posX += product.width * newFaceCount;
+            posX += product.width * sp.faceCount;
         }
 
         // 残り幅を警告として記録
-        const finalUsed = result.filter(r => r.shelfIndex === shelfIndex).reduce((sum, r) => {
-            const prod = productMaster.find(p => p.id === r.productId);
-            return sum + (prod ? prod.width * r.faceCount : 0);
-        }, 0);
-
-        if (targetWidth - finalUsed > 10) {
-            warnings.push(`段${shelfIndex + 1}: ${targetWidth - finalUsed}cmの余白あり`);
+        if (targetWidth - currentUsed > 10) {
+            warnings.push(`段${shelfIndex + 1}: ${Math.round(targetWidth - currentUsed)}cmの余白あり`);
         }
     }
 
