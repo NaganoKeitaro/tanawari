@@ -78,6 +78,27 @@ class LocalStorageRepository<T extends { id: string }> implements IRepository<T>
         return items.filter(predicate);
     }
 
+    // バルク作成（1回のread/writeで複数アイテムを追加）
+    async createBulk(newItems: Omit<T, 'id'>[]): Promise<T[]> {
+        const items = await this.getAll();
+        const created: T[] = newItems.map(item => ({ ...item, id: generateId() } as T));
+        items.push(...created);
+        await dataStore.set(this.storageKey, items);
+        return created;
+    }
+
+    // バルク更新（1回のread/writeで複数アイテムを更新）
+    async updateBulk(updates: { id: string; data: Partial<T> }[]): Promise<void> {
+        const items = await this.getAll();
+        for (const { id, data } of updates) {
+            const index = items.findIndex(item => item.id === id);
+            if (index !== -1) {
+                items[index] = { ...items[index], ...data };
+            }
+        }
+        await dataStore.set(this.storageKey, items);
+    }
+
     // バルク操作
     async setAll(items: T[]): Promise<void> {
         await dataStore.set(this.storageKey, items);

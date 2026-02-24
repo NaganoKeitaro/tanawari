@@ -222,11 +222,6 @@ export function ProductMaster() {
             productsWithRank = calculateSalesRank(allImportProducts);
         }
 
-        // バッチサイズを設定（一度に処理する件数）
-        const BATCH_SIZE = 100;
-        const totalCount = productsWithRank.length;
-        let processedCount = 0;
-
         // 新規商品と更新商品を分離（ランク計算後）
         const newProductsWithRank: Partial<Product>[] = [];
         const updateProductsWithRank: Partial<Product>[] = [];
@@ -240,71 +235,28 @@ export function ProductMaster() {
             }
         }
 
-        // バッチ処理で新規商品を作成
-        for (let i = 0; i < newProductsWithRank.length; i += BATCH_SIZE) {
-            const batch = newProductsWithRank.slice(i, i + BATCH_SIZE);
-
-            // バッチ内の商品を並列処理
-            await Promise.all(batch.map(async (product) => {
-                const existingProduct = products.find(p => p.jan === product.jan);
-
-                if (existingProduct) {
-                    // 既に存在する場合は更新
-                    await productRepository.update(existingProduct.id, {
-                        ...product,
-                        width: product.width || existingProduct.width,
-                        height: product.height || existingProduct.height,
-                        depth: product.depth || existingProduct.depth,
-                        category: product.categoryName || product.category || existingProduct.category,
-                        imageUrl: product.imageUrl || existingProduct.imageUrl,
-                        salesRank: product.salesRank || existingProduct.salesRank,
-                    });
-                } else {
-                    // 新規作成
-                    await productRepository.create({
-                        ...product,
-                        width: product.width || 10,
-                        height: product.height || 15,
-                        depth: product.depth || 8,
-                        category: product.categoryName || product.category || '',
-                        imageUrl: product.imageUrl || '',
-                        salesRank: product.salesRank || 50,
-                    } as Omit<Product, 'id'>);
-                }
-            }));
-
-            processedCount += batch.length;
-
-            // 進捗をコンソールに表示（大量データの場合）
-            if (totalCount > 500) {
-                console.log(`インポート進捗: ${processedCount}/${totalCount} (${Math.round(processedCount / totalCount * 100)}%)`);
-            }
-
-            // UIの応答性を保つため、バッチ間で少し待機
-            if (i + BATCH_SIZE < newProductsWithRank.length) {
-                await new Promise(resolve => setTimeout(resolve, 10));
-            }
+        // 新規商品を一括作成（createBulkで1回のread/writeで全件追加）
+        if (newProductsWithRank.length > 0) {
+            const newItems = newProductsWithRank.map(product => ({
+                ...product,
+                width: product.width || 10,
+                height: product.height || 15,
+                depth: product.depth || 8,
+                category: product.categoryName || product.category || '',
+                imageUrl: product.imageUrl || '',
+                salesRank: product.salesRank || 50,
+            } as Omit<Product, 'id'>));
+            await productRepository.createBulk(newItems);
+            console.log(`新規商品 ${newProductsWithRank.length}件を一括登録しました`);
         }
 
-        // バッチ処理で既存商品を更新
-        for (let i = 0; i < updateProductsWithRank.length; i += BATCH_SIZE) {
-            const batch = updateProductsWithRank.slice(i, i + BATCH_SIZE);
-
-            await Promise.all(batch.map(async (product) => {
-                if (product.id) {
-                    await productRepository.update(product.id, product);
-                }
-            }));
-
-            processedCount += batch.length;
-
-            if (totalCount > 500) {
-                console.log(`インポート進捗: ${processedCount}/${totalCount} (${Math.round(processedCount / totalCount * 100)}%)`);
-            }
-
-            if (i + BATCH_SIZE < updateProductsWithRank.length) {
-                await new Promise(resolve => setTimeout(resolve, 10));
-            }
+        // 既存商品を一括更新（updateBulkで1回のread/writeで全件更新）
+        if (updateProductsWithRank.length > 0) {
+            const updateItems = updateProductsWithRank
+                .filter(p => p.id)
+                .map(p => ({ id: p.id!, data: p }));
+            await productRepository.updateBulk(updateItems);
+            console.log(`既存商品 ${updateProductsWithRank.length}件を一括更新しました`);
         }
 
         loadProducts();
