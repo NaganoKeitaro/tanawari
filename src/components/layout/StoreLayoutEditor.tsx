@@ -17,6 +17,40 @@ import { UnitDisplay } from '../common/UnitDisplay';
 const GRID_SIZE = 5; // 5cm grid
 const DEFAULT_SCALE = 2; // 1cm = 2px (Adjustable)
 
+// AABB衝突判定: 2つの矩形が重なるかどうかを判定（ぴったり隣接はOK、1pxでも重なったらNG）
+function isOverlap(
+    a: { x: number; y: number; width: number; height: number },
+    b: { x: number; y: number; width: number; height: number }
+): boolean {
+    return (
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+    );
+}
+
+// 指定した配置が他の既存配置と衝突するかチェック
+// excludeId: 自分自身を除外するためのID（移動・回転時に使用）
+function checkCollision(
+    targetRect: { x: number; y: number; width: number; height: number },
+    excludeId: string | null,
+    placements: StoreFixturePlacement[],
+    fixtures: Fixture[]
+): boolean {
+    for (const p of placements) {
+        if (p.id === excludeId) continue;
+        const f = fixtures.find(fix => fix.id === p.fixtureId);
+        if (!f) continue;
+        const { width, height } = getFixtureDimensions(f, p.direction || 0);
+        const existingRect = { x: p.positionX, y: p.positionY, width, height };
+        if (isOverlap(targetRect, existingRect)) {
+            return true; // 衝突あり
+        }
+    }
+    return false; // 衝突なし
+}
+
 interface StoreLayoutEditorProps {
     store: Store;
     placements: StoreFixturePlacement[];
@@ -283,8 +317,17 @@ export function StoreLayoutEditor({
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [activeFixture, setActiveFixture] = useState<Fixture | null>(null);
     const [dragType, setDragType] = useState<'placement' | 'new-fixture' | null>(null);
+    const [collisionToast, setCollisionToast] = useState<string | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const gridRef = useRef<HTMLDivElement>(null);
+
+    // 衝突トーストの自動消去
+    useEffect(() => {
+        if (collisionToast) {
+            const timer = setTimeout(() => setCollisionToast(null), 2500);
+            return () => clearTimeout(timer);
+        }
+    }, [collisionToast]);
 
     // Sensors configuration
     const sensors = useSensors(
@@ -348,6 +391,7 @@ export function StoreLayoutEditor({
 
         if (data?.type === 'placement') {
             const placement = data.placement as StoreFixturePlacement;
+            const fixture = data.fixture as Fixture;
 
             // Calculate new position with grid snap
             let newX = placement.positionX + Math.round(delta.x / scale);
@@ -358,7 +402,15 @@ export function StoreLayoutEditor({
             newY = Math.max(0, newY);
 
             if (newX !== placement.positionX || newY !== placement.positionY) {
-                onPlacementChange(placement.id, { positionX: newX, positionY: newY });
+                // 衝突判定
+                const { width, height } = getFixtureDimensions(fixture, placement.direction || 0);
+                const targetRect = { x: newX, y: newY, width, height };
+                if (checkCollision(targetRect, placement.id, placements, fixtures)) {
+                    // 衝突あり → 元の位置に戻す（変更しない）
+                    setCollisionToast('⚠️ 他の什器と重なるため、配置できません');
+                } else {
+                    onPlacementChange(placement.id, { positionX: newX, positionY: newY });
+                }
             }
         } else if (data?.type === 'new-fixture' && over?.id === 'grid-drop-zone') {
             // Add new fixture at drop position
@@ -379,7 +431,14 @@ export function StoreLayoutEditor({
                 dropX = Math.max(0, dropX);
                 dropY = Math.max(0, dropY);
 
-                onPlacementAdd(fixture.id, dropX, dropY);
+                // 衝突判定（新規配置）
+                const { width, height } = getFixtureDimensions(fixture, 0);
+                const targetRect = { x: dropX, y: dropY, width, height };
+                if (checkCollision(targetRect, null, placements, fixtures)) {
+                    setCollisionToast('⚠️ 他の什器と重なるため、配置できません');
+                } else {
+                    onPlacementAdd(fixture.id, dropX, dropY);
+                }
             }
         }
 
@@ -395,11 +454,22 @@ export function StoreLayoutEditor({
         if (!selectedId) return;
         const placement = placements.find(p => p.id === selectedId);
         if (!placement) return;
+        const fixture = fixtures.find(f => f.id === placement.fixtureId);
+        if (!fixture) return;
 
         const currentDir = placement.direction || 0;
         const newDir = (currentDir + 90) % 360;
+
+        // 回転後の衝突判定
+        const { width, height } = getFixtureDimensions(fixture, newDir);
+        const targetRect = { x: placement.positionX, y: placement.positionY, width, height };
+        if (checkCollision(targetRect, placement.id, placements, fixtures)) {
+            setCollisionToast('⚠️ 回転すると他の什器と重なるため、回転できません');
+            return;
+        }
+
         onPlacementChange(selectedId, { direction: newDir });
-    }, [selectedId, placements, onPlacementChange]);
+    }, [selectedId, placements, fixtures, onPlacementChange]);
 
     const handleDelete = useCallback(() => {
         if (selectedId) {
@@ -567,6 +637,29 @@ export function StoreLayoutEditor({
                             </div>
                         )}
                     </div>
+
+                    {/* 衝突トースト通知 */}
+                    {collisionToast && (
+                        <div style={{
+                            position: 'absolute',
+                            top: '1rem',
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            background: 'rgba(239, 68, 68, 0.95)',
+                            color: 'white',
+                            padding: '0.5rem 1.25rem',
+                            borderRadius: 'var(--radius-md)',
+                            fontSize: '0.85rem',
+                            fontWeight: 600,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                            zIndex: 1000,
+                            animation: 'fadeIn 0.2s ease-out',
+                            pointerEvents: 'none',
+                            whiteSpace: 'nowrap'
+                        }}>
+                            {collisionToast}
+                        </div>
+                    )}
 
                     {/* Keyboard shortcuts hint */}
                     <div style={{
