@@ -25,9 +25,11 @@
 ### 2.3 技術スタック
 *   **フロントエンド**: React (v18), TypeScript
 *   **ビルドツール**: Vite
-*   **状態管理/データ永続化**: Custom Hooks + Repository Pattern (LocalStorage)
+*   **状態管理/データ永続化**: React Custom Hooks + Repository Pattern (LocalStorageベースでのキャッシュと永続化連携)
+*   **データ構造可視化**: 複数のCanvas、またはReact Component (+CSS absolute/grid) による2Dレンダリング
 *   **UI/スタイリング**: Vanilla CSS + CSS Variables
-*   **ドラッグ＆ドロップ**: @dnd-kit/core
+*   **ドラッグ＆ドロップ（DND）**: `@dnd-kit/core`
+*   **ルーティング**: `react-router-dom`
 
 ### 2.4 アーキテクチャ図
 
@@ -42,13 +44,17 @@
 これにより、アプリケーションロジックを変更することなく、将来的なバックエンドDB移行（例: `FirestoreRepository`）を容易にする。
 
 ### 3.2 エンティティ概要
-*   **Product**: 商品情報
+*   **Product**: 商品基本情報に加え、分析用メトリクスや組織階層属性情報を包含。JANなし（インハウス等）も許容。
 *   **Store**: 店舗情報
-*   **Fixture**: 什器マスタ
-*   **StoreFixturePlacement**: 店舗ごとの什器配置（棚枠）
-*   **ShelfBlock**: 商品構成テンプレート
-*   **StandardPlanogram**: 標準棚割
-*   **StorePlanogram**: 個店棚割
+*   **Fixture**: 什器マスタ（`fixtureType` で機能別分类）
+*   **StoreFixturePlacement**: 店舗ごとの什器の平面レイアウト（絶対座標 X, Y、回転方向）を保持。
+*   **ShelfBlock**: 商品群（フェイス等）の組み合わせテンプレート設計
+*   **StandardPlanogram**: 標準・デフォルトとなる陳列計画や棚割
+*   **StorePlanogram**: 個店舗ごとの拡張・カットを経て生成される陳列実態データ
+
+### 3.3 データフロー・設計の分離性
+* 什器の物理的な「レイアウト（2D）」と、その中に置かれる「棚割（段と一次元横座標）」は内部で疎結合に実装されている。
+* エディタ内でのドラッグ（DND）に伴う座標の変位や判定では、この疎結合な設計をUI上で計算合成することでリアルタイムに反映。
 
 ## 4. 今後の拡張性
 

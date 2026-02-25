@@ -28,6 +28,18 @@
 | category | カテゴリ | VARCHAR(50) | | |
 | image_url | 画像URL | VARCHAR(2048) | | |
 | sales_rank | 売上ランク | INT | NOT NULL | 1-100 (1が最高) |
+| sales_quantity | 売上数量(特記) | INT | | ランク計算用 |
+| quantity | 売上数量 | INT | | 分析用 |
+| sales | 売上金額 | DECIMAL | | 分析用 |
+| gross_profit | 粗利 | DECIMAL | | 分析用 |
+| traffic | 客数 | INT | | 分析用 |
+| spend_per_customer | 客単価 | DECIMAL | | 分析用 |
+| division_code | 事業部CD | VARCHAR | | 組織階層（任意） |
+| department_code | 部門CD | VARCHAR | | 組織階層（任意） |
+| category_code | カテゴリーCD | VARCHAR | | 組織階層（任意） |
+| sub_category_code | サブカテゴリーCD | VARCHAR | | 組織階層（任意） |
+| segment_code | セグメントCD | VARCHAR | | 組織階層（任意） |
+| sub_segment_code | サブセグメントCD | VARCHAR | | 組織階層（任意） |
 | created_at | 作成日時 | DATETIME | NOT NULL | |
 | updated_at | 更新日時 | DATETIME | NOT NULL | |
 
@@ -52,9 +64,14 @@
 | **id** | 什器ID | VARCHAR(36) | PK | UUID |
 | name | 什器名 | VARCHAR(100) | NOT NULL | |
 | width | 幅 | DECIMAL(5,2) | NOT NULL | cm単位 |
-| height | 高さ | DECIMAL(5,2) | NOT NULL | cm単位 |
+| height | 高さ | DECIMAL(5,2) | NOT NULL | cm単位（多段・ゴンドラの場合） |
+| depth | 奥行き | DECIMAL(5,2) | | cm単位（平台の場合） |
 | shelf_count | 棚段数 | INT | NOT NULL | デフォルトの段数 |
 | manufacturer | メーカー | VARCHAR(100) | | |
+| model_number | 型番 | VARCHAR(100) | | |
+| install_date | 設置日 | DATE | | |
+| warranty_end_date | 保証期限日 | DATE | | |
+| fixture_type | 什器タイプ | VARCHAR(50) | | レイアウト表示用('multi-tier', 'flat-frozen' 等) |
 | created_at | 作成日時 | DATETIME | NOT NULL | |
 
 ### 3.2 構成定義テーブル
@@ -70,6 +87,9 @@
 | position_x | 横位置 | DECIMAL(8,2) | NOT NULL | レイアウト上の絶対座標(cm) |
 | position_y | 縦位置 | DECIMAL(8,2) | NOT NULL | レイアウト上の絶対座標(cm) |
 | order | 配置順 | INT | NOT NULL | 左からの並び順 |
+| direction | 向き | INT | DEFAULT 0 | 0, 90, 180, 270 |
+| zone | ゾーン | VARCHAR(50) | | 例: '多段', '平台冷蔵' |
+| label | ラベル | VARCHAR(100) | | カスタム表示用 |
 | created_at | 作成日時 | DATETIME | NOT NULL | |
 
 #### 3.2.2 shelf_blocks (棚ブロック)
@@ -80,6 +100,7 @@
 | **id** | ブロックID | VARCHAR(36) | PK | UUID |
 | name | ブロック名 | VARCHAR(100) | NOT NULL | |
 | description | 説明 | TEXT | | |
+| block_type | ブロック種別 | VARCHAR(50) | | 'multi-tier' または 'flat' |
 | width | ブロック幅 | DECIMAL(5,2) | NOT NULL | cm単位 |
 | height | ブロック高さ | DECIMAL(5,2) | NOT NULL | cm単位 |
 | shelf_count | 段数 | INT | NOT NULL | |
@@ -109,6 +130,7 @@
 | name | 名称 | VARCHAR(100) | NOT NULL | |
 | fmt | 適用FMT | VARCHAR(20) | NOT NULL | |
 | base_store_id | 基準店舗ID | VARCHAR(36) | FK(stores) | 参考にした店舗サイズ |
+| fixture_type | 什器タイプ | VARCHAR(50) | | 適用される什器種別 |
 | width | 総幅 | DECIMAL(8,2) | NOT NULL | |
 | height | 総高さ | DECIMAL(8,2) | NOT NULL | |
 | shelf_count | 総段数 | INT | NOT NULL | |
@@ -148,7 +170,8 @@
 | **id** | 個店棚割ID | VARCHAR(36) | PK | UUID |
 | store_id | 店舗ID | VARCHAR(36) | FK(stores) | |
 | standard_planogram_id | 親標準棚割ID | VARCHAR(36) | FK | どの標準を元に生成されたか |
-| status | ステータス | VARCHAR(20) | NOT NULL | 'pending', 'synced', 'error' |
+| status | ステータス | VARCHAR(20) | NOT NULL | 'pending', 'generated', 'warning', 'error', 'synced' |
+| warnings | 警告情報 | JSON | | 生成時の警告等文字列のリスト |
 | created_at | 作成日時 | DATETIME | NOT NULL | |
 | updated_at | 更新日時 | DATETIME | NOT NULL | |
 | synced_at | 同期日時 | DATETIME | | 最後に標準と同期した日時 |
@@ -164,8 +187,8 @@
 | shelf_index | 段位置 | INT | NOT NULL | |
 | position_x | 横位置 | DECIMAL(8,2) | NOT NULL | |
 | face_count | フェイス数 | INT | NOT NULL | 調整後のフェイス数 |
-| is_auto_generated | 自動生成フラグ | BOOLEAN | DEFAULT FALSE | 自動ロジックで追加されたか |
-| is_cut | カットフラグ | BOOLEAN | DEFAULT FALSE | 本来あるべきだがカットされた場合(レコードを残すか、statusで管理するかは実装依存だが、ここでは配置されているもののみとするならFALSE、履歴ならTRUE) |
+| is_auto_generated | 自動生成フラグ | BOOLEAN | DEFAULT FALSE | ロジックで自動的に拡張・追加されたか |
+| is_cut | カットフラグ | BOOLEAN | DEFAULT FALSE | 原本（標準仕様）から削減されたか |
 
 ## 4. ビュー定義 (Views)
 
