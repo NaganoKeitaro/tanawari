@@ -21,8 +21,6 @@ import {
 } from '../data/repositories/localStorageRepository';
 import { UnitDisplay } from '../components/common/UnitDisplay';
 
-import { StoreLayoutVisualizer } from '../components/layout/StoreLayoutVisualizer';
-
 // ===== 定数 =====
 
 const SCALE = 2.5;
@@ -40,6 +38,39 @@ const BLOCK_COLORS = [
     '#f472b6', '#a78bfa', '#60a5fa', '#34d399', '#fbbf24',
     '#fb923c', '#f87171', '#4ade80', '#22d3ee', '#e879f9'
 ];
+
+// 什器グループ定義
+type FixtureGroup = 'multi-tier' | 'flat';
+const FIXTURE_GROUPS: Record<FixtureGroup, { label: string; types: FixtureType[] }> = {
+    'multi-tier': { label: '多段棚', types: ['multi-tier', 'gondola'] },
+    'flat': { label: '平台', types: ['flat-refrigerated', 'flat-frozen', 'end-cap-refrigerated', 'end-cap-frozen'] }
+};
+
+// ブロックオーバーレイ用カラーパレット
+const BLOCK_OVERLAY_COLORS = [
+    { bg: 'rgba(99, 102, 241, 0.35)', border: 'rgba(99, 102, 241, 0.7)', text: '#4338ca' },
+    { bg: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.7)', text: '#065f46' },
+    { bg: 'rgba(245, 158, 11, 0.35)', border: 'rgba(245, 158, 11, 0.7)', text: '#92400e' },
+    { bg: 'rgba(239, 68, 68, 0.35)', border: 'rgba(239, 68, 68, 0.7)', text: '#991b1b' },
+    { bg: 'rgba(59, 130, 246, 0.35)', border: 'rgba(59, 130, 246, 0.7)', text: '#1e40af' },
+    { bg: 'rgba(168, 85, 247, 0.35)', border: 'rgba(168, 85, 247, 0.7)', text: '#6b21a8' },
+    { bg: 'rgba(236, 72, 153, 0.35)', border: 'rgba(236, 72, 153, 0.7)', text: '#9d174d' },
+    { bg: 'rgba(20, 184, 166, 0.35)', border: 'rgba(20, 184, 166, 0.7)', text: '#115e59' },
+];
+
+function getBlockOverlayColor(index: number) {
+    return BLOCK_OVERLAY_COLORS[index % BLOCK_OVERLAY_COLORS.length];
+}
+
+const FIXTURE_BG: Record<string, string> = {
+    'multi-tier': '#f0f0f0',
+    'flat-refrigerated': '#e0f7fa',
+    'flat-frozen': '#e3f2fd',
+    'end-cap-refrigerated': '#b2ebf2',
+    'end-cap-frozen': '#bbdefb',
+    'gondola': '#fff8e1',
+    'default': '#f1f5f9'
+};
 
 const ANNOTATION_CATEGORIES = [
     { value: 'change', label: '🔄 変更点', color: '#3b82f6' },
@@ -380,17 +411,71 @@ export function InstructionSheet() {
         return result;
     }, [storePlanograms, standardPlanograms]);
 
-    // StoreLayoutVisualizer用のブロック情報を収集
-    const allPlanogramBlocks = useMemo(() => {
-        const result: any[] = [];
-        storePlanograms.forEach(sp => {
-            const std = standardPlanograms.find(s => s.id === sp.standardPlanogramId);
-            if (std) {
-                result.push(...std.blocks);
+    // ブロック→什器マッピング計算
+    const fixtureBlockOverlays = useMemo(() => {
+        const overlays = new Map<string, Array<{
+            blockName: string;
+            colorIndex: number;
+            relativeStartX: number;
+            relativeEndX: number;
+            fixtureWidth: number;
+            isOverflow: boolean;
+        }>>();
+
+        for (const groupKey of Object.keys(FIXTURE_GROUPS) as FixtureGroup[]) {
+            const groupTypes = FIXTURE_GROUPS[groupKey].types;
+            for (const fType of groupTypes) {
+                const storePlan = storePlanograms.find(sp => {
+                    const std = standardPlanograms.find(s => s.id === sp.standardPlanogramId);
+                    return (std?.fixtureType || 'multi-tier') === fType;
+                });
+                const stdPlan = storePlan
+                    ? standardPlanograms.find(s => s.id === storePlan.standardPlanogramId)
+                    : null;
+                if (!stdPlan || !stdPlan.blocks.length) continue;
+
+                const typePlacements = placements
+                    .filter(p => {
+                        const f = fixtures.find(fix => fix.id === p.fixtureId);
+                        return f && (f.fixtureType || 'multi-tier') === fType;
+                    })
+                    .sort((a, b) => a.order - b.order);
+
+                const ranges: { placementId: string; startX: number; endX: number; width: number }[] = [];
+                let cumX = 0;
+                for (const tp of typePlacements) {
+                    const f = fixtures.find(fix => fix.id === tp.fixtureId);
+                    if (!f) continue;
+                    ranges.push({ placementId: tp.id, startX: cumX, endX: cumX + f.width, width: f.width });
+                    cumX += f.width;
+                }
+
+                stdPlan.blocks.forEach((pb, blockIdx) => {
+                    const master = blocks.find(b => b.id === pb.blockId);
+                    if (!master) return;
+                    const blockStart = pb.positionX;
+                    const blockEnd = pb.positionX + master.width;
+                    for (const range of ranges) {
+                        const overlapStart = Math.max(blockStart, range.startX);
+                        const overlapEnd = Math.min(blockEnd, range.endX);
+                        if (overlapStart < overlapEnd) {
+                            const existing = overlays.get(range.placementId) || [];
+                            existing.push({
+                                blockName: master.name,
+                                colorIndex: blockIdx,
+                                relativeStartX: overlapStart - range.startX,
+                                relativeEndX: overlapEnd - range.startX,
+                                fixtureWidth: range.width,
+                                isOverflow: blockEnd > cumX
+                            });
+                            overlays.set(range.placementId, existing);
+                        }
+                    }
+                });
             }
-        });
-        return result;
-    }, [storePlanograms, standardPlanograms]);
+        }
+        return overlays;
+    }, [storePlanograms, standardPlanograms, placements, fixtures, blocks]);
 
     // 注釈操作
     const addAnnotation = () => {
@@ -634,17 +719,205 @@ export function InstructionSheet() {
                         </div>
                     ) : (
                         <>
-                            {/* 売り場レイアウト */}
-                            <div className="mb-lg" style={{ pageBreakAfter: 'auto' }}>
-                                <StoreLayoutVisualizer
-                                    store={selectedStore}
-                                    placements={placements}
-                                    fixtures={fixtures}
-                                    scale={0.45}
-                                    blocks={blocks}
-                                    planogramBlocks={allPlanogramBlocks}
-                                    products={products}
-                                />
+                            {/* 売り場レイアウト（2Dグリッド） */}
+                            <div className="card mb-lg" style={{ pageBreakAfter: 'auto' }}>
+                                <div className="card-header">
+                                    <div>
+                                        <h3 className="card-title">{selectedStore.name} レイアウト</h3>
+                                        <div className="text-sm text-muted">
+                                            什器数: {placements.length}台 / 総幅: <UnitDisplay valueCm={placements.reduce((sum, p) => {
+                                                const f = fixtures.find(fix => fix.id === p.fixtureId);
+                                                return sum + (f?.width || 0);
+                                            }, 0)} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style={{ overflow: 'auto', padding: '1rem', background: '#f8fafc', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}>
+                                    {(() => {
+                                        const LAYOUT_SCALE = 1.2;
+
+                                        const getFixDims = (fixture: Fixture, direction: number = 0) => {
+                                            const depth = fixture.fixtureType?.includes('end-cap') ? 60 : 90;
+                                            const isRotated = direction === 90 || direction === 270;
+                                            return {
+                                                width: isRotated ? depth : fixture.width,
+                                                height: isRotated ? fixture.width : depth,
+                                            };
+                                        };
+
+                                        let maxX = 0;
+                                        let maxY = 0;
+                                        for (const p of placements) {
+                                            const f = fixtures.find(fix => fix.id === p.fixtureId);
+                                            if (!f) continue;
+                                            const { width, height } = getFixDims(f, p.direction || 0);
+                                            maxX = Math.max(maxX, p.positionX + width);
+                                            maxY = Math.max(maxY, p.positionY + height);
+                                        }
+                                        maxX += 30;
+                                        maxY += 30;
+
+                                        if (placements.length === 0) {
+                                            return (
+                                                <div className="text-center text-muted" style={{ padding: '2rem' }}>
+                                                    什器が配置されていません
+                                                </div>
+                                            );
+                                        }
+
+                                        return (
+                                            <div
+                                                style={{
+                                                    width: `${maxX * LAYOUT_SCALE}px`,
+                                                    height: `${maxY * LAYOUT_SCALE}px`,
+                                                    position: 'relative',
+                                                    backgroundImage: `
+                                                        linear-gradient(to right, rgba(148, 163, 184, 0.15) 1px, transparent 1px),
+                                                        linear-gradient(to bottom, rgba(148, 163, 184, 0.15) 1px, transparent 1px)
+                                                    `,
+                                                    backgroundSize: `${5 * LAYOUT_SCALE}px ${5 * LAYOUT_SCALE}px`,
+                                                }}
+                                            >
+                                                {placements.map(p => {
+                                                    const fixture = fixtures.find(f => f.id === p.fixtureId);
+                                                    if (!fixture) return null;
+
+                                                    const direction = p.direction || 0;
+                                                    const isRotated = direction === 90 || direction === 270;
+                                                    const { width: vw, height: vh } = getFixDims(fixture, direction);
+                                                    const bgColor = fixture.fixtureType
+                                                        ? (FIXTURE_BG[fixture.fixtureType] || FIXTURE_BG['default'])
+                                                        : FIXTURE_BG['default'];
+
+                                                    return (
+                                                        <div
+                                                            key={p.id}
+                                                            style={{
+                                                                position: 'absolute',
+                                                                left: `${p.positionX * LAYOUT_SCALE}px`,
+                                                                top: `${p.positionY * LAYOUT_SCALE}px`,
+                                                                width: `${vw * LAYOUT_SCALE}px`,
+                                                                height: `${vh * LAYOUT_SCALE}px`,
+                                                            }}
+                                                        >
+                                                            <div
+                                                                style={{
+                                                                    width: '100%',
+                                                                    height: '100%',
+                                                                    background: bgColor,
+                                                                    border: '2px solid rgba(148, 163, 184, 0.6)',
+                                                                    borderRadius: '6px',
+                                                                    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    flexDirection: 'column',
+                                                                    overflow: 'hidden',
+                                                                    writingMode: isRotated ? 'vertical-rl' : 'horizontal-tb',
+                                                                    color: '#334155',
+                                                                    fontSize: `${Math.max(9, 10 * LAYOUT_SCALE)}px`,
+                                                                }}
+                                                            >
+                                                                <span style={{ fontWeight: 600, pointerEvents: 'none', position: 'relative', zIndex: 2 }}>
+                                                                    {fixture.name.replace('（4尺）', '').replace('平台', '')}
+                                                                </span>
+                                                                <span style={{
+                                                                    fontSize: `${Math.max(7, 8 * LAYOUT_SCALE)}px`,
+                                                                    opacity: 0.8,
+                                                                    pointerEvents: 'none',
+                                                                    position: 'relative',
+                                                                    zIndex: 2
+                                                                }}>
+                                                                    {Math.round(fixture.width / 30)}尺 / {fixture.shelfCount}段
+                                                                </span>
+
+                                                                {/* 段のストライプ表示 */}
+                                                                {fixture.shelfCount > 1 && (
+                                                                    <div style={{
+                                                                        position: 'absolute',
+                                                                        top: 0, left: 0,
+                                                                        width: '100%', height: '100%',
+                                                                        display: 'flex',
+                                                                        flexDirection: isRotated ? 'row' : 'column',
+                                                                        pointerEvents: 'none',
+                                                                        zIndex: 1
+                                                                    }}>
+                                                                        {Array.from({ length: fixture.shelfCount }).map((_, i) => (
+                                                                            <div key={i} style={{
+                                                                                flex: 1,
+                                                                                borderBottom: !isRotated && i < fixture.shelfCount - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none',
+                                                                                borderRight: isRotated && i < fixture.shelfCount - 1 ? '1px solid rgba(0,0,0,0.1)' : 'none'
+                                                                            }} />
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* 棚ブロックオーバーレイ */}
+                                                                {fixtureBlockOverlays.get(p.id)?.map((overlay, overlayIdx) => {
+                                                                    const color = getBlockOverlayColor(overlay.colorIndex);
+                                                                    const overlayWidthCm = overlay.relativeEndX - overlay.relativeStartX;
+                                                                    return (
+                                                                        <div
+                                                                            key={`block-${overlayIdx}`}
+                                                                            style={{
+                                                                                position: 'absolute',
+                                                                                left: `${overlay.relativeStartX * LAYOUT_SCALE}px`,
+                                                                                top: 0,
+                                                                                width: `${overlayWidthCm * LAYOUT_SCALE}px`,
+                                                                                height: '100%',
+                                                                                background: color.bg,
+                                                                                border: `1.5px dashed ${color.border}`,
+                                                                                borderRadius: '3px',
+                                                                                pointerEvents: 'none',
+                                                                                zIndex: 3,
+                                                                                display: 'flex',
+                                                                                alignItems: 'flex-end',
+                                                                                justifyContent: 'center',
+                                                                                overflow: 'hidden'
+                                                                            }}
+                                                                        >
+                                                                            <div style={{
+                                                                                fontSize: `${Math.max(7, 8 * LAYOUT_SCALE)}px`,
+                                                                                fontWeight: 600,
+                                                                                color: color.text,
+                                                                                background: 'rgba(255,255,255,0.8)',
+                                                                                padding: '1px 4px',
+                                                                                borderRadius: '2px',
+                                                                                whiteSpace: 'nowrap',
+                                                                                overflow: 'hidden',
+                                                                                textOverflow: 'ellipsis',
+                                                                                maxWidth: '100%',
+                                                                                marginBottom: '2px',
+                                                                                lineHeight: 1.2
+                                                                            }}>
+                                                                                {overlay.blockName}
+                                                                            </div>
+                                                                            {overlay.isOverflow && (
+                                                                                <div style={{
+                                                                                    position: 'absolute',
+                                                                                    top: '2px',
+                                                                                    right: '2px',
+                                                                                    fontSize: `${Math.max(6, 7 * LAYOUT_SCALE)}px`,
+                                                                                    fontWeight: 700,
+                                                                                    color: '#dc2626',
+                                                                                    background: 'rgba(255,255,255,0.9)',
+                                                                                    padding: '0px 3px',
+                                                                                    borderRadius: '2px'
+                                                                                }}>
+                                                                                    ⚠
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
                             </div>
 
                             {/* 棚割ビジュアル */}
