@@ -1,7 +1,7 @@
 // 棚割管理システム - 商品マスタ
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product } from '../../data/types';
-import { productRepository } from '../../data/repositories/supabaseRepository';
+import { productRepository } from '../../data/repositories/repositoryFactory';
 import { Modal } from '../../components/common/Modal';
 import { SizeInput } from '../../components/common/UnitInput';
 import { DimensionDisplay } from '../../components/common/UnitDisplay';
@@ -9,7 +9,7 @@ import { ExcelImportModal } from '../../components/masters/ExcelImportModal';
 import { BulkEditModal } from '../../components/masters/BulkEditModal';
 import { exportProductsToCSV, calculateSalesRank } from '../../utils/excelUtils';
 import { renderHierarchyLevel } from '../../utils/hierarchyHelpers';
-import { productHierarchyRepository } from '../../data/repositories/supabaseRepository';
+import { productHierarchyRepository } from '../../data/repositories/repositoryFactory';
 import type { HierarchyEntry } from '../../data/types/productHierarchy';
 
 // カテゴリ一覧は hierarchyData から動的に生成するため削除
