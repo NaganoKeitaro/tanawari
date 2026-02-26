@@ -6,7 +6,7 @@ import type {
 import {
     storeRepository,
     setInitialized
-} from './repositories/localStorageRepository';
+} from './repositories/supabaseRepository';
 
 // 提供された店舗データ
 const RAW_STORE_DATA = [
@@ -439,4 +439,4 @@ export async function seedStoreData(): Promise<{ stores: number }> {
 }
 
 // 初期化チェック用エクスポート（再エクスポート）
-export { isInitialized } from './repositories/localStorageRepository';
+export { isInitialized } from './repositories/supabaseRepository';

@@ -13,7 +13,7 @@ import {
     storeRepository,
     fixtureRepository,
     storeFixturePlacementRepository
-} from '../../data/repositories/localStorageRepository';
+} from '../../data/repositories/supabaseRepository';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { StoreLayoutEditor } from '../../components/layout/StoreLayoutEditor';
 

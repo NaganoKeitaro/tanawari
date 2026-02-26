@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Fixture, FixtureType } from '../../data/types';
 import { FIXTURE_TYPES } from '../../data/types';
-import { fixtureRepository } from '../../data/repositories/localStorageRepository';
+import { fixtureRepository } from '../../data/repositories/supabaseRepository';
 import { Modal } from '../../components/common/Modal';
 import { UnitInput } from '../../components/common/UnitInput';
 import { UnitDisplay } from '../../components/common/UnitDisplay';

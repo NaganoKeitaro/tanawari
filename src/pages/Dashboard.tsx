@@ -1,7 +1,7 @@
 // 棚割管理システム - ダッシュボード
 import { useState, useEffect } from 'react';
 import type { Product, Store } from '../data/types';
-import { productRepository, storeRepository } from '../data/repositories/localStorageRepository';
+import { productRepository, storeRepository } from '../data/repositories/supabaseRepository';
 import { KPICard } from '../components/dashboard/KPICard';
 import { MetricsChart } from '../components/dashboard/MetricsChart';
 import {

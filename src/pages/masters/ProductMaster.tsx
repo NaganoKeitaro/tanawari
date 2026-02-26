@@ -1,7 +1,7 @@
 // 棚割管理システム - 商品マスタ
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Product } from '../../data/types';
-import { productRepository } from '../../data/repositories/localStorageRepository';
+import { productRepository } from '../../data/repositories/supabaseRepository';
 import { Modal } from '../../components/common/Modal';
 import { SizeInput } from '../../components/common/UnitInput';
 import { DimensionDisplay } from '../../components/common/UnitDisplay';

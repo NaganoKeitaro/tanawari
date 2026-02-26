@@ -29,7 +29,7 @@ import {
     storeFixturePlacementRepository,
     fixtureRepository,
     shelfBlockRepository
-} from '../../data/repositories/localStorageRepository';
+} from '../../data/repositories/supabaseRepository';
 import { syncStorePlanogram, generateStorePlanogram } from '../../services/automationService';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';

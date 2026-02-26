@@ -16,7 +16,7 @@ import {
     storeRepository,
     storeFixturePlacementRepository,
     fixtureRepository
-} from '../data/repositories/localStorageRepository';
+} from '../data/repositories/supabaseRepository';
 
 /**
  * 店舗の棚総幅を計算

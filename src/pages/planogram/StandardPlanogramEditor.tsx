@@ -31,7 +31,7 @@ import {
     standardPlanogramRepository,
     productRepository,
     storeFixturePlacementRepository
-} from '../../data/repositories/localStorageRepository';
+} from '../../data/repositories/supabaseRepository';
 import { Modal } from '../../components/common/Modal';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';

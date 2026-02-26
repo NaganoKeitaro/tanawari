@@ -9,7 +9,7 @@ import {
     standardPlanogramRepository,
     storePlanogramRepository,
     isInitialized
-} from '../data/repositories/localStorageRepository';
+} from '../data/repositories/supabaseRepository';
 import { seedStoreData } from '../data/seedData';
 
 interface Stats {
