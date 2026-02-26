@@ -10,6 +10,7 @@ import type {
     StandardPlanogram,
     StorePlanogram
 } from '../types';
+import type { HierarchyEntry } from '../types/productHierarchy';
 
 // ストレージキー定数
 const STORAGE_KEYS = {
@@ -20,6 +21,7 @@ const STORAGE_KEYS = {
     SHELF_BLOCKS: 'planogram_shelf_blocks',
     STANDARD_PLANOGRAMS: 'planogram_standard_planograms',
     STORE_PLANOGRAMS: 'planogram_store_planograms',
+    PRODUCT_HIERARCHY: 'planogram_product_hierarchy',
     INITIALIZED: 'planogram_initialized'
 } as const;
 
@@ -109,6 +111,68 @@ class LocalStorageRepository<T extends { id: string }> implements IRepository<T>
     }
 }
 
+// StorePlanogram用の拡張リポジトリ（saveBulkメソッド付き）
+class StorePlanogramLocalRepository extends LocalStorageRepository<StorePlanogram> {
+    async saveBulk(planograms: StorePlanogram[]): Promise<void> {
+        const items = await this.getAll();
+        for (const p of planograms) {
+            const index = items.findIndex(item => item.id === p.id);
+            if (index !== -1) {
+                items[index] = { ...items[index], ...p };
+            } else {
+                items.push(p);
+            }
+        }
+        await dataStore.set('planogram_store_planograms', items);
+    }
+}
+
+// 商品階層リポジトリ（SupabaseのProductHierarchyRepositoryと同じインターフェース）
+class ProductHierarchyLocalRepository {
+    private storageKey = STORAGE_KEYS.PRODUCT_HIERARCHY;
+
+    async getAll(): Promise<HierarchyEntry[]> {
+        const items = await dataStore.get<HierarchyEntry[]>(this.storageKey);
+        return items || [];
+    }
+
+    async saveAll(entries: HierarchyEntry[]): Promise<void> {
+        await dataStore.set(this.storageKey, entries);
+    }
+
+    async add(entry: Omit<HierarchyEntry, 'id' | 'createdAt' | 'updatedAt'>): Promise<HierarchyEntry> {
+        const items = await this.getAll();
+        const now = new Date().toISOString();
+        const newEntry: HierarchyEntry = {
+            ...entry,
+            id: generateId(),
+            createdAt: now,
+            updatedAt: now,
+        };
+        items.push(newEntry);
+        await dataStore.set(this.storageKey, items);
+        return newEntry;
+    }
+
+    async update(id: string, updates: Partial<HierarchyEntry>): Promise<void> {
+        const items = await this.getAll();
+        const index = items.findIndex(item => item.id === id);
+        if (index !== -1) {
+            items[index] = { ...items[index], ...updates, updatedAt: new Date().toISOString() };
+            await dataStore.set(this.storageKey, items);
+        }
+    }
+
+    async delete(id: string): Promise<void> {
+        const items = await this.getAll();
+        await dataStore.set(this.storageKey, items.filter(item => item.id !== id));
+    }
+
+    async deleteAll(): Promise<void> {
+        await dataStore.remove(this.storageKey);
+    }
+}
+
 // 各エンティティ用リポジトリのエクスポート
 export const productRepository = new LocalStorageRepository<Product>(STORAGE_KEYS.PRODUCTS);
 export const storeRepository = new LocalStorageRepository<Store>(STORAGE_KEYS.STORES);
@@ -116,7 +180,8 @@ export const fixtureRepository = new LocalStorageRepository<Fixture>(STORAGE_KEY
 export const storeFixturePlacementRepository = new LocalStorageRepository<StoreFixturePlacement>(STORAGE_KEYS.STORE_FIXTURE_PLACEMENTS);
 export const shelfBlockRepository = new LocalStorageRepository<ShelfBlock>(STORAGE_KEYS.SHELF_BLOCKS);
 export const standardPlanogramRepository = new LocalStorageRepository<StandardPlanogram>(STORAGE_KEYS.STANDARD_PLANOGRAMS);
-export const storePlanogramRepository = new LocalStorageRepository<StorePlanogram>(STORAGE_KEYS.STORE_PLANOGRAMS);
+export const storePlanogramRepository = new StorePlanogramLocalRepository(STORAGE_KEYS.STORE_PLANOGRAMS);
+export const productHierarchyRepository = new ProductHierarchyLocalRepository();
 
 // 初期化状態チェック
 export async function isInitialized(): Promise<boolean> {

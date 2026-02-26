@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { productHierarchyRepository } from '../../data/repositories/supabaseRepository';
+import { productHierarchyRepository } from '../../data/repositories/repositoryFactory';
 import type { HierarchyEntry } from '../../data/types/productHierarchy';
 import { HIERARCHY_HEADERS, HIERARCHY_KEYS } from '../../data/types/productHierarchy';
 import { HierarchyImportModal } from '../../components/masters/HierarchyImportModal';

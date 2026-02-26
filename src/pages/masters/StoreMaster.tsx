@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Store, FMT, Region } from '../../data/types';
 import { REGIONS, FMTS } from '../../data/types';
-import { storeRepository } from '../../data/repositories/supabaseRepository';
+import { storeRepository } from '../../data/repositories/repositoryFactory';
 import { Modal } from '../../components/common/Modal';
 
 interface StoreFormData {

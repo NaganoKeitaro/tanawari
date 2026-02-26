@@ -18,7 +18,7 @@ import {
     fixtureRepository,
     storeFixturePlacementRepository,
     shelfBlockRepository
-} from '../data/repositories/supabaseRepository';
+} from '../data/repositories/repositoryFactory';
 import { UnitDisplay } from '../components/common/UnitDisplay';
 
 // ===== 定数 =====

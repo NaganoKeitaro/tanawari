@@ -12,7 +12,7 @@ import {
     storeRepository,
     shelfBlockRepository,
     productRepository
-} from '../data/repositories/supabaseRepository';
+} from '../data/repositories/repositoryFactory';
 import { PlanogramVisualizer } from '../components/planogram/PlanogramVisualizer';
 import type { HeatmapLevel, HeatmapMetric } from '../utils/heatmapUtils';
 import { UnitDisplay } from '../components/common/UnitDisplay';

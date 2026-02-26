@@ -7,7 +7,7 @@ import {
     storeFixturePlacementRepository,
     standardPlanogramRepository,
     storePlanogramRepository
-} from '../data/repositories/supabaseRepository';
+} from '../data/repositories/repositoryFactory';
 
 interface DataCount {
     stores: number;
