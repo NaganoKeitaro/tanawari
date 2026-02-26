@@ -102,25 +102,15 @@ class SupabaseSimpleRepository<T extends { id: string }> implements IRepository<
 
     async createBulk(newItems: Omit<T, 'id'>[]): Promise<T[]> {
         const itemsToInsert = newItems.map(item => toSnake({ id: crypto.randomUUID(), ...item }));
-        const CHUNK_SIZE = 100; // 500 can be too large for Supabase REST API free tier limits depending on payload
-        let allData: any[] = [];
-
-        for (let i = 0; i < itemsToInsert.length; i += CHUNK_SIZE) {
-            const chunk = itemsToInsert.slice(i, i + CHUNK_SIZE);
-            const { data, error } = await supabase.from(this.tableName).insert(chunk).select();
-            if (error) throw error;
-            if (data) {
-                allData = [...allData, ...data];
-            }
-        }
-        return toCamel(allData) as T[];
+        const { data, error } = await supabase.from(this.tableName).insert(itemsToInsert).select();
+        if (error) throw error;
+        return toCamel(data) as T[];
     }
 
     async updateBulk(updates: { id: string; data: Partial<T> }[]): Promise<void> {
-        // Supabase bulk update is tricky without explicit functions.
-        // We do purely sequential updates. `Promise.all` with 50 concurrent fetches overwhelms free DB connections.
-        for (let i = 0; i < updates.length; i++) {
-            await this.update(updates[i].id, updates[i].data);
+        // Supabase bulk update is tricky without explicit functions. We'll do a simple iteration.
+        for (const update of updates) {
+            await this.update(update.id, update.data);
         }
     }
 
@@ -403,45 +393,7 @@ class StorePlanogramRepository implements IRepository<StorePlanogram> {
 }
 
 // Export specialized repositories
-
-class ProductSupabaseRepository extends SupabaseSimpleRepository<Product> {
-    constructor() {
-        super('products');
-    }
-
-    private sanitizeProduct(item: Partial<Product>): Partial<Product> {
-        const {
-            divisionName,
-            divisionSubName,
-            lineName,
-            departmentName,
-            categoryName,
-            subCategoryName,
-            segmentName,
-            subSegmentName,
-            ...rest
-        } = item;
-        return rest;
-    }
-
-    async create(item: Omit<Product, 'id'>): Promise<Product> {
-        return super.create(this.sanitizeProduct(item) as Omit<Product, 'id'>);
-    }
-
-    async update(id: string, item: Partial<Product>): Promise<Product | null> {
-        return super.update(id, this.sanitizeProduct(item));
-    }
-
-    async createBulk(items: Omit<Product, 'id'>[]): Promise<Product[]> {
-        return super.createBulk(items.map(i => this.sanitizeProduct(i) as Omit<Product, 'id'>));
-    }
-
-    async updateBulk(items: { id: string; data: Partial<Product> }[]): Promise<void> {
-        return super.updateBulk(items.map(i => ({ id: i.id, data: this.sanitizeProduct(i.data) })));
-    }
-}
-
-export const productRepository = new ProductSupabaseRepository();
+export const productRepository = new SupabaseSimpleRepository<Product>('products');
 export const storeRepository = new SupabaseSimpleRepository<Store>('stores');
 export const fixtureRepository = new SupabaseSimpleRepository<Fixture>('fixtures');
 export const storeFixturePlacementRepository = new SupabaseSimpleRepository<StoreFixturePlacement>('store_fixture_placements');
