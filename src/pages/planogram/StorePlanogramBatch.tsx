@@ -14,7 +14,7 @@ import {
     storeRepository,
     standardPlanogramRepository,
     storePlanogramRepository
-} from '../../data/repositories/localStorageRepository';
+} from '../../data/repositories/supabaseRepository';
 import { batchGenerateStorePlanograms } from '../../services/automationService';
 
 type TabType = 'batch' | 'individual';

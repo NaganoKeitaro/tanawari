@@ -15,7 +15,7 @@ import type { ShelfBlock, Product, ProductPlacement } from '../../data/types';
 import {
     shelfBlockRepository,
     productRepository
-} from '../../data/repositories/localStorageRepository';
+} from '../../data/repositories/supabaseRepository';
 import { Modal } from '../../components/common/Modal';
 import { UnitInput } from '../../components/common/UnitInput';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
