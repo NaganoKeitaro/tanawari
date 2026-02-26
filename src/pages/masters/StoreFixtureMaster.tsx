@@ -261,28 +261,55 @@ export function StoreFixtureMaster() {
 
         // 配置を追加
         const existingPlacements = placements.filter(p => p.storeId === storeId);
-        const newPlacement = await storeFixturePlacementRepository.create({
+
+        const optimisticPlacement: StoreFixturePlacement = {
+            id: crypto.randomUUID(),
             storeId,
             fixtureId: fixture.id,
             positionX: 0,
             positionY: 0,
-            order: existingPlacements.length
-        });
+            order: existingPlacements.length,
+            direction: 0,
+            zone: '多段',
+            label: ''
+        };
 
-        setPlacements([...placements, newPlacement]);
+        setPlacements(prev => [...prev, optimisticPlacement]);
+
+        try {
+            await storeFixturePlacementRepository.create({
+                storeId,
+                fixtureId: fixture.id,
+                positionX: 0,
+                positionY: 0,
+                order: existingPlacements.length
+            });
+        } catch (error) {
+            console.error('Placement failed', error);
+            alert('配置に失敗しました。');
+            loadData(); // Revert
+        }
     };
 
     // 配置削除
     const handleRemovePlacement = async (placementId: string) => {
-        await storeFixturePlacementRepository.delete(placementId);
-        setPlacements(placements.filter(p => p.id !== placementId));
+        setPlacements(prev => prev.filter(p => p.id !== placementId));
+        try {
+            await storeFixturePlacementRepository.delete(placementId);
+        } catch (error) {
+            console.error('Delete failed', error);
+            loadData();
+        }
     };
 
     // 配置変更 (2Dエディタ用)
     const handlePlacementChange = async (id: string, updates: Partial<StoreFixturePlacement>) => {
-        const updated = await storeFixturePlacementRepository.update(id, updates);
-        if (updated) {
-            setPlacements(placements.map(p => p.id === id ? updated : p));
+        setPlacements(prev => prev.map(p => p.id === id ? { ...p, ...updates } : p));
+        try {
+            await storeFixturePlacementRepository.update(id, updates);
+        } catch (error) {
+            console.error('Update failed', error);
+            loadData();
         }
     };
 
@@ -290,15 +317,34 @@ export function StoreFixtureMaster() {
     const handlePlacementAdd = async (fixtureId: string, x: number, y: number) => {
         if (!selectedStoreId) return;
         const existingPlacements = placements.filter(p => p.storeId === selectedStoreId);
-        const newPlacement = await storeFixturePlacementRepository.create({
+
+        const optimisticPlacement: StoreFixturePlacement = {
+            id: crypto.randomUUID(),
             storeId: selectedStoreId,
             fixtureId,
             positionX: x,
             positionY: y,
             order: existingPlacements.length,
-            direction: 0
-        });
-        setPlacements([...placements, newPlacement]);
+            direction: 0,
+            zone: '多段',
+            label: ''
+        };
+
+        setPlacements(prev => [...prev, optimisticPlacement]);
+
+        try {
+            await storeFixturePlacementRepository.create({
+                storeId: selectedStoreId,
+                fixtureId,
+                positionX: x,
+                positionY: y,
+                order: existingPlacements.length,
+                direction: 0
+            });
+        } catch (error) {
+            console.error('Add grid placement failed', error);
+            loadData();
+        }
     };
 
     // フィルター適用

@@ -60,21 +60,39 @@ export function StoreMaster() {
         setIsModalOpen(true);
     };
 
-    // 保存処理
     const handleSave = async () => {
         if (!formData.code || !formData.name) {
             alert('店舗コードと店舗名は必須です');
             return;
         }
 
-        if (editingStore) {
-            await storeRepository.update(editingStore.id, formData);
-        } else {
-            await storeRepository.create(formData);
-        }
+        const optimisticStore: Store = {
+            id: editingStore ? editingStore.id : crypto.randomUUID(),
+            ...formData
+        };
 
         setIsModalOpen(false);
-        loadStores();
+        setStores(prev => {
+            let nextNodes;
+            if (editingStore) {
+                nextNodes = prev.map(s => s.id === optimisticStore.id ? optimisticStore : s);
+            } else {
+                nextNodes = [...prev, optimisticStore];
+            }
+            return nextNodes.sort((a, b) => a.code.localeCompare(b.code));
+        });
+
+        try {
+            if (editingStore) {
+                await storeRepository.update(editingStore.id, formData);
+            } else {
+                await storeRepository.create(formData);
+            }
+        } catch (error) {
+            console.error('Save failed', error);
+            alert('保存に失敗しました。画面をリロードしてください。');
+            loadStores();
+        }
     };
 
     // 削除処理

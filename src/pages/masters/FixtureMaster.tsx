@@ -88,21 +88,40 @@ export function FixtureMaster() {
         setIsModalOpen(true);
     };
 
-    // 保存処理
     const handleSave = async () => {
         if (!formData.name) {
             alert('什器名は必須です');
             return;
         }
 
-        if (editingFixture) {
-            await fixtureRepository.update(editingFixture.id, formData);
-        } else {
-            await fixtureRepository.create(formData);
-        }
+        const optimisticFixture: Fixture = {
+            id: editingFixture ? editingFixture.id : crypto.randomUUID(),
+            ...formData
+        };
 
+        // Optimistic UI updates
         setIsModalOpen(false);
-        loadFixtures();
+        setFixtures(prev => {
+            if (editingFixture) {
+                return prev.map(f => f.id === optimisticFixture.id ? optimisticFixture : f);
+            }
+            return [...prev, optimisticFixture];
+        });
+
+        // Background save
+        try {
+            if (editingFixture) {
+                await fixtureRepository.update(editingFixture.id, formData);
+            } else {
+                await fixtureRepository.create(formData);
+            }
+            // Optional: re-sync from server to get correct dates/auto fields if needed
+            // loadFixtures();
+        } catch (error) {
+            console.error('Save failed', error);
+            alert('保存に失敗しました。画面をリロードしてください。');
+            loadFixtures(); // Revert on failure
+        }
     };
 
     // 削除処理
