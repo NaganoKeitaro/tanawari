@@ -11,7 +11,7 @@ CREATE TABLE public.stores (
   updated_at timestamp with time zone default now() not null
 );
 
--- 2. products
+-- 2. products (全ての階層コードと名称を統合)
 CREATE TABLE public.products (
   id uuid primary key default gen_random_uuid(),
   jan varchar(13) unique,
@@ -19,8 +19,10 @@ CREATE TABLE public.products (
   width decimal(5,2) not null,
   height decimal(5,2) not null,
   depth decimal(5,2) not null,
-  category varchar(50),
+  category varchar(50), -- 簡易カテゴリ用
   image_url text,
+  
+  -- 売上・分析メトリクス
   sales_rank int,
   sales_quantity int,
   quantity int,
@@ -28,12 +30,26 @@ CREATE TABLE public.products (
   gross_profit decimal,
   traffic int,
   spend_per_customer decimal,
+
+  -- 組織階層（8段階のコードと名称をすべて網羅）
   division_code varchar,
+  division_name varchar,
+  division_sub_code varchar,
+  division_sub_name varchar,
+  line_code varchar,
+  line_name varchar,
   department_code varchar,
+  department_name varchar,
   category_code varchar,
+  category_name varchar,      
   sub_category_code varchar,
+  sub_category_name varchar,
   segment_code varchar,
+  segment_name varchar,
   sub_segment_code varchar,
+  sub_segment_name varchar,
+
+  -- タイムスタンプ
   created_at timestamp with time zone default now() not null,
   updated_at timestamp with time zone default now() not null
 );
