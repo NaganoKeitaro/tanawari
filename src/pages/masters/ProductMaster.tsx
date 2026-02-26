@@ -9,7 +9,7 @@ import { ExcelImportModal } from '../../components/masters/ExcelImportModal';
 import { BulkEditModal } from '../../components/masters/BulkEditModal';
 import { exportProductsToCSV, calculateSalesRank } from '../../utils/excelUtils';
 import { renderHierarchyLevel } from '../../utils/hierarchyHelpers';
-import { productHierarchyRepository } from '../../data/repositories/productHierarchyRepository';
+import { productHierarchyRepository } from '../../data/repositories/supabaseRepository';
 import type { HierarchyEntry } from '../../data/types/productHierarchy';
 
 // カテゴリ一覧は hierarchyData から動的に生成するため削除
@@ -192,14 +192,33 @@ export function ProductMaster() {
             return;
         }
 
-        if (editingProduct) {
-            await productRepository.update(editingProduct.id, formData);
-        } else {
-            await productRepository.create(formData);
-        }
+        const optimisticProduct: Product = {
+            ...(formData as Product), // Explicit casting since some fields might be default
+            id: editingProduct ? editingProduct.id : crypto.randomUUID()
+        };
 
         setIsModalOpen(false);
-        loadProducts();
+        setProducts(prev => {
+            let nextNodes;
+            if (editingProduct) {
+                nextNodes = prev.map(p => p.id === optimisticProduct.id ? optimisticProduct : p);
+            } else {
+                nextNodes = [...prev, optimisticProduct];
+            }
+            return nextNodes.sort((a, b) => a.salesRank - b.salesRank);
+        });
+
+        try {
+            if (editingProduct) {
+                await productRepository.update(editingProduct.id, formData);
+            } else {
+                await productRepository.create(formData);
+            }
+        } catch (error) {
+            console.error('Save failed', error);
+            alert('保存に失敗しました。画面をリロードしてください。');
+            loadProducts();
+        }
     };
 
     // 削除処理

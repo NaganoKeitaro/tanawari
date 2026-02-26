@@ -4,6 +4,7 @@ import type {
     Product, Store, Fixture, StoreFixturePlacement, ShelfBlock,
     StandardPlanogram, StorePlanogram
 } from '../types';
+import type { HierarchyEntry } from '../types/productHierarchy';
 
 const toCamel = (obj: any): any => {
     if (Array.isArray(obj)) return obj.map(toCamel);
@@ -29,7 +30,8 @@ const toSnake = (obj: any): any => {
         const newObj: any = {};
         for (const key in obj) {
             const snakeKey = key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
-            newObj[snakeKey] = toSnake(obj[key]);
+            // Convert empty string to null to prevent constraint violations in Supabase (especially for dates)
+            newObj[snakeKey] = obj[key] === '' ? null : toSnake(obj[key]);
         }
         return newObj;
     }
@@ -399,6 +401,48 @@ export const storeFixturePlacementRepository = new SupabaseSimpleRepository<Stor
 export const shelfBlockRepository = new ShelfBlockRepository();
 export const standardPlanogramRepository = new StandardPlanogramRepository();
 export const storePlanogramRepository = new StorePlanogramRepository();
+
+class ProductHierarchySupabaseRepository {
+    async getAll(): Promise<HierarchyEntry[]> {
+        const { data, error } = await supabase.from('product_hierarchy').select('*');
+        if (error) return [];
+        return toCamel(data) as HierarchyEntry[];
+    }
+
+    async saveAll(entries: HierarchyEntry[]): Promise<void> {
+        // Clear all first, then insert all (for bulk syncing master data)
+        await this.deleteAll();
+        if (entries.length === 0) return;
+
+        const payload = entries.map(e => toSnake({ ...e, id: e.id || crypto.randomUUID() }));
+        await supabase.from('product_hierarchy').insert(payload);
+    }
+
+    async add(entry: Omit<HierarchyEntry, 'id' | 'createdAt' | 'updatedAt'>): Promise<HierarchyEntry> {
+        const id = crypto.randomUUID();
+        const payload = toSnake({ ...entry, id });
+        const { data, error } = await supabase.from('product_hierarchy').insert(payload).select().single();
+        if (error) throw error;
+        return toCamel(data) as HierarchyEntry;
+    }
+
+    async update(id: string, updates: Partial<HierarchyEntry>): Promise<void> {
+        const payload = toSnake(updates);
+        delete payload.id;
+        delete payload.created_at;
+        await supabase.from('product_hierarchy').update(payload).eq('id', id);
+    }
+
+    async delete(id: string): Promise<void> {
+        await supabase.from('product_hierarchy').delete().eq('id', id);
+    }
+
+    async deleteAll(): Promise<void> {
+        await supabase.from('product_hierarchy').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    }
+}
+
+export const productHierarchyRepository = new ProductHierarchySupabaseRepository();
 
 // System flags for initialization
 export async function isInitialized(): Promise<boolean> {

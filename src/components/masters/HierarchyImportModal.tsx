@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Modal } from '../common/Modal';
 import { readCSVFile } from '../../utils/excelUtils';
 import { generateHierarchyTemplate, mapRowToHierarchyEntry, validateHierarchyEntry } from '../../utils/hierarchyUtils';
-import { productHierarchyRepository } from '../../data/repositories/productHierarchyRepository';
+import { productHierarchyRepository } from '../../data/repositories/supabaseRepository';
 import type { HierarchyEntry } from '../../data/types/productHierarchy';
 
 interface HierarchyImportModalProps {
