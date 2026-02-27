@@ -354,7 +354,6 @@ export function FixtureMaster() {
                         value={formData.width}
                         onChange={(w) => setFormData({ ...formData, width: w })}
                         min={30}
-                        max={300}
                     />
                     {isFlatFixtureType(formData.fixtureType) ? (
                         <UnitInput
@@ -362,7 +361,6 @@ export function FixtureMaster() {
                             value={formData.depth}
                             onChange={(d) => setFormData({ ...formData, depth: d })}
                             min={20}
-                            max={200}
                         />
                     ) : (
                         <UnitInput
@@ -370,7 +368,6 @@ export function FixtureMaster() {
                             value={formData.height}
                             onChange={(h) => setFormData({ ...formData, height: h })}
                             min={60}
-                            max={300}
                         />
                     )}
                 </div>
