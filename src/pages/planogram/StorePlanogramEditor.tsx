@@ -35,7 +35,7 @@ import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
 import type { Fixture, StoreFixturePlacement } from '../../data/types';
 
-const SCALE = 3;
+const SCALE = 0.3;
 
 // ブロックオーバーレイ用カラーパレット
 const BLOCK_OVERLAY_COLORS = [
@@ -96,7 +96,7 @@ function DraggableProduct({ product }: { product: Product }) {
             {...listeners}
             {...attributes}
             className="product-card mb-sm p-sm"
-            title={`${product.name}\n${product.width}×${product.height}cm`}
+            title={`${product.name}\n${product.width}×${product.height}mm`}
         >
             <div className="flex items-center gap-sm">
                 <img
@@ -106,7 +106,7 @@ function DraggableProduct({ product }: { product: Product }) {
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="product-card-name" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</div>
-                    <div className="product-card-size" style={{ fontSize: '0.7rem' }}>{product.width}×{product.height}cm</div>
+                    <div className="product-card-size" style={{ fontSize: '0.7rem' }}>{product.width}×{product.height}mm</div>
                 </div>
             </div>
         </div>
@@ -258,7 +258,7 @@ function SinglePlanogramView({
                 {standardPlanogram ? (
                     <div>
                         <div className="text-sm text-muted mb-md">
-                            標準棚割: {standardPlanogram.name} (幅: <UnitDisplay valueCm={standardPlanogram.width} />)
+                            標準棚割: {standardPlanogram.name} (幅: <UnitDisplay valueMm={standardPlanogram.width} />)
                         </div>
                         <button
                             className="btn btn-primary"
@@ -301,7 +301,7 @@ function SinglePlanogramView({
                     <div>
                         <h3 className="card-title">{TYPE_LABELS[fixtureType]}</h3>
                         <div className="text-sm text-muted">
-                            幅: <UnitDisplay valueCm={planogram.width} /> / {planogram.shelfCount}段
+                            幅: <UnitDisplay valueMm={planogram.width} /> / {planogram.shelfCount}段
                         </div>
                     </div>
                     <div className="flex gap-md items-center">
@@ -584,7 +584,7 @@ export function StorePlanogramEditor() {
         }, 0);
 
         if (usedWidth + product.width > targetPlanogram.width) {
-            alert(`この段にはスペースがありません (残り: ${targetPlanogram.width - usedWidth}cm, 商品: ${product.width}cm)`);
+            alert(`この段にはスペースがありません (残り: ${targetPlanogram.width - usedWidth}mm, 商品: ${product.width}mm)`);
             return;
         }
 
@@ -768,7 +768,7 @@ export function StorePlanogramEditor() {
                                     : 'border-transparent text-muted hover:text-foreground'}`}
                                 onClick={() => setSelectedGroup('multi-tier')}
                             >
-                                {FIXTURE_GROUPS['multi-tier'].label} (幅: <UnitDisplay valueCm={multiTierTotalWidth} />)
+                                {FIXTURE_GROUPS['multi-tier'].label} (幅: <UnitDisplay valueMm={multiTierTotalWidth} />)
                             </button>
                             <button
                                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${selectedGroup === 'flat'
@@ -776,7 +776,7 @@ export function StorePlanogramEditor() {
                                     : 'border-transparent text-muted hover:text-foreground'}`}
                                 onClick={() => setSelectedGroup('flat')}
                             >
-                                {FIXTURE_GROUPS['flat'].label} (幅: <UnitDisplay valueCm={flatTotalWidth} />)
+                                {FIXTURE_GROUPS['flat'].label} (幅: <UnitDisplay valueMm={flatTotalWidth} />)
                             </button>
                         </div>
 
@@ -853,7 +853,7 @@ export function StorePlanogramEditor() {
                                 <div>
                                     <h3 className="card-title">{store.name} レイアウト</h3>
                                     <div className="text-sm text-muted">
-                                        什器数: {placements.length}台 / 総幅: <UnitDisplay valueCm={placements.reduce((sum, p) => {
+                                        什器数: {placements.length}台 / 総幅: <UnitDisplay valueMm={placements.reduce((sum, p) => {
                                             const f = fixtures.find(fix => fix.id === p.fixtureId);
                                             return sum + (f?.width || 0);
                                         }, 0)} />
@@ -862,7 +862,7 @@ export function StorePlanogramEditor() {
                             </div>
                             <div style={{ overflow: 'auto', padding: '1rem', background: '#f8fafc', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}>
                                 {(() => {
-                                    const LAYOUT_SCALE = 1.5;
+                                    const LAYOUT_SCALE = 0.15;
                                     const FIXTURE_BG: Record<string, string> = {
                                         'multi-tier': '#f0f0f0',
                                         'flat-refrigerated': '#e0f7fa',
@@ -875,7 +875,7 @@ export function StorePlanogramEditor() {
 
                                     // 什器の寸法計算（StoreLayoutEditorと同じロジック）
                                     const getFixDims = (fixture: Fixture, direction: number = 0) => {
-                                        const depth = fixture.fixtureType?.includes('end-cap') ? 60 : 90;
+                                        const depth = fixture.fixtureType?.includes('end-cap') ? 600 : 900;
                                         const isRotated = direction === 90 || direction === 270;
                                         return {
                                             width: isRotated ? depth : fixture.width,
@@ -888,9 +888,9 @@ export function StorePlanogramEditor() {
                                     type FixtureBlockOverlay = {
                                         blockName: string;
                                         colorIndex: number;
-                                        relativeStartX: number; // 什器内の開始位置 (cm)
-                                        relativeEndX: number;   // 什器内の終了位置 (cm)
-                                        fixtureWidth: number;   // 什器幅 (cm)
+                                        relativeStartX: number; // 什器内の開始位置 (mm)
+                                        relativeEndX: number;   // 什器内の終了位置 (mm)
+                                        fixtureWidth: number;   // 什器幅 (mm)
                                         isOverflow: boolean;    // はみ出し
                                     };
                                     const fixtureBlockOverlays = new Map<string, FixtureBlockOverlay[]>();
@@ -1071,7 +1071,7 @@ export function StorePlanogramEditor() {
                                                             {/* 棚ブロックオーバーレイ */}
                                                             {fixtureBlockOverlays.get(p.id)?.map((overlay, overlayIdx) => {
                                                                 const color = getBlockOverlayColor(overlay.colorIndex);
-                                                                const overlayWidthCm = overlay.relativeEndX - overlay.relativeStartX;
+                                                                const overlayWidthMm = overlay.relativeEndX - overlay.relativeStartX;
                                                                 return (
                                                                     <div
                                                                         key={`block-${overlayIdx}`}
@@ -1079,7 +1079,7 @@ export function StorePlanogramEditor() {
                                                                             position: 'absolute',
                                                                             left: `${overlay.relativeStartX * LAYOUT_SCALE}px`,
                                                                             top: 0,
-                                                                            width: `${overlayWidthCm * LAYOUT_SCALE}px`,
+                                                                            width: `${overlayWidthMm * LAYOUT_SCALE}px`,
                                                                             height: '100%',
                                                                             background: color.bg,
                                                                             border: `1.5px dashed ${color.border}`,

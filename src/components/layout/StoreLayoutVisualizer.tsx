@@ -234,14 +234,16 @@ export function StoreLayoutVisualizer({
         // 寸法計算
         // 通常: 幅=fixture.width, 奥行(高さ)=固定(例:90cm)
         // エンド(横置き): 幅=奥行(例:60cm), 高さ=fixture.width
-        const DEPTH_VISUAL_CM = 90; // メイン什器の奥行き（仮定）
-        const END_CAP_DEPTH_CM = 60; // エンド什器の奥行き（仮定）
+        const DEPTH_VISUAL_MM = 900; // メイン什器の奥行き（仮定）
+        const END_CAP_DEPTH_MM = 600; // エンド什器の奥行き（仮定）
+
+        const depth = fixture.fixtureType?.includes('end-cap') ? END_CAP_DEPTH_MM : DEPTH_VISUAL_MM;
 
         let visualWidth = fixture.width;
-        let visualHeight = DEPTH_VISUAL_CM;
+        let visualHeight = depth / 10; // Convert mm to cm for visual height
 
         if (isEndCap) {
-            visualWidth = END_CAP_DEPTH_CM;
+            visualWidth = END_CAP_DEPTH_MM / 10; // Convert mm to cm
             visualHeight = fixture.width; // 横置きにするので、什器の幅が視覚的な高さになる
         } else if (zone === '多段') {
             visualHeight = fixture.height * 0.8; // 多段は高さをある程度反映
@@ -269,7 +271,7 @@ export function StoreLayoutVisualizer({
                     writingMode: isEndCap ? 'vertical-rl' : 'horizontal-tb'
                 }}
                 onClick={() => onPlacementClick?.(placement, fixture)}
-                title={`${fixture.name}\n${fixture.width}cm × ${fixture.shelfCount}段`}
+                title={`${fixture.name}\n${fixture.width}mm × ${fixture.shelfCount}段`}
             >
                 <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '90%' }}>
                     {fixture.name.replace('（4尺）', '').replace('平台', '')}
@@ -341,7 +343,7 @@ export function StoreLayoutVisualizer({
                             zIndex: 5,
                             writingMode: 'horizontal-tb'
                         }}
-                        title={`${mapping.blockName}\n幅: ${mapping.originalWidth}cm\nクリックで詳細表示`}
+                        title={`${mapping.blockName}\n幅: ${mapping.originalWidth}mm\nクリックで詳細表示`}
                     >
                         {mapping.blockName}
                     </div>
@@ -372,7 +374,7 @@ export function StoreLayoutVisualizer({
                     />
                     <span style={{ fontWeight: 600 }}>{label}</span>
                     <span className="text-muted">
-                        ({items.length}台 / <UnitDisplay valueCm={totalWidth} />)
+                        ({items.length}台 / <UnitDisplay valueMm={totalWidth} />)
                     </span>
                 </div>
                 <div
@@ -409,7 +411,7 @@ export function StoreLayoutVisualizer({
                     </div>
                 </div>
                 <div className="text-right text-sm">
-                    <div>総幅: <strong><UnitDisplay valueCm={maxWidth} /></strong></div>
+                    <div>総幅: <strong><UnitDisplay valueMm={maxWidth} /></strong></div>
                     <div className="text-muted">什器数: {placements.length}台</div>
                 </div>
             </div>
@@ -527,7 +529,7 @@ export function StoreLayoutVisualizer({
                     <div>
                         <div className="mb-md">
                             <div className="text-sm text-muted">サイズ</div>
-                            <div><UnitDisplay valueCm={selectedBlock.width} /> × {selectedBlock.shelfCount}段</div>
+                            <div><UnitDisplay valueMm={selectedBlock.width * 10} /> / {selectedBlock.shelfCount}段</div>
                         </div>
                         {selectedBlock.description && (
                             <div className="mb-md">

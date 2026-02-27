@@ -14,8 +14,8 @@ import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import type { Store, Fixture, StoreFixturePlacement } from '../../data/types';
 import { UnitDisplay } from '../common/UnitDisplay';
 
-const GRID_SIZE = 5; // 5cm grid
-const DEFAULT_SCALE = 2; // 1cm = 2px (Adjustable)
+const GRID_SIZE = 50; // 50mm grid
+const DEFAULT_SCALE = 0.2; // 1mm = 0.2px (Adjustable)
 
 // AABB衝突判定: 2つの矩形が重なるかどうかを判定（ぴったり隣接はOK、1pxでも重なったらNG）
 function isOverlap(
@@ -72,7 +72,7 @@ const FIXTURE_COLORS: Record<string, string> = {
 
 // Fixture dimensions helper
 function getFixtureDimensions(fixture: Fixture, direction: number = 0) {
-    const depth = fixture.fixtureType?.includes('end-cap') ? 60 : 90;
+    const depth = fixture.fixtureType?.includes('end-cap') ? 600 : 900;
     const isRotated = direction === 90 || direction === 270;
     return {
         width: isRotated ? depth : fixture.width,
@@ -162,7 +162,7 @@ function DraggablePlacement({
                     {fixture.name.replace('（4尺）', '').replace('平台', '')}
                 </span>
                 <span style={{ fontSize: `${Math.max(7, 8 * scale)}px`, opacity: 0.8, pointerEvents: 'none', userSelect: 'none', position: 'relative', zIndex: 2 }}>
-                    {Math.round(fixture.width / 30)}尺 / {fixture.shelfCount}段
+                    {Math.round(fixture.width / 300)}尺 / {fixture.shelfCount}段
                 </span>
 
                 {/* Visual Tiers Overlay */}
@@ -234,7 +234,7 @@ function PaletteFixture({ fixture }: { fixture: Fixture }) {
                         {fixture.name}
                     </div>
                     <div className="text-xs" style={{ opacity: 0.8 }}>
-                        <UnitDisplay valueCm={fixture.width} /> / {fixture.shelfCount}段
+                        <UnitDisplay valueMm={fixture.width} /> / {fixture.shelfCount}段
                     </div>
                 </div>
             </div>
@@ -342,14 +342,14 @@ export function StoreLayoutEditor({
 
     // Calculate bounds
     const bounds = useMemo(() => {
-        let maxX = 1200;
-        let maxY = 900;
+        let maxX = 12000;
+        let maxY = 9000;
         placements.forEach(p => {
             const f = fixtures.find(fix => fix.id === p.fixtureId);
             if (f) {
                 const { width, height } = getFixtureDimensions(f, p.direction || 0);
-                maxX = Math.max(maxX, p.positionX + width + 300);
-                maxY = Math.max(maxY, p.positionY + height + 300);
+                maxX = Math.max(maxX, p.positionX + width + 3000);
+                maxY = Math.max(maxY, p.positionY + height + 3000);
             }
         });
         return { width: maxX, height: maxY };
@@ -571,14 +571,14 @@ export function StoreLayoutEditor({
                                 配置: <strong>{placements.length}</strong>台
                             </span>
                             <span className="text-xs text-muted">
-                                総幅: <strong><UnitDisplay valueCm={totalWidth} /></strong>
+                                総幅: <strong><UnitDisplay valueMm={totalWidth} /></strong>
                             </span>
                             <span className="text-xs text-muted" style={{
                                 background: 'var(--bg-tertiary)',
                                 padding: '0.25rem 0.5rem',
                                 borderRadius: 'var(--radius-sm)'
                             }}>
-                                グリッド: 5cm
+                                グリッド: 50mm
                             </span>
                         </div>
                     </div>

@@ -2,18 +2,18 @@
 import { formatWithBothUnits } from '../../utils/unitConverter';
 
 interface UnitDisplayProps {
-    valueCm: number;
+    valueMm: number;
     className?: string;
 }
 
 /**
- * cm と 尺 を併記表示するコンポーネント
- * 例: "120cm (4.0尺)"
+ * mm と 尺 を併記表示するコンポーネント
+ * 例: "1200mm (4.0尺)"
  */
-export function UnitDisplay({ valueCm, className }: UnitDisplayProps) {
+export function UnitDisplay({ valueMm, className }: UnitDisplayProps) {
     return (
         <span className={className}>
-            {formatWithBothUnits(valueCm)}
+            {formatWithBothUnits(valueMm)}
         </span>
     );
 }
@@ -30,8 +30,8 @@ interface DimensionDisplayProps {
  */
 export function DimensionDisplay({ width, height, depth, className }: DimensionDisplayProps) {
     const dimensions = depth
-        ? `${width} × ${height} × ${depth}cm`
-        : `${width} × ${height}cm`;
+        ? `${width} × ${height} × ${depth}mm`
+        : `${width} × ${height}mm`;
 
     return (
         <span className={className}>

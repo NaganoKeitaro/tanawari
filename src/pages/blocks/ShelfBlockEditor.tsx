@@ -20,8 +20,8 @@ import { Modal } from '../../components/common/Modal';
 import { UnitInput } from '../../components/common/UnitInput';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 
-// 1cm = 3px表示
-const SCALE = 3; // 1cm = 3px表示
+// 1mm = 0.3px表示
+const SCALE = 0.3; // 1mm = 0.3px表示
 
 // ドラッグ可能な商品
 function DraggableProduct({ product }: { product: Product }) {
@@ -50,7 +50,7 @@ function DraggableProduct({ product }: { product: Product }) {
                 style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
             />
             <div className="product-card-name">{product.name}</div>
-            <div className="product-card-size">{product.width}×{product.height}cm</div>
+            <div className="product-card-size">{product.width}×{product.height}mm</div>
             <div className="text-xs" style={{ color: 'var(--color-warning)' }}>
                 Rank: {product.salesRank}
             </div>
@@ -79,7 +79,7 @@ function ShelfRow({
         data: { shelfIndex }
     });
 
-    const rowHeight = Math.max(60, height * SCALE / 5);
+    const rowHeight = Math.max(600, height * SCALE / 5);
     const rowPlacements = placements.filter(p => p.shelfIndex === shelfIndex);
 
     // 空きスペース計算
@@ -193,7 +193,7 @@ function BlockCard({
                 </button>
             </div>
             <div className="text-sm text-muted">
-                <UnitDisplay valueCm={block.width} /> × <UnitDisplay valueCm={block.height} /> {isFlat ? '（奥行）' : '（高さ）'}
+                <UnitDisplay valueMm={block.width} /> × <UnitDisplay valueMm={block.height} /> {isFlat ? '（奥行）' : '（高さ）'}
             </div>
             {!isFlat && <div className="text-sm text-muted">{block.shelfCount}段 / {block.productPlacements.length}商品</div>}
             {isFlat && <div className="text-sm text-muted">{block.productPlacements.length}商品</div>}
@@ -226,8 +226,8 @@ export function ShelfBlockEditor() {
         name: '',
         description: '',
         blockType: activeTab,
-        width: 90,
-        height: 180,
+        width: 900,
+        height: 1800,
         shelfCount: 5
     });
 
@@ -278,7 +278,7 @@ export function ShelfBlockEditor() {
 
         setBlocks([...blocks, created]);
         setIsCreateModalOpen(false);
-        setNewBlock({ name: '', description: '', blockType: activeTab, width: 90, height: 180, shelfCount: 5 });
+        setNewBlock({ name: '', description: '', blockType: activeTab, width: 900, height: 1800, shelfCount: 5 });
         setSelectedBlock(created);
     };
 
@@ -485,7 +485,7 @@ export function ShelfBlockEditor() {
                             <button
                                 className="btn btn-primary w-full"
                                 onClick={() => {
-                                    setNewBlock({ name: '', description: '', blockType: activeTab, width: 90, height: activeTab === 'flat' ? 90 : 180, shelfCount: 5 });
+                                    setNewBlock({ name: '', description: '', blockType: activeTab, width: 900, height: activeTab === 'flat' ? 900 : 1800, shelfCount: 5 });
                                     setIsCreateModalOpen(true);
                                 }}
                             >
@@ -517,7 +517,7 @@ export function ShelfBlockEditor() {
                                     <div>
                                         <h3 className="card-title">{selectedBlock.name}</h3>
                                         <div className="text-sm text-muted">
-                                            <UnitDisplay valueCm={selectedBlock.width} /> × <UnitDisplay valueCm={selectedBlock.height} /> {selectedBlock.blockType === 'flat' ? '（奥行）' : ` / ${selectedBlock.shelfCount}段`}
+                                            <UnitDisplay valueMm={selectedBlock.width} /> × <UnitDisplay valueMm={selectedBlock.height} /> {selectedBlock.blockType === 'flat' ? '（奥行）' : ` / ${selectedBlock.shelfCount}段`}
                                         </div>
                                     </div>
                                 </div>
@@ -609,7 +609,7 @@ export function ShelfBlockEditor() {
                             }}
                         >
                             <div className="product-card-name">{activeProduct.name}</div>
-                            <div className="product-card-size">{activeProduct.width}×{activeProduct.height}cm</div>
+                            <div className="product-card-size">{activeProduct.width}×{activeProduct.height}mm</div>
                         </div>
                     ) : null}
                 </DragOverlay>
