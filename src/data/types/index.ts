@@ -22,7 +22,7 @@ export const FMTS = ['MEGA', 'SuC', 'SMART', 'GO', 'FC'] as const;
 export type FMT = typeof FMTS[number];
 
 // 単位変換定数
-export const SHAKU_TO_CM = 30; // 1尺 = 30cm
+export const SHAKU_TO_MM = 300; // 1尺 = 300mm
 
 // ========================================
 // 商品データ (Products)
@@ -32,9 +32,9 @@ export interface Product {
   id: string;
   jan: string;
   name: string;
-  width: number;   // cm
-  height: number;  // cm
-  depth: number;   // cm
+  width: number;   // mm
+  height: number;  // mm
+  depth: number;   // mm
   category: string;
   imageUrl: string;
   salesRank: number; // 1-100, 1が最高
@@ -89,9 +89,9 @@ export type FixtureType = typeof FIXTURE_TYPES[number];
 export interface Fixture {
   id: string;
   name: string;
-  width: number;       // cm
-  height: number;      // cm（多段・ゴンドラの場合）
-  depth?: number;      // cm（平台の場合の奥行き）
+  width: number;       // mm
+  height: number;      // mm（多段・ゴンドラの場合）
+  depth?: number;      // mm（平台の場合の奥行き）
   shelfCount: number;  // 段数
   manufacturer?: string;
   modelNumber?: string;
@@ -128,7 +128,7 @@ export interface ProductPlacement {
   id: string;
   productId: string;
   shelfIndex: number;  // 何段目か（0-indexed）
-  positionX: number;   // 段内の位置（cm）
+  positionX: number;   // 段内の位置（mm）
   faceCount: number;   // フェイス数
 }
 
@@ -137,8 +137,8 @@ export interface ShelfBlock {
   name: string;
   description?: string;
   blockType?: 'multi-tier' | 'flat'; // ブロックの種別（多段 / 平台）
-  width: number;       // cm（ブロック幅）
-  height: number;      // cm（ブロック高さ / 平台の場合は奥行きとして扱う）
+  width: number;       // mm（ブロック幅）
+  height: number;      // mm（ブロック高さ / 平台の場合は奥行きとして扱う）
   shelfCount: number;  // 段数（平台の場合は実質1となる）
   productPlacements: ProductPlacement[];
   createdAt: string;

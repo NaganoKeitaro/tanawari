@@ -1,10 +1,10 @@
 // 棚割管理システム - 単位入力コンポーネント
 import { useState, useEffect, useCallback } from 'react';
-import { cmToShaku } from '../../utils/unitConverter';
+import { mmToShaku } from '../../utils/unitConverter';
 
 interface UnitInputProps {
     value: number;
-    onChange: (valueCm: number) => void;
+    onChange: (valueMm: number) => void;
     label?: string;
     placeholder?: string;
     className?: string;
@@ -14,29 +14,29 @@ interface UnitInputProps {
 }
 
 /**
- * cm/尺 どちらでも入力可能なコンポーネント
- * 内部では常にcmで値を管理
+ * mm/尺 どちらでも入力可能なコンポーネント
+ * 内部では常にmmで値を管理
  */
 export function UnitInput({
     value,
     onChange,
     label,
-    placeholder = "120cm または 4尺",
+    placeholder = "1200mm または 4尺",
     className,
     required,
     min,
     max
 }: UnitInputProps) {
     const [inputValue, setInputValue] = useState('');
-    const [unit, setUnit] = useState<'cm' | 'shaku'>('cm');
+    const [unit, setUnit] = useState<'mm' | 'shaku'>('mm');
     const [error, setError] = useState('');
 
     // 外部値の変更を反映
     useEffect(() => {
-        if (unit === 'cm') {
+        if (unit === 'mm') {
             setInputValue(value.toString());
         } else {
-            setInputValue(cmToShaku(value).toFixed(2));
+            setInputValue(mmToShaku(value).toFixed(2));
         }
     }, [value, unit]);
 
@@ -52,32 +52,32 @@ export function UnitInput({
         // 数値のみの入力の場合、現在の単位に基づいて変換
         const numValue = parseFloat(rawValue);
         if (!isNaN(numValue)) {
-            let cmValue = unit === 'cm' ? numValue : numValue * 30;
+            let mmValue = unit === 'mm' ? numValue : numValue * 300;
 
             // バリデーション
-            if (min !== undefined && cmValue < min) {
-                setError(`最小値は ${min}cm です`);
+            if (min !== undefined && mmValue < min) {
+                setError(`最小値は ${min}mm です`);
                 return;
             }
-            if (max !== undefined && cmValue > max) {
-                setError(`最大値は ${max}cm です`);
+            if (max !== undefined && mmValue > max) {
+                setError(`最大値は ${max}mm です`);
                 return;
             }
 
-            onChange(cmValue);
+            onChange(mmValue);
         }
     }, [unit, onChange, min, max]);
 
-    const handleUnitChange = useCallback((newUnit: 'cm' | 'shaku') => {
+    const handleUnitChange = useCallback((newUnit: 'mm' | 'shaku') => {
         setUnit(newUnit);
-        if (newUnit === 'cm') {
+        if (newUnit === 'mm') {
             setInputValue(value.toString());
         } else {
-            setInputValue(cmToShaku(value).toFixed(2));
+            setInputValue(mmToShaku(value).toFixed(2));
         }
     }, [value]);
 
-    const shaku = cmToShaku(value);
+    const shaku = mmToShaku(value);
 
     return (
         <div className={`form-group ${className || ''}`}>
@@ -95,10 +95,10 @@ export function UnitInput({
                 <div style={{ display: 'flex', gap: '0.25rem' }}>
                     <button
                         type="button"
-                        className={`btn btn-sm ${unit === 'cm' ? 'btn-primary' : 'btn-secondary'}`}
-                        onClick={() => handleUnitChange('cm')}
+                        className={`btn btn-sm ${unit === 'mm' ? 'btn-primary' : 'btn-secondary'}`}
+                        onClick={() => handleUnitChange('mm')}
                     >
-                        cm
+                        mm
                     </button>
                     <button
                         type="button"
@@ -110,7 +110,7 @@ export function UnitInput({
                 </div>
             </div>
             <div className="form-hint" style={{ marginTop: '0.25rem' }}>
-                {value}cm ({shaku.toFixed(1)}尺)
+                {value}mm ({shaku.toFixed(1)}尺)
             </div>
             {error && (
                 <div className="text-danger text-xs" style={{ marginTop: '0.25rem' }}>
@@ -148,20 +148,20 @@ export function SizeInput({
                     label="幅 (W)"
                     value={width}
                     onChange={(w) => onChange({ width: w, height, depth })}
-                    min={1}
+                    min={10}
                 />
                 <UnitInput
                     label="高さ (H)"
                     value={height}
                     onChange={(h) => onChange({ width, height: h, depth })}
-                    min={1}
+                    min={10}
                 />
                 {showDepth && (
                     <UnitInput
                         label="奥行 (D)"
                         value={depth || 0}
                         onChange={(d) => onChange({ width, height, depth: d })}
-                        min={1}
+                        min={10}
                     />
                 )}
             </div>

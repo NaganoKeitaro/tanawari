@@ -35,9 +35,9 @@ const isFlatFixtureType = (type: FixtureType) => type !== 'multi-tier' && type !
 
 const initialFormData: FixtureFormData = {
     name: '',
-    width: 90,
-    height: 180,
-    depth: 60,
+    width: 900,
+    height: 1800,
+    depth: 600,
     shelfCount: 5,
     fixtureType: 'multi-tier',
     manufacturer: '',
@@ -222,18 +222,18 @@ export function FixtureMaster() {
                                                 </span>
                                             </td>
                                             <td>
-                                                <UnitDisplay valueCm={fixture.width} className="text-sm" />
+                                                <UnitDisplay valueMm={fixture.width} className="text-sm" />
                                             </td>
                                             <td>
                                                 {isFlatFixtureType(fixture.fixtureType || 'multi-tier') ? (
                                                     <span className="text-sm">
                                                         <span className="text-xs text-muted">奥行 </span>
-                                                        <UnitDisplay valueCm={fixture.depth || fixture.height} className="text-sm" />
+                                                        <UnitDisplay valueMm={fixture.depth || 0} className="text-sm" />
                                                     </span>
                                                 ) : (
                                                     <span className="text-sm">
                                                         <span className="text-xs text-muted">高さ </span>
-                                                        <UnitDisplay valueCm={fixture.height} className="text-sm" />
+                                                        <UnitDisplay valueMm={fixture.height} className="text-sm" />
                                                     </span>
                                                 )}
                                             </td>
@@ -331,9 +331,9 @@ export function FixtureMaster() {
                                 ...formData,
                                 fixtureType: newType,
                                 // 平台系：段数1、高さリセット、奥行きデフォルト60
-                                ...(isFlat ? { shelfCount: 1, height: 0, depth: formData.depth || 60 } : {}),
+                                ...(isFlat ? { shelfCount: 1, height: 0, depth: formData.depth || 600 } : {}),
                                 // 多段系：高さ復帰
-                                ...(!isFlat && formData.height === 0 ? { height: 180, shelfCount: 5 } : {})
+                                ...(!isFlat && formData.height === 0 ? { height: 1800, shelfCount: 5 } : {})
                             });
                         }}
                     >

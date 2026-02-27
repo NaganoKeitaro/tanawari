@@ -280,7 +280,7 @@ export function Analytics() {
                             <div className="card-header flex justify-between items-center">
                                 <h3 className="card-title">{targetPlanogram instanceof Object && 'name' in targetPlanogram ? (targetPlanogram as any).name : '棚割詳細'}</h3>
                                 <div className="text-sm text-muted">
-                                    <UnitDisplay valueCm={targetPlanogram.width} /> × <UnitDisplay valueCm={targetPlanogram.height} />
+                                    <UnitDisplay valueMm={targetPlanogram.width} /> × <UnitDisplay valueMm={targetPlanogram.height} />
                                 </div>
                             </div>
 

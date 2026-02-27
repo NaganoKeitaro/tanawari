@@ -1,33 +1,33 @@
 // 棚割管理システム - 単位変換ユーティリティ
-import { SHAKU_TO_CM } from '../data/types';
+import { SHAKU_TO_MM } from '../data/types';
 
 /**
- * cmを尺に変換
+ * mmを尺に変換
  */
-export function cmToShaku(cm: number): number {
-    return cm / SHAKU_TO_CM;
+export function mmToShaku(mm: number): number {
+    return mm / SHAKU_TO_MM;
 }
 
 /**
- * 尺をcmに変換
+ * 尺をmmに変換
  */
-export function shakuToCm(shaku: number): number {
-    return shaku * SHAKU_TO_CM;
+export function shakuToMm(shaku: number): number {
+    return shaku * SHAKU_TO_MM;
 }
 
 /**
- * 表示用フォーマット: "120cm (4.0尺)"
+ * 表示用フォーマット: "1200mm (4.0尺)"
  */
-export function formatWithBothUnits(cm: number): string {
-    const shaku = cmToShaku(cm);
-    return `${cm}cm (${shaku.toFixed(1)}尺)`;
+export function formatWithBothUnits(mm: number): string {
+    const shaku = mmToShaku(mm);
+    return `${mm}mm (${shaku.toFixed(1)}尺)`;
 }
 
 /**
- * 入力値をパースしてcmに変換
- * "120cm", "4尺", "120" (デフォルトcm) に対応
+ * 入力値をパースしてmmに変換
+ * "1200mm", "4尺", "1200" (デフォルトmm) に対応
  */
-export function parseInputToCm(input: string): number | null {
+export function parseInputToMm(input: string): number | null {
     const trimmed = input.trim();
 
     if (!trimmed) return null;
@@ -36,17 +36,17 @@ export function parseInputToCm(input: string): number | null {
     if (trimmed.endsWith('尺')) {
         const value = parseFloat(trimmed.slice(0, -1));
         if (isNaN(value)) return null;
-        return shakuToCm(value);
+        return shakuToMm(value);
     }
 
-    // cmの入力
-    if (trimmed.endsWith('cm')) {
+    // mmの入力
+    if (trimmed.endsWith('mm')) {
         const value = parseFloat(trimmed.slice(0, -2));
         if (isNaN(value)) return null;
         return value;
     }
 
-    // 数値のみ（デフォルトでcmとして扱う）
+    // 数値のみ（デフォルトでmmとして扱う）
     const value = parseFloat(trimmed);
     if (isNaN(value)) return null;
     return value;
@@ -56,7 +56,7 @@ export function parseInputToCm(input: string): number | null {
  * 入力値をパースして尺に変換
  */
 export function parseInputToShaku(input: string): number | null {
-    const cm = parseInputToCm(input);
-    if (cm === null) return null;
-    return cmToShaku(cm);
+    const mm = parseInputToMm(input);
+    if (mm === null) return null;
+    return mmToShaku(mm);
 }

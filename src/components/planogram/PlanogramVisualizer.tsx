@@ -26,7 +26,7 @@ type PlanogramVisualizerProps = {
     totalMetric?: number; // Optional externally provided total
 };
 
-const SCALE = 3; // 1cm = 3px
+const SCALE = 0.3; // 1mm = 0.3px
 
 export function PlanogramVisualizer({
     planogram,

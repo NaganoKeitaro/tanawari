@@ -37,7 +37,7 @@ import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
 import { StoreLayoutVisualizer } from '../../components/layout/StoreLayoutVisualizer';
 
-const SCALE = 3; // 1cm = 3px
+const SCALE = 0.3; // 1mm = 0.3px
 
 const PLANOGRAM_TYPES: { id: FixtureType; label: string }[] = [
     { id: 'multi-tier', label: '多段' },
@@ -70,7 +70,7 @@ function DraggableBlock({ block }: { block: ShelfBlock }) {
         >
             <div style={{ fontWeight: 500 }}>{block.name}</div>
             <div className="text-xs text-muted">
-                <UnitDisplay valueCm={block.width} /> × <UnitDisplay valueCm={block.blockType === 'flat' ? (block as any).depth || 0 : block.height} />
+                <UnitDisplay valueMm={block.width} /> × <UnitDisplay valueMm={block.blockType === 'flat' ? (block as any).depth || 0 : block.height} />
                 {block.blockType !== 'flat' && ` / ${block.shelfCount}段`}
             </div>
             <div className="text-xs text-muted">
@@ -820,7 +820,7 @@ export function StandardPlanogramEditor() {
                                                     return (
                                                         <>
                                                             {compositionText}
-                                                            （総幅: {totalShaku * 30}cm ({totalShaku > 0 ? `${totalShaku}尺` : ''})）
+                                                            （総幅: {totalShaku * 300}mm ({totalShaku > 0 ? `${totalShaku}尺` : ''})）
                                                         </>
                                                     );
                                                 })()}

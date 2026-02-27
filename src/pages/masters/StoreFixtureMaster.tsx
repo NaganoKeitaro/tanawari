@@ -63,9 +63,8 @@ function DraggableFixture({ fixture }: { fixture: Fixture }) {
                 <div>
                     <div style={{ fontWeight: 600 }}>{fixture.name}</div>
                     <div className="text-xs" style={{ opacity: 0.8 }}>
-                        <UnitDisplay valueCm={fixture.width} /> × <UnitDisplay valueCm={fixture.height} />
+                        <UnitDisplay valueMm={fixture.width} /> × <UnitDisplay valueMm={fixture.height} /> {fixture.fixtureType?.includes('flat') ? '（奥行）' : ` / ${fixture.shelfCount}段`}
                     </div>
-                    <div className="text-xs" style={{ opacity: 0.8 }}>{fixture.shelfCount}段</div>
                 </div>
             </div>
         </div>
@@ -103,7 +102,7 @@ function PlacedFixture({
                 <div>
                     <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{fixture.name}</div>
                     <div className="text-xs" style={{ opacity: 0.8 }}>
-                        <UnitDisplay valueCm={fixture.width} /> / {fixture.shelfCount}段
+                        <UnitDisplay valueMm={fixture.width} /> / {fixture.shelfCount}段
                     </div>
                 </div>
             </div>
@@ -162,7 +161,7 @@ function StoreDropArea({
                         配置什器: <strong>{storePlacements.length}</strong> 台
                     </div>
                     <div className="text-xs text-muted">
-                        総幅: <UnitDisplay valueCm={totalWidth} />
+                        総幅: <UnitDisplay valueMm={totalWidth} />
                     </div>
                 </div>
             </div>
@@ -576,7 +575,7 @@ export function StoreFixtureMaster() {
                                     <div>
                                         <div style={{ fontWeight: 500 }}>{activeFixture.name}</div>
                                         <div className="text-xs" style={{ opacity: 0.8 }}>
-                                            {activeFixture.width}cm × {activeFixture.height}cm
+                                            {activeFixture.width}mm × {activeFixture.height}mm {activeFixture.fixtureType?.includes('flat') ? '（奥行）' : ` / ${activeFixture.shelfCount}段`}
                                         </div>
                                     </div>
                                 </div>

@@ -23,7 +23,7 @@ import { UnitDisplay } from '../components/common/UnitDisplay';
 
 // ===== 定数 =====
 
-const SCALE = 2.5;
+const SCALE = 0.25;
 
 const TYPE_LABELS: Record<FixtureType, string> = {
     'multi-tier': '多段',
@@ -101,7 +101,7 @@ function PlanogramVisual({
             <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {TYPE_LABELS[fixtureType]}
                 <span className="text-sm text-muted" style={{ fontWeight: 400 }}>
-                    (<UnitDisplay valueCm={planogram.width} /> / {planogram.shelfCount}段)
+                    (<UnitDisplay valueMm={planogram.width} /> / {planogram.shelfCount}段)
                 </span>
             </h4>
 
@@ -262,7 +262,7 @@ function BlockDetailSection({
                                 {block.name}
                             </span>
                             <span className="text-xs text-muted">
-                                <UnitDisplay valueCm={block.width} /> / {block.shelfCount}段
+                                <UnitDisplay valueMm={block.width} /> / {block.shelfCount}段
                             </span>
                         </div>
                         <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
@@ -725,7 +725,7 @@ export function InstructionSheet() {
                                     <div>
                                         <h3 className="card-title">{selectedStore.name} レイアウト</h3>
                                         <div className="text-sm text-muted">
-                                            什器数: {placements.length}台 / 総幅: <UnitDisplay valueCm={placements.reduce((sum, p) => {
+                                            什器数: {placements.length}台 / 総幅: <UnitDisplay valueMm={placements.reduce((sum, p) => {
                                                 const f = fixtures.find(fix => fix.id === p.fixtureId);
                                                 return sum + (f?.width || 0);
                                             }, 0)} />
@@ -734,10 +734,10 @@ export function InstructionSheet() {
                                 </div>
                                 <div style={{ overflow: 'auto', padding: '1rem', background: '#f8fafc', borderRadius: '0 0 var(--radius-md) var(--radius-md)' }}>
                                     {(() => {
-                                        const LAYOUT_SCALE = 1.2;
+                                        const LAYOUT_SCALE = 0.12;
 
                                         const getFixDims = (fixture: Fixture, direction: number = 0) => {
-                                            const depth = fixture.fixtureType?.includes('end-cap') ? 60 : 90;
+                                            const depth = fixture.fixtureType?.includes('end-cap') ? 600 : 900;
                                             const isRotated = direction === 90 || direction === 270;
                                             return {
                                                 width: isRotated ? depth : fixture.width,
@@ -855,7 +855,7 @@ export function InstructionSheet() {
                                                                 {/* 棚ブロックオーバーレイ */}
                                                                 {fixtureBlockOverlays.get(p.id)?.map((overlay, overlayIdx) => {
                                                                     const color = getBlockOverlayColor(overlay.colorIndex);
-                                                                    const overlayWidthCm = overlay.relativeEndX - overlay.relativeStartX;
+                                                                    const overlayWidthMm = overlay.relativeEndX - overlay.relativeStartX;
                                                                     return (
                                                                         <div
                                                                             key={`block-${overlayIdx}`}
@@ -863,7 +863,7 @@ export function InstructionSheet() {
                                                                                 position: 'absolute',
                                                                                 left: `${overlay.relativeStartX * LAYOUT_SCALE}px`,
                                                                                 top: 0,
-                                                                                width: `${overlayWidthCm * LAYOUT_SCALE}px`,
+                                                                                width: `${overlayWidthMm * LAYOUT_SCALE}px`,
                                                                                 height: '100%',
                                                                                 background: color.bg,
                                                                                 border: `1.5px dashed ${color.border}`,
