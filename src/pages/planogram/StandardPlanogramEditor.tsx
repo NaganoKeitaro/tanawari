@@ -336,6 +336,10 @@ export function StandardPlanogramEditor() {
     const [activeBlock, setActiveBlock] = useState<ShelfBlock | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [planogramName, setPlanogramName] = useState('');
+    const [newStartDate, setNewStartDate] = useState('');
+    const [newEndDate, setNewEndDate] = useState('');
+    const [newDescription, setNewDescription] = useState('');
+    const [copySource, setCopySource] = useState<StandardPlanogram | null>(null);
 
     // 分析モード
     const [analyticsMode, setAnalyticsMode] = useState(false);
@@ -371,68 +375,48 @@ export function StandardPlanogramEditor() {
         loadData();
     }, [loadData]);
 
+    // 期間重複チェックヘルパー
+    const hasDateOverlap = (a: StandardPlanogram, b: StandardPlanogram): boolean => {
+        if (!a.startDate || !a.endDate || !b.startDate || !b.endDate) return false;
+        return a.startDate <= b.endDate && a.endDate >= b.startDate;
+    };
+
+    // FMT+什器タイプでフィルターされた棚割一覧
+    const filteredPlanograms = planograms.filter(p =>
+        p.fmt === selectedFmt && p.fixtureType === selectedFixtureType
+    );
+
     // FMT選択時
     const handleFmtChange = (fmt: FMT | '') => {
         setSelectedFmt(fmt);
         setSelectedStoreId('');
         setCurrentPlanogram(null);
-
-        if (fmt) {
-            // 既存の標準棚割を検索 (現在の什器タイプで)
-            const existing = planograms.find(p => p.fmt === fmt && p.fixtureType === selectedFixtureType);
-            if (existing) {
-                setCurrentPlanogram(existing);
-            }
-        }
     };
 
     // 什器タイプ変更時
     const handleFixtureTypeChange = (type: FixtureType) => {
         setSelectedFixtureType(type);
         setCurrentPlanogram(null);
-
-        if (selectedFmt) {
-            const existing = planograms.find(p => p.fmt === selectedFmt && p.fixtureType === type);
-            if (existing) {
-                setCurrentPlanogram(existing);
-            } else {
-                // 店舗が選択されていれば、新規作成のチャンスのためにチェックするなどのロジックも可
-                // ここでは単にクリアのみ
-            }
-        }
     };
 
-    // 店舗選択時（基準店舗としてキャンバス初期化）
-    const handleStoreSelect = async (storeId: string) => {
+    // 基準店舗選択時（一覧モードなので即座にエディタには遷移しない）
+    const handleStoreSelect = (storeId: string) => {
         setSelectedStoreId(storeId);
+        setCurrentPlanogram(null);
+    };
 
-        if (!selectedFmt) return;
-
-        // 店舗の什器配置から棚サイズを計算
-        const storePlacements = placements.filter(p => p.storeId === storeId);
-        let totalWidth = 0;
-
-        for (const placement of storePlacements) {
-            const fixture = fixtures.find(f => f.id === placement.fixtureId);
-            if (fixture) {
-                totalWidth += fixture.width;
-            }
+    // 新規作成用モーダルを開く
+    const openCreateModal = (source?: StandardPlanogram) => {
+        setCopySource(source || null);
+        const typeLabel = PLANOGRAM_TYPES.find(t => t.id === selectedFixtureType)?.label || '';
+        setPlanogramName(source ? `${source.name} (コピー)` : `${selectedFmt}標準棚割（${typeLabel}）`);
+        setNewStartDate(source?.startDate || '');
+        setNewEndDate(source?.endDate || '');
+        setNewDescription(source?.description || '');
+        if (!selectedStoreId && source) {
+            setSelectedStoreId(source.baseStoreId);
         }
-
-        if (totalWidth === 0) {
-            alert('この店舗には什器が配置されていません');
-            return;
-        }
-
-        // 既存の標準棚割を検索または新規作成準備
-        const existing = planograms.find(p => p.fmt === selectedFmt && p.fixtureType === selectedFixtureType);
-        if (existing) {
-            setCurrentPlanogram(existing);
-        } else {
-            const typeLabel = PLANOGRAM_TYPES.find(t => t.id === selectedFixtureType)?.label || '';
-            setPlanogramName(`${selectedFmt}標準棚割（${typeLabel}）`);
-            setIsCreateModalOpen(true);
-        }
+        setIsCreateModalOpen(true);
     };
 
     // 標準棚割作成
@@ -448,7 +432,6 @@ export function StandardPlanogramEditor() {
             const fixture = fixtures.find(f => f.id === placement.fixtureId);
             if (!fixture) continue;
 
-            // 什器タイプが一致するか確認 (多段系は multi-tier, gondola / 平台系は flat-xxx)
             const fType = fixture.fixtureType || '';
             const isMatch = (selectedFixtureType === 'multi-tier' && ['multi-tier', 'gondola'].includes(fType as any)) ||
                 (selectedFixtureType === fType);
@@ -461,16 +444,23 @@ export function StandardPlanogramEditor() {
             }
         }
 
+        // 複製元がある場合はblocks/productsをコピー（IDは新規生成）
+        let initialBlocks = copySource ? copySource.blocks.map(b => ({ ...b, id: crypto.randomUUID() })) : [];
+        let initialProducts = copySource ? copySource.products.map(p => ({ ...p, id: crypto.randomUUID() })) : [];
+
         const newPlanogram = await standardPlanogramRepository.create({
             fmt: selectedFmt,
             name: planogramName,
             baseStoreId: selectedStoreId,
             fixtureType: selectedFixtureType,
-            width: totalWidth,
-            height: maxHeight || 180,
-            shelfCount: maxShelfCount || 5,
-            blocks: [],
-            products: [],
+            width: copySource ? copySource.width : totalWidth,
+            height: copySource ? copySource.height : (maxHeight || 180),
+            shelfCount: copySource ? copySource.shelfCount : (maxShelfCount || 5),
+            startDate: newStartDate || undefined,
+            endDate: newEndDate || undefined,
+            description: newDescription || undefined,
+            blocks: initialBlocks,
+            products: initialProducts,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         });
@@ -478,6 +468,18 @@ export function StandardPlanogramEditor() {
         setPlanograms([...planograms, newPlanogram]);
         setCurrentPlanogram(newPlanogram);
         setIsCreateModalOpen(false);
+        setCopySource(null);
+    };
+
+    // 棚割削除
+    const handleDeletePlanogram = async (planogramId: string) => {
+        if (!confirm('この標準棚割を削除しますか？')) return;
+        await standardPlanogramRepository.delete(planogramId);
+        const updated = planograms.filter(p => p.id !== planogramId);
+        setPlanograms(updated);
+        if (currentPlanogram?.id === planogramId) {
+            setCurrentPlanogram(null);
+        }
     };
 
     // ドラッグ開始
@@ -773,6 +775,15 @@ export function StandardPlanogramEditor() {
 
             {currentPlanogram && (
                 <>
+                    <div className="mb-md">
+                        <button
+                            className="btn btn-secondary"
+                            style={{ fontSize: '0.85rem' }}
+                            onClick={() => setCurrentPlanogram(null)}
+                        >
+                            ← 一覧に戻る
+                        </button>
+                    </div>
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -914,9 +925,112 @@ export function StandardPlanogramEditor() {
                 </>
             )}
 
+            {/* 棚割一覧テーブル（FMT選択済み & エディタ未選択時） */}
             {!currentPlanogram && selectedFmt && (
-                <div className="card text-center text-muted" style={{ padding: '4rem' }}>
-                    基準店舗を選択すると標準棚割を作成できます
+                <div className="card">
+                    <div className="card-header">
+                        <h3 className="card-title">標準棚割一覧</h3>
+                        <button className="btn btn-primary" onClick={() => openCreateModal()}>
+                            ＋ 新規作成
+                        </button>
+                    </div>
+
+                    {filteredPlanograms.length > 0 ? (
+                        <div style={{ overflowX: 'auto' }}>
+                            <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '2px solid var(--border-color)' }}>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)' }}>棚割名</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)' }}>適用期間</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)' }}>基準店舗</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'center', fontSize: '0.8rem', color: 'var(--text-muted)' }}>商品数</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)' }}>更新日</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.8rem', color: 'var(--text-muted)' }}>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredPlanograms.map(pg => {
+                                        const baseStore = stores.find(s => s.id === pg.baseStoreId);
+                                        const hasOverlap = filteredPlanograms.some(other =>
+                                            other.id !== pg.id && hasDateOverlap(pg, other)
+                                        );
+                                        const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }) : '';
+                                        const periodText = pg.startDate || pg.endDate
+                                            ? `${formatDate(pg.startDate)}〜${formatDate(pg.endDate)}`
+                                            : '未設定';
+
+                                        return (
+                                            <tr key={pg.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                <td style={{ padding: '0.75rem 1rem' }}>
+                                                    <div style={{ fontWeight: 500 }}>{pg.name}</div>
+                                                    {pg.description && (
+                                                        <div className="text-xs text-muted" style={{ marginTop: '2px' }}>{pg.description}</div>
+                                                    )}
+                                                </td>
+                                                <td style={{ padding: '0.75rem 1rem' }}>
+                                                    <span>{periodText}</span>
+                                                    {hasOverlap && (
+                                                        <span title="他の棚割と期間が重複しています" style={{
+                                                            display: 'inline-block',
+                                                            marginLeft: '0.5rem',
+                                                            background: '#f59e0b',
+                                                            color: 'white',
+                                                            padding: '1px 6px',
+                                                            borderRadius: '999px',
+                                                            fontSize: '0.7rem',
+                                                            fontWeight: 600
+                                                        }}>⚠️ 重複</span>
+                                                    )}
+                                                </td>
+                                                <td style={{ padding: '0.75rem 1rem' }}>
+                                                    {baseStore ? baseStore.name : '—'}
+                                                </td>
+                                                <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                                                    {pg.products.length}
+                                                </td>
+                                                <td style={{ padding: '0.75rem 1rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                                    {new Date(pg.updatedAt).toLocaleDateString('ja-JP')}
+                                                </td>
+                                                <td style={{ padding: '0.75rem 1rem' }}>
+                                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                        <button
+                                                            className="btn btn-secondary"
+                                                            style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                                                            onClick={() => {
+                                                                setSelectedStoreId(pg.baseStoreId);
+                                                                setCurrentPlanogram(pg);
+                                                            }}
+                                                        >
+                                                            編集
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-secondary"
+                                                            style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                                                            onClick={() => openCreateModal(pg)}
+                                                        >
+                                                            複製
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-secondary text-danger"
+                                                            style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                                                            onClick={() => handleDeletePlanogram(pg.id)}
+                                                        >
+                                                            削除
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="text-center text-muted" style={{ padding: '3rem' }}>
+                            この FMT・什器タイプの標準棚割はまだありません。<br />
+                            「＋新規作成」ボタンから作成してください。
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -930,14 +1044,18 @@ export function StandardPlanogramEditor() {
             <Modal
                 isOpen={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
-                title="標準棚割を作成"
+                title={copySource ? '標準棚割を複製' : '標準棚割を作成'}
                 footer={
                     <>
                         <button className="btn btn-secondary" onClick={() => setIsCreateModalOpen(false)}>
                             キャンセル
                         </button>
-                        <button className="btn btn-primary" onClick={handleCreatePlanogram}>
-                            作成
+                        <button
+                            className="btn btn-primary"
+                            onClick={handleCreatePlanogram}
+                            disabled={!selectedFmt || !selectedStoreId || !planogramName}
+                        >
+                            {copySource ? '複製して作成' : '作成'}
                         </button>
                     </>
                 }
@@ -952,9 +1070,61 @@ export function StandardPlanogramEditor() {
                         placeholder="MEGA標準棚割"
                     />
                 </div>
-                <div className="text-sm text-muted">
-                    選択した店舗の什器配置をベースに標準棚割を作成します。
+                <div className="form-group">
+                    <label className="form-label">基準店舗</label>
+                    <select
+                        className="form-select"
+                        value={selectedStoreId}
+                        onChange={(e) => setSelectedStoreId(e.target.value)}
+                    >
+                        <option value="">店舗を選択...</option>
+                        {availableStores.map(store => (
+                            <option key={store.id} value={store.id}>
+                                {store.name} ({store.code})
+                            </option>
+                        ))}
+                    </select>
                 </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div className="form-group">
+                        <label className="form-label">適用開始日</label>
+                        <input
+                            type="date"
+                            className="form-input"
+                            value={newStartDate}
+                            onChange={(e) => setNewStartDate(e.target.value)}
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">適用終了日</label>
+                        <input
+                            type="date"
+                            className="form-input"
+                            value={newEndDate}
+                            onChange={(e) => setNewEndDate(e.target.value)}
+                        />
+                    </div>
+                </div>
+                <div className="form-group">
+                    <label className="form-label">メモ・用途</label>
+                    <input
+                        type="text"
+                        className="form-input"
+                        value={newDescription}
+                        onChange={(e) => setNewDescription(e.target.value)}
+                        placeholder="例: 2024年末年始用"
+                    />
+                </div>
+                {copySource && (
+                    <div className="text-sm" style={{ padding: '0.75rem', background: 'var(--bg-secondary)', borderRadius: 'var(--radius-sm)' }}>
+                        📋 「{copySource.name}」のブロック・商品配置をコピーします（{copySource.products.length}商品）
+                    </div>
+                )}
+                {!copySource && (
+                    <div className="text-sm text-muted">
+                        選択した店舗の什器配置をベースに標準棚割を作成します。
+                    </div>
+                )}
             </Modal>
         </div>
     );
