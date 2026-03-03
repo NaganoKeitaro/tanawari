@@ -217,7 +217,7 @@ function PlanogramCanvas({
                             key={shelfIndex}
                             className="shelf-row"
                             style={{
-                                height: `${Math.max(60, (planogram.height / planogram.shelfCount) * SCALE)}px`,
+                                minHeight: `${Math.max(120, (planogram.height / planogram.shelfCount) * SCALE)}px`,
                                 position: 'relative',
                                 zIndex: 1 // ブロック線より手前
                             }}
@@ -245,17 +245,17 @@ function PlanogramCanvas({
                                             display: 'flex',
                                             flexDirection: 'column',
                                             alignItems: 'center',
-                                            justifyContent: 'center',
-                                            padding: '2px',
-                                            fontSize: '0.6rem',
+                                            justifyContent: 'flex-start',
+                                            padding: '4px 3px',
+                                            fontSize: '0.75rem',
                                             overflow: 'hidden'
                                         }}
                                         title={`${product.name} ×${sp.faceCount}${analyticsMode && selectedMetric ? `\n${selectedMetric}: ${product[selectedMetric] || 0}` : ''}`}
                                     >
-                                        <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                        <div style={{ fontWeight: 500, wordBreak: 'break-word', textAlign: 'center', lineHeight: 1.3, maxWidth: '100%' }}>
                                             {product.name}
                                         </div>
-                                        <div style={{ color: 'var(--text-muted)' }}>×{sp.faceCount}</div>
+                                        <div style={{ color: 'var(--text-muted)', marginTop: 'auto', flexShrink: 0, paddingTop: '2px' }}>×{sp.faceCount}</div>
 
                                         {/* 分析モード: メトリクスバッジ */}
                                         {analyticsMode && selectedMetric && (
