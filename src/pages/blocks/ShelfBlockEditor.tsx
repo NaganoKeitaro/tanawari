@@ -62,14 +62,12 @@ function DraggableProduct({ product }: { product: Product }) {
 function ShelfRow({
     shelfIndex,
     width,
-    height,
     placements,
     products,
     onRemove
 }: {
     shelfIndex: number;
     width: number;
-    height: number;
     placements: ProductPlacement[];
     products: Product[];
     onRemove: (placementId: string) => void;
@@ -79,7 +77,7 @@ function ShelfRow({
         data: { shelfIndex }
     });
 
-    const rowHeight = Math.max(600, height * SCALE / 5);
+    const FIXED_ROW_HEIGHT = 140; // 固定高さ: テキスト視認性優先
     const rowPlacements = placements.filter(p => p.shelfIndex === shelfIndex);
 
     // 空きスペース計算
@@ -94,7 +92,7 @@ function ShelfRow({
             ref={setNodeRef}
             className="shelf-row"
             style={{
-                height: `${rowHeight}px`,
+                height: `${FIXED_ROW_HEIGHT}px`,
                 borderColor: isOver ? 'var(--color-primary)' : 'var(--border-color)',
                 borderWidth: isOver ? '2px' : '1px',
                 borderStyle: 'solid',
@@ -531,19 +529,19 @@ export function ShelfBlockEditor() {
                                         paddingBottom: '10px',
                                         background: 'var(--bg-primary)',
                                         borderRadius: 'var(--radius-md)',
-                                        overflow: 'auto'
+                                        overflow: 'auto',
+                                        maxHeight: '500px'
                                     }}
                                 >
                                     <div
                                         className="shelf-grid"
-                                        style={{ width: `${selectedBlock.width * SCALE}px` }}
+                                        style={{ width: `${selectedBlock.width * SCALE}px`, display: 'flex', flexDirection: 'column-reverse', gap: '2px' }}
                                     >
                                         {Array.from({ length: selectedBlock.shelfCount }).map((_, i) => (
                                             <ShelfRow
                                                 key={i}
                                                 shelfIndex={i}
                                                 width={selectedBlock.width}
-                                                height={selectedBlock.height / selectedBlock.shelfCount}
                                                 placements={selectedBlock.productPlacements}
                                                 products={products}
                                                 onRemove={handleRemovePlacement}
