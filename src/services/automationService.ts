@@ -341,13 +341,17 @@ export async function generateStorePlanogram(
 }
 
 /**
- * FMTの全店舗に対して一括生成
+ * 指定された店舗に対して一括生成
+ * storeIds を省略した場合は FMT の全店舗を対象にする（後方互換）
  */
 export async function batchGenerateStorePlanograms(
     standardPlanogram: StandardPlanogram,
-    onProgress?: (current: number, total: number, result: GenerationResult) => void
+    onProgress?: (current: number, total: number, result: GenerationResult) => void,
+    storeIds?: string[]
 ): Promise<GenerationResult[]> {
-    const stores = await storeRepository.query(s => s.fmt === standardPlanogram.fmt);
+    const stores = storeIds
+        ? await storeRepository.query(s => storeIds.includes(s.id))
+        : await storeRepository.query(s => s.fmt === standardPlanogram.fmt);
     const results: GenerationResult[] = [];
 
     for (let i = 0; i < stores.length; i++) {

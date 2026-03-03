@@ -15,7 +15,7 @@ import {
     standardPlanogramRepository,
     storePlanogramRepository
 } from '../../data/repositories/repositoryFactory';
-import { batchGenerateStorePlanograms } from '../../services/automationService';
+import { generateStorePlanogram } from '../../services/automationService';
 
 type TabType = 'batch' | 'individual';
 
@@ -30,6 +30,8 @@ export function StorePlanogramBatch() {
 
     // 一括生成用State
     const [selectedFmt, setSelectedFmt] = useState<FMT | ''>('');
+    const [selectedStandardPlanogramId, setSelectedStandardPlanogramId] = useState<string>('');
+    const [selectedStoreIds, setSelectedStoreIds] = useState<string[]>([]);
     const [isGenerating, setIsGenerating] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
     const [results, setResults] = useState<GenerationResult[]>([]);
@@ -57,47 +59,52 @@ export function StorePlanogramBatch() {
         loadData();
     }, [loadData]);
 
+    // FMT変更時にサブ選択をリセット
+    const handleFmtChange = (fmt: FMT | '') => {
+        setSelectedFmt(fmt);
+        setSelectedStandardPlanogramId('');
+        setSelectedStoreIds([]);
+        setResults([]);
+    };
+
+    // FMTに紐づく標準棚割一覧
+    const fmtPlanograms = planograms.filter(p => p.fmt === selectedFmt);
+
+    // FMTに紐づく店舗一覧
+    const fmtStores = stores.filter(s => s.fmt === selectedFmt);
+
+    // 選択済み標準棚割オブジェクト
+    const selectedStandardPlanogram = planograms.find(p => p.id === selectedStandardPlanogramId) || null;
+
+    // 店舗の全選択/全解除
+    const handleSelectAllStores = () => setSelectedStoreIds(fmtStores.map(s => s.id));
+    const handleDeselectAllStores = () => setSelectedStoreIds([]);
+    const toggleStoreSelection = (storeId: string) => {
+        setSelectedStoreIds(prev =>
+            prev.includes(storeId) ? prev.filter(id => id !== storeId) : [...prev, storeId]
+        );
+    };
+
     // 一括生成実行
     const handleGenerate = async () => {
-        if (!selectedFmt) {
-            alert('FMTを選択してください');
-            return;
-        }
+        if (!selectedStandardPlanogram || selectedStoreIds.length === 0) return;
 
-        const targetPlanograms = planograms.filter(p => p.fmt === selectedFmt);
-        if (targetPlanograms.length === 0) {
-            alert('このFMTの標準棚割がありません。先に標準棚割を作成してください。');
-            return;
-        }
-
-        const targetStores = stores.filter(s => s.fmt === selectedFmt);
-        if (targetStores.length === 0) {
-            alert('このFMTに該当する店舗がありません');
-            return;
-        }
-
-        if (!confirm(`${selectedFmt}の${targetStores.length}店舗に対して、${targetPlanograms.length}種類の棚割を一括で提案作成（更新）しますか？`)) {
+        if (!confirm(`「${selectedStandardPlanogram.name}」を ${selectedStoreIds.length} 店舗に対して一括生成しますか？`)) {
             return;
         }
 
         setIsGenerating(true);
-        // 総処理数は 店舗数 × 標準棚割数
-        const totalOps = targetStores.length * targetPlanograms.length;
+        const totalOps = selectedStoreIds.length;
         setProgress({ current: 0, total: totalOps });
         setResults([]);
 
-        let completedOps = 0;
-
-        for (const std of targetPlanograms) {
-            await batchGenerateStorePlanograms(std, (_c, _t, result) => {
-                completedOps++;
-                setProgress({ current: completedOps, total: totalOps });
-                setResults(prev => [...prev, result]);
-            });
+        for (let i = 0; i < selectedStoreIds.length; i++) {
+            const result = await generateStorePlanogram(selectedStoreIds[i], selectedStandardPlanogram);
+            setProgress({ current: i + 1, total: totalOps });
+            setResults(prev => [...prev, result]);
         }
 
         setIsGenerating(false);
-        // 生成後にデータを再読み込み
         await loadData();
     };
 
@@ -228,15 +235,15 @@ export function StorePlanogramBatch() {
             {/* 一括自動生成タブ */}
             {activeTab === 'batch' && (
                 <>
-                    {/* FMT選択 */}
+                    {/* ステップ1: FMT選択 */}
                     <div className="card mb-lg">
                         <div className="flex items-center gap-lg" style={{ flexWrap: 'wrap' }}>
                             <div className="form-group" style={{ margin: 0 }}>
-                                <label className="form-label">処理対象FMT</label>
+                                <label className="form-label">① 処理対象FMT</label>
                                 <select
                                     className="form-select"
                                     value={selectedFmt}
-                                    onChange={(e) => setSelectedFmt(e.target.value as FMT | '')}
+                                    onChange={(e) => handleFmtChange(e.target.value as FMT | '')}
                                     disabled={isGenerating}
                                 >
                                     <option value="">FMTを選択...</option>
@@ -247,26 +254,10 @@ export function StorePlanogramBatch() {
                             </div>
 
                             {selectedFmt && (
-                                <div>
-                                    <div className="text-sm">
-                                        対象店舗: <strong>{stores.filter(s => s.fmt === selectedFmt).length}</strong>店舗
-                                    </div>
-                                    <div className="text-xs text-muted">
-                                        {planograms.find(p => p.fmt === selectedFmt)
-                                            ? '✓ 標準棚割あり'
-                                            : '⚠️ 標準棚割なし'}
-                                    </div>
+                                <div className="text-sm text-muted">
+                                    標準棚割: <strong>{fmtPlanograms.length}</strong>件 / 店舗: <strong>{fmtStores.length}</strong>店舗
                                 </div>
                             )}
-
-                            <button
-                                className="btn btn-primary btn-lg"
-                                onClick={handleGenerate}
-                                disabled={isGenerating || !selectedFmt}
-                                style={{ marginLeft: 'auto' }}
-                            >
-                                {isGenerating ? '生成中...' : '🚀 自動棚割提案を作成'}
-                            </button>
                         </div>
                     </div>
 
@@ -280,7 +271,7 @@ export function StorePlanogramBatch() {
                                     cursor: 'pointer',
                                     borderColor: selectedFmt === stat.fmt ? 'var(--color-primary)' : 'var(--border-color)'
                                 }}
-                                onClick={() => setSelectedFmt(stat.fmt)}
+                                onClick={() => handleFmtChange(stat.fmt)}
                             >
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -298,6 +289,167 @@ export function StorePlanogramBatch() {
                             </div>
                         ))}
                     </div>
+
+                    {/* ステップ2: 標準棚割選択 */}
+                    {selectedFmt && (
+                        <div className="card mb-lg">
+                            <div className="card-header">
+                                <h3 className="card-title">② 標準棚割を選択</h3>
+                            </div>
+                            {fmtPlanograms.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {fmtPlanograms.map(pg => {
+                                        const isSelected = selectedStandardPlanogramId === pg.id;
+                                        const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }) : '';
+                                        const periodText = pg.startDate || pg.endDate
+                                            ? `${formatDate(pg.startDate)}〜${formatDate(pg.endDate)}`
+                                            : null;
+                                        return (
+                                            <div
+                                                key={pg.id}
+                                                onClick={() => !isGenerating && setSelectedStandardPlanogramId(pg.id)}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '0.75rem',
+                                                    padding: '0.75rem 1rem',
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    cursor: isGenerating ? 'default' : 'pointer',
+                                                    border: isSelected ? '2px solid var(--color-primary)' : '2px solid var(--border-color)',
+                                                    background: isSelected ? 'rgba(99, 102, 241, 0.05)' : 'transparent',
+                                                    transition: 'all 0.15s ease'
+                                                }}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name="standardPlanogram"
+                                                    checked={isSelected}
+                                                    onChange={() => setSelectedStandardPlanogramId(pg.id)}
+                                                    disabled={isGenerating}
+                                                />
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ fontWeight: 500 }}>{pg.name}</div>
+                                                    <div className="text-xs text-muted" style={{ display: 'flex', gap: '1rem', marginTop: '2px' }}>
+                                                        {periodText && <span>📅 {periodText}</span>}
+                                                        {pg.description && <span>💬 {pg.description}</span>}
+                                                        <span>商品: {pg.products.length}件</span>
+                                                        <span>什器: {pg.fixtureType || '多段'}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : (
+                                <div className="text-center text-muted" style={{ padding: '2rem' }}>
+                                    このFMTの標準棚割がありません。先に「FMT標準棚割管理」で作成してください。
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* ステップ3: 店舗選択 */}
+                    {selectedFmt && selectedStandardPlanogramId && (
+                        <div className="card mb-lg">
+                            <div className="card-header">
+                                <h3 className="card-title">③ 対象店舗を選択</h3>
+                                <div className="flex gap-md items-center">
+                                    <span className="text-sm text-muted">
+                                        {selectedStoreIds.length} / {fmtStores.length} 店舗選択中
+                                    </span>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                                        onClick={handleSelectAllStores}
+                                        disabled={isGenerating}
+                                    >
+                                        全選択
+                                    </button>
+                                    <button
+                                        className="btn btn-secondary"
+                                        style={{ padding: '4px 12px', fontSize: '0.8rem' }}
+                                        onClick={handleDeselectAllStores}
+                                        disabled={isGenerating}
+                                    >
+                                        選択解除
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="table-container">
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '40px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedStoreIds.length === fmtStores.length && fmtStores.length > 0}
+                                                    onChange={(e) => e.target.checked ? handleSelectAllStores() : handleDeselectAllStores()}
+                                                    disabled={isGenerating}
+                                                />
+                                            </th>
+                                            <th>店舗コード</th>
+                                            <th>店舗名</th>
+                                            <th>リージョン</th>
+                                            <th>棚割ステータス</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {fmtStores.map(store => {
+                                            const sp = storePlanograms.find(p => p.storeId === store.id);
+                                            return (
+                                                <tr key={store.id} style={{ cursor: 'pointer' }} onClick={() => !isGenerating && toggleStoreSelection(store.id)}>
+                                                    <td>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedStoreIds.includes(store.id)}
+                                                            onChange={() => toggleStoreSelection(store.id)}
+                                                            disabled={isGenerating}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                        />
+                                                    </td>
+                                                    <td className="text-sm">{store.code}</td>
+                                                    <td>{store.name}</td>
+                                                    <td className="text-sm text-muted">{store.region}</td>
+                                                    <td>
+                                                        {sp?.status === 'generated' && <span className="badge badge-success">✓ 生成済み</span>}
+                                                        {sp?.status === 'synced' && <span className="badge badge-primary">🔄 同期済み</span>}
+                                                        {sp?.status === 'warning' && <span className="badge badge-warning">⚠️ 警告</span>}
+                                                        {!sp?.status && <span className="badge" style={{ background: 'var(--bg-tertiary)', color: 'var(--text-muted)' }}>− 未生成</span>}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 実行ボタン */}
+                    {selectedFmt && (
+                        <div className="card mb-lg">
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm">
+                                    {selectedStandardPlanogram && selectedStoreIds.length > 0 ? (
+                                        <span>
+                                            「<strong>{selectedStandardPlanogram.name}</strong>」を <strong>{selectedStoreIds.length}</strong> 店舗に適用します
+                                        </span>
+                                    ) : (
+                                        <span className="text-muted">
+                                            標準棚割と対象店舗を選択してください
+                                        </span>
+                                    )}
+                                </div>
+                                <button
+                                    className="btn btn-primary btn-lg"
+                                    onClick={handleGenerate}
+                                    disabled={isGenerating || !selectedStandardPlanogramId || selectedStoreIds.length === 0}
+                                >
+                                    {isGenerating ? '生成中...' : '🚀 自動棚割提案を作成'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
 
                     {/* 生成進捗 */}
                     {isGenerating && (
@@ -386,11 +538,11 @@ export function StorePlanogramBatch() {
                         </div>
                     )}
 
-                    {results.length === 0 && !isGenerating && (
+                    {results.length === 0 && !isGenerating && !selectedFmt && (
                         <div className="card">
                             <div className="text-center text-muted" style={{ padding: '3rem' }}>
                                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🏭</div>
-                                <div style={{ marginBottom: '0.5rem' }}>FMTを選択して「一括自動生成」を実行してください</div>
+                                <div style={{ marginBottom: '0.5rem' }}>FMTを選択して標準棚割と対象店舗を指定してください</div>
                                 <div className="text-sm">
                                     標準棚割をベースに、各店舗の棚サイズに合わせて自動調整されます
                                 </div>

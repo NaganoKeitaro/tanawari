@@ -153,6 +153,7 @@ function SinglePlanogramView({
     store,
     planogram,
     standardPlanogram,
+    allStandardPlanograms,
     fixtureType,
     products,
     blocks,
@@ -165,6 +166,7 @@ function SinglePlanogramView({
     store: Store;
     planogram: StorePlanogram | null;
     standardPlanogram: StandardPlanogram | null;
+    allStandardPlanograms: StandardPlanogram[];
     fixtureType: FixtureType;
     products: Product[];
     blocks: ShelfBlock[];
@@ -175,6 +177,7 @@ function SinglePlanogramView({
     onUpdate: (updated: StorePlanogram) => Promise<void>;
 }) {
     const [loading, setLoading] = useState(false);
+    const [selectedStdId, setSelectedStdId] = useState<string>(standardPlanogram?.id || '');
 
     // フェイス数変更
     const handleFaceCountChange = async (productPlacementId: string, newFaceCount: number) => {
@@ -251,14 +254,70 @@ function SinglePlanogramView({
     }
 
     if (!planogram) {
+        // 同FMT・同什器タイプの標準棚割一覧
+        const matchingStandards = allStandardPlanograms.filter(
+            s => s.fmt === store.fmt && (s.fixtureType || 'multi-tier') === fixtureType
+        );
+        const chosenStd = matchingStandards.find(s => s.id === selectedStdId) || matchingStandards[0] || null;
+
         return (
             <div className="card text-center text-muted mb-lg" style={{ padding: '2rem' }}>
                 <h4 className="text-lg font-bold text-foreground mb-md">{TYPE_LABELS[fixtureType]}</h4>
                 <div className="mb-md">この種類の棚割はまだ作成されていません</div>
-                {standardPlanogram ? (
+                {matchingStandards.length > 1 ? (
+                    <div>
+                        <div className="form-group" style={{ margin: '0 auto 1rem', maxWidth: '400px' }}>
+                            <label className="form-label">標準棚割を選択</label>
+                            <select
+                                className="form-select"
+                                value={selectedStdId}
+                                onChange={(e) => setSelectedStdId(e.target.value)}
+                            >
+                                {matchingStandards.map(s => {
+                                    const formatDate = (d?: string) => d ? new Date(d).toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric' }) : '';
+                                    const period = s.startDate || s.endDate ? ` (${formatDate(s.startDate)}〜${formatDate(s.endDate)})` : '';
+                                    return (
+                                        <option key={s.id} value={s.id}>
+                                            {s.name}{period}
+                                        </option>
+                                    );
+                                })}
+                            </select>
+                        </div>
+                        {chosenStd && (
+                            <div>
+                                <div className="text-sm text-muted mb-md">
+                                    標準棚割: {chosenStd.name} (幅: <UnitDisplay valueMm={chosenStd.width} />)
+                                </div>
+                                <button
+                                    className="btn btn-primary"
+                                    disabled={loading}
+                                    onClick={async () => {
+                                        if (!confirm('標準棚割を基に、この種類の棚割を自動生成しますか？')) return;
+                                        setLoading(true);
+                                        try {
+                                            const result = await generateStorePlanogram(store.id, chosenStd);
+                                            if (result.status === 'error') {
+                                                alert(`生成エラー: ${result.message}`);
+                                            } else {
+                                                window.location.reload();
+                                            }
+                                        } catch (e) {
+                                            alert('予期せぬエラーが発生しました');
+                                        } finally {
+                                            setLoading(false);
+                                        }
+                                    }}
+                                >
+                                    ✨ 自動棚割提案を作成
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : chosenStd ? (
                     <div>
                         <div className="text-sm text-muted mb-md">
-                            標準棚割: {standardPlanogram.name} (幅: <UnitDisplay valueMm={standardPlanogram.width} />)
+                            標準棚割: {chosenStd.name} (幅: <UnitDisplay valueMm={chosenStd.width} />)
                         </div>
                         <button
                             className="btn btn-primary"
@@ -267,14 +326,10 @@ function SinglePlanogramView({
                                 if (!confirm('標準棚割を基に、この種類の棚割を自動生成しますか？')) return;
                                 setLoading(true);
                                 try {
-                                    const result = await generateStorePlanogram(store.id, standardPlanogram);
+                                    const result = await generateStorePlanogram(store.id, chosenStd);
                                     if (result.status === 'error') {
                                         alert(`生成エラー: ${result.message}`);
                                     } else {
-                                        // 親コンポーネントでリロードが必要だが、ここでは簡易的にリロードを促すか、コールバックで通知
-                                        // 今回はwindow.location.reload()で簡易対応するか、親からrefreshを受け取る
-                                        // 設計上、親からrefreshを受け取るのが正しいが、今回は簡便のため親のリロードを期待する
-                                        // NOTE: 本来は親のloadDataを呼ぶべき
                                         window.location.reload();
                                     }
                                 } catch (e) {
@@ -835,6 +890,7 @@ export function StorePlanogramEditor() {
                                     store={store}
                                     planogram={planogram}
                                     standardPlanogram={standardPlanogram}
+                                    allStandardPlanograms={allStandardPlanograms}
                                     fixtureType={fixtureType}
                                     products={products}
                                     blocks={blocks}
