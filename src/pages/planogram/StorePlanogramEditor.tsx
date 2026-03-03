@@ -436,7 +436,7 @@ function SinglePlanogramView({
                         );
                     })}
 
-                    {Array.from({ length: planogram.shelfCount }).map((_, shelfIndex) => {
+                    {Array.from({ length: planogram.shelfCount }).map((_, i) => i).reverse().map((shelfIndex) => {
                         const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
                         const usedWidth = usedWidthByShelf[shelfIndex] || 0;
                         const emptyWidth = planogram.width - usedWidth;

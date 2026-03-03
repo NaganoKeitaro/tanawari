@@ -339,7 +339,7 @@ export function PlanogramVisualizer({
                 }}
             >
                 {/* Rows */}
-                {Array.from({ length: planogram.shelfCount }).map((_, shelfIndex) => {
+                {Array.from({ length: planogram.shelfCount }).map((_, i) => i).reverse().map((shelfIndex) => {
                     const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
 
                     // Render Hierarchy Overlay for this shelf (if applied)
