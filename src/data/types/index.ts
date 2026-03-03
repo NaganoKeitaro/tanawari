@@ -173,6 +173,9 @@ export interface StandardPlanogram {
   width: number;        // 総幅
   height: number;       // 総高さ
   shelfCount: number;
+  startDate?: string;   // 適用開始日 ISO8601
+  endDate?: string;     // 適用終了日 ISO8601
+  description?: string; // メモ・用途
   blocks: StandardPlanogramBlock[];      // 配置されたブロック
   products: StandardPlanogramProduct[];  // 展開された商品（ブロック内商品含む）
   createdAt: string;
