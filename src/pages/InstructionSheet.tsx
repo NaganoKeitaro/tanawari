@@ -142,7 +142,7 @@ function PlanogramVisual({
                     })}
 
                     {/* 段ごとの商品配置 */}
-                    {Array.from({ length: planogram.shelfCount }).map((_, shelfIndex) => {
+                    {Array.from({ length: planogram.shelfCount }).map((_, i) => i).reverse().map((shelfIndex) => {
                         const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
                         const usedWidth = shelfProducts.reduce((sum, sp) => {
                             const product = products.find(p => p.id === sp.productId);
