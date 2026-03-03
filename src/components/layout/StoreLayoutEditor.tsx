@@ -14,8 +14,28 @@ import type { DragStartEvent, DragEndEvent } from '@dnd-kit/core';
 import type { Store, Fixture, StoreFixturePlacement } from '../../data/types';
 import { UnitDisplay } from '../common/UnitDisplay';
 
-const GRID_SIZE = 50; // 50mm grid
-const DEFAULT_SCALE = 0.2; // 1mm = 0.2px (Adjustable)
+const GRID_SIZE = 50; // 50mm snap grid (for drag snapping)
+const BASE_SCALE = 0.1; // 1mm = 0.1px at 100% zoom
+
+// ズームプリセット (%)
+const ZOOM_LEVELS = [5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 300, 400];
+
+// Adaptive visual grid: returns grid size in mm based on current pixel scale
+function getVisualGridSize(pixelScale: number): number {
+    const minGridPx = 20; // minimum grid cell size in pixels for readability
+    const candidates = [50, 100, 250, 500, 1000, 2500, 5000];
+    for (const g of candidates) {
+        if (g * pixelScale >= minGridPx) return g;
+    }
+    return candidates[candidates.length - 1];
+}
+
+// Grid opacity decreases at lower zoom levels
+function getGridOpacity(zoom: number): number {
+    if (zoom >= 50) return 0.3;
+    if (zoom >= 25) return 0.2;
+    return 0.15;
+}
 
 // AABB衝突判定: 2つの矩形が重なるかどうかを判定（ぴったり隣接はOK、1pxでも重なったらNG）
 function isOverlap(
@@ -313,7 +333,11 @@ export function StoreLayoutEditor({
     onPlacementAdd,
     onPlacementRemove
 }: StoreLayoutEditorProps) {
-    const [scale, setScale] = useState(DEFAULT_SCALE);
+    const [zoomPercent, setZoomPercent] = useState(100);
+    const scale = BASE_SCALE * zoomPercent / 100;
+    const visualGridMm = getVisualGridSize(scale);
+    const visualGridPx = visualGridMm * scale;
+    const gridOpacity = getGridOpacity(zoomPercent);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [activeFixture, setActiveFixture] = useState<Fixture | null>(null);
     const [dragType, setDragType] = useState<'placement' | 'new-fixture' | null>(null);
@@ -529,17 +553,25 @@ export function StoreLayoutEditor({
                         <span className="text-xs text-muted">ズーム:</span>
                         <button
                             className="btn btn-sm btn-secondary"
-                            onClick={() => setScale(s => Math.max(0.5, s - 0.5))}
+                            onClick={() => {
+                                const idx = ZOOM_LEVELS.slice().reverse().findIndex(z => z < zoomPercent);
+                                if (idx !== -1) setZoomPercent(ZOOM_LEVELS[ZOOM_LEVELS.length - 1 - idx]);
+                            }}
+                            disabled={zoomPercent <= ZOOM_LEVELS[0]}
                             style={{ padding: '0.25rem 0.5rem', minWidth: '32px' }}
                         >
                             −
                         </button>
-                        <span className="text-xs" style={{ width: '3rem', textAlign: 'center', fontWeight: 500 }}>
-                            {Math.round(scale * 50)}%
+                        <span className="text-xs" style={{ width: '3.5rem', textAlign: 'center', fontWeight: 500 }}>
+                            {zoomPercent}%
                         </span>
                         <button
                             className="btn btn-sm btn-secondary"
-                            onClick={() => setScale(s => Math.min(4, s + 0.5))}
+                            onClick={() => {
+                                const idx = ZOOM_LEVELS.findIndex(z => z > zoomPercent);
+                                if (idx !== -1) setZoomPercent(ZOOM_LEVELS[idx]);
+                            }}
+                            disabled={zoomPercent >= ZOOM_LEVELS[ZOOM_LEVELS.length - 1]}
                             style={{ padding: '0.25rem 0.5rem', minWidth: '32px' }}
                         >
                             +
@@ -578,7 +610,7 @@ export function StoreLayoutEditor({
                                 padding: '0.25rem 0.5rem',
                                 borderRadius: 'var(--radius-sm)'
                             }}>
-                                グリッド: 50mm
+                                グリッド: {visualGridMm}mm
                             </span>
                         </div>
                     </div>
@@ -592,10 +624,10 @@ export function StoreLayoutEditor({
                             overflow: 'auto',
                             position: 'relative',
                             backgroundImage: `
-                                linear-gradient(to right, rgba(148, 163, 184, 0.3) 1px, transparent 1px),
-                                linear-gradient(to bottom, rgba(148, 163, 184, 0.3) 1px, transparent 1px)
+                                linear-gradient(to right, rgba(148, 163, 184, ${gridOpacity}) 1px, transparent 1px),
+                                linear-gradient(to bottom, rgba(148, 163, 184, ${gridOpacity}) 1px, transparent 1px)
                             `,
-                            backgroundSize: `${GRID_SIZE * scale}px ${GRID_SIZE * scale}px`,
+                            backgroundSize: `${visualGridPx}px ${visualGridPx}px`,
                             backgroundColor: '#f8fafc',
                         }}
                     >
