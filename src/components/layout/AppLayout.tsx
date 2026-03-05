@@ -42,7 +42,7 @@ const navSections: NavSection[] = [
             { path: '/blocks', label: '棚ブロック管理', icon: '🧱' },
             { path: '/planogram/standard', label: 'FMT標準棚割', icon: '📋' },
             { path: '/planogram/store', label: '個店棚割管理', icon: '🏬' },
-
+            { path: '/instruction-sheet', label: '棚割指示書', icon: '📄' }
         ]
     },
     {
