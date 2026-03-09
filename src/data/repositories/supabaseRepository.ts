@@ -128,7 +128,7 @@ class ShelfBlockRepository implements IRepository<ShelfBlock> {
             shelf_block_products (*)
         `);
         if (error) return [];
-        return data.map(d => {
+        return data.map((d: Record<string, unknown>) => {
             const block = toCamel(d);
             block.productPlacements = block.shelfBlockProducts || [];
             delete block.shelfBlockProducts;
@@ -211,7 +211,7 @@ class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
             standard_planogram_products (*)
         `);
         if (error) return [];
-        return data.map(d => {
+        return data.map((d: Record<string, unknown>) => {
             const plan = toCamel(d);
             plan.blocks = plan.standardPlanogramBlocks || [];
             plan.products = plan.standardPlanogramProducts || [];
@@ -310,7 +310,7 @@ class StorePlanogramRepository implements IRepository<StorePlanogram> {
             store_planogram_products (*)
         `);
         if (error) return [];
-        return data.map(d => {
+        return data.map((d: Record<string, unknown>) => {
             const plan = toCamel(d);
             plan.products = plan.storePlanogramProducts || [];
             delete plan.storePlanogramProducts;
@@ -334,6 +334,10 @@ class StorePlanogramRepository implements IRepository<StorePlanogram> {
         const id = crypto.randomUUID();
         const payload = toSnake({ ...item, id });
         delete payload.products;
+        // These columns may not yet exist in older DB instances
+        delete payload.width;
+        delete payload.height;
+        delete payload.shelf_count;
 
         const { error } = await supabase.from('store_planograms').insert(payload);
         if (error) throw error;
