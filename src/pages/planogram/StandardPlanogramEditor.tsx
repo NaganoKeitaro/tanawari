@@ -5,12 +5,12 @@ import {
     DragOverlay,
     useDraggable,
     useDroppable,
-    closestCenter,
+    pointerWithin,
     PointerSensor,
     useSensor,
     useSensors
 } from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent, DragOverEvent } from '@dnd-kit/core';
 import type {
     Store,
     Fixture,
@@ -80,7 +80,37 @@ function DraggableBlock({ block }: { block: ShelfBlock }) {
     );
 }
 
-// 標準棚割キャンバス
+// 棚段ごとのドロップゾーン
+function DroppableShelfRow({ visualIndex, shelfHeight, canvasWidth }: {
+    visualIndex: number;
+    shelfHeight: number;
+    canvasWidth: number;
+}) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: `shelf-row-${visualIndex}`,
+        data: { type: 'shelf-row', visualIndex }
+    });
+    return (
+        <div
+            ref={setNodeRef}
+            style={{
+                position: 'absolute',
+                top: `${visualIndex * shelfHeight}px`,
+                left: 0,
+                width: `${canvasWidth}px`,
+                height: `${shelfHeight}px`,
+                zIndex: 3,
+                pointerEvents: 'none',
+                background: isOver ? 'rgba(99,102,241,0.12)' : 'transparent',
+                borderTop: isOver ? '2px dashed var(--color-primary)' : 'none',
+                boxSizing: 'border-box',
+                transition: 'background 0.1s'
+            }}
+        />
+    );
+}
+
+// 標準棚割キャンバス（ブロック単位で固定表示）
 function PlanogramCanvas({
     planogram,
     products,
@@ -88,7 +118,9 @@ function PlanogramCanvas({
     analyticsMode,
     selectedMetric,
     onDeleteBlock,
-    actualWidth
+    actualWidth,
+    hoveredVisualRow,
+    activeBlockShelfCount
 }: {
     planogram: StandardPlanogram;
     products: Product[];
@@ -97,30 +129,45 @@ function PlanogramCanvas({
     selectedMetric?: 'sales' | 'grossProfit' | 'quantity' | 'traffic';
     onDeleteBlock?: (blockId: string) => void;
     actualWidth?: number;
+    hoveredVisualRow?: number | null;
+    activeBlockShelfCount?: number;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: 'planogram-canvas',
         data: { type: 'canvas' }
     });
 
-    // ブロック配置の計算
-    const blockLayouts = planogram.blocks.map(pb => {
-        const master = blockMasters.find(b => b.id === pb.blockId);
-        if (!master) return null;
-        return {
-            id: pb.id,
-            name: master.name,
-            x: pb.positionX,
-            width: master.width,
-            masterId: master.id
-        };
-    }).filter((b): b is NonNullable<typeof b> => !!b);
+    const canvasWidth = (actualWidth || planogram.width) * SCALE;
+    const shelfHeight = Math.max(80, (planogram.height / planogram.shelfCount) * SCALE);
+    const canvasHeight = shelfHeight * planogram.shelfCount;
 
-    // メトリクスの最大値を計算(ヒートマップ用)
-    const maxMetricValue = analyticsMode && selectedMetric ? Math.max(
-        ...products.map(p => p[selectedMetric] || 0),
-        1
-    ) : 1;
+    // 位置順にソート済みブロック
+    const sortedBlocks = [...planogram.blocks].sort((a, b) => a.positionX - b.positionX);
+
+    // ブロックが使用している最大X（空きスペース計算用）
+    const usedWidth = sortedBlocks.reduce((max, pb) => {
+        const master = blockMasters.find(b => b.id === pb.blockId);
+        return Math.max(max, pb.positionX + (master?.width || 0));
+    }, 0);
+
+    // 分析モード用：各ブロックの商品メトリクス合計
+    const blockMetrics = analyticsMode && selectedMetric
+        ? planogram.blocks.reduce((acc, pb) => {
+            const blockProds = planogram.products.filter(sp => {
+                const master = blockMasters.find(b => b.id === pb.blockId);
+                if (!master) return false;
+                return sp.positionX >= pb.positionX - 0.1 &&
+                    sp.positionX < pb.positionX + master.width + 0.1;
+            });
+            acc[pb.id] = blockProds.reduce((sum, sp) => {
+                const p = products.find(pr => pr.id === sp.productId);
+                return sum + (p?.[selectedMetric!] || 0);
+            }, 0);
+            return acc;
+        }, {} as Record<string, number>)
+        : {};
+
+    const maxBlockMetric = Math.max(...Object.values(blockMetrics), 1);
 
     return (
         <div
@@ -130,188 +177,223 @@ function PlanogramCanvas({
                 border: isOver ? '2px solid var(--color-primary)' : '2px solid var(--border-color)',
                 borderRadius: 'var(--radius-md)',
                 padding: '1rem',
-                minHeight: '400px',
+                minHeight: '200px',
                 overflow: 'auto',
                 position: 'relative'
             }}
         >
             <div
-                className="shelf-grid"
                 style={{
-                    width: `${(actualWidth || planogram.width) * SCALE}px`,
-                    minHeight: `${planogram.height * SCALE}px`,
+                    width: `${canvasWidth}px`,
+                    height: `${canvasHeight}px`,
                     position: 'relative'
                 }}
             >
-                {/* ブロック表示レイヤー (背面に表示) */}
-                {!analyticsMode && blockLayouts.map(block => (
-                    <div
-                        key={block.id}
-                        style={{
-                            position: 'absolute',
-                            left: `${block.x * SCALE}px`,
-                            top: 0,
-                            bottom: 0,
-                            width: `${block.width * SCALE}px`,
-                            border: '2px dashed #cbd5e1',
-                            borderTop: 'none', // 上部は商品と被るため少し控えめに
-                            borderBottom: 'none',
-                            pointerEvents: 'none', // クリックを透過
-                            zIndex: 0
-                        }}
-                    >
-                        {/* ブロック名表示 */}
-                        <div style={{
-                            position: 'absolute',
-                            top: '-25px',
-                            left: '50%',
-                            transform: 'translateX(-50%)',
-                            background: 'var(--bg-secondary)',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            fontSize: '0.75rem',
-                            fontWeight: 'bold',
-                            border: '1px solid var(--border-color)',
-                            whiteSpace: 'nowrap',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            pointerEvents: 'auto' // ボタンなどはクリック可能に
-                        }}>
-                            <span>{block.name}</span>
-                            {onDeleteBlock && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        onDeleteBlock(block.id);
-                                    }}
-                                    className="text-danger hover:text-danger-hover"
-                                    style={{
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        padding: '0 4px',
-                                        fontSize: '1rem',
-                                        lineHeight: 1
-                                    }}
-                                    title="このブロックを削除"
-                                >
-                                    ×
-                                </button>
-                            )}
-                        </div>
-                    </div>
+                {/* 棚段ごとのドロップゾーン */}
+                {Array.from({ length: planogram.shelfCount }).map((_, i) => (
+                    <DroppableShelfRow
+                        key={`drop-row-${i}`}
+                        visualIndex={i}
+                        shelfHeight={shelfHeight}
+                        canvasWidth={canvasWidth}
+                    />
                 ))}
 
-                {/* 段ごとに表示 */}
-                {Array.from({ length: planogram.shelfCount }).map((_, i) => i).reverse().map((shelfIndex) => {
-                    const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
-                    const usedWidth = shelfProducts.reduce((sum, sp) => {
-                        const product = products.find(p => p.id === sp.productId);
-                        return sum + (product ? product.width * sp.faceCount : 0);
-                    }, 0);
-                    const emptyWidth = planogram.width - usedWidth;
+                {/* ドラッグ中のプレビューハイライト */}
+                {hoveredVisualRow != null && activeBlockShelfCount != null && activeBlockShelfCount > 0 && (
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: `${hoveredVisualRow * shelfHeight}px`,
+                            left: 0,
+                            width: `${canvasWidth}px`,
+                            height: `${Math.min(activeBlockShelfCount, planogram.shelfCount - hoveredVisualRow) * shelfHeight}px`,
+                            background: 'rgba(99,102,241,0.18)',
+                            border: '2px dashed var(--color-primary)',
+                            borderRadius: 'var(--radius-sm)',
+                            zIndex: 4,
+                            pointerEvents: 'none',
+                            boxSizing: 'border-box',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        <span style={{
+                            fontSize: '0.75rem',
+                            color: 'var(--color-primary)',
+                            fontWeight: 600,
+                            background: 'rgba(255,255,255,0.8)',
+                            padding: '2px 8px',
+                            borderRadius: '4px'
+                        }}>
+                            {planogram.shelfCount - hoveredVisualRow}段目に配置
+                        </span>
+                    </div>
+                )}
+
+                {/* 棚段の区切り線・段番号 */}
+                {Array.from({ length: planogram.shelfCount }).map((_, i) => {
+                    const shelfNum = planogram.shelfCount - i;
+                    return (
+                        <div key={i}>
+                            {/* 段番号ラベル */}
+                            <div style={{
+                                position: 'absolute',
+                                left: '-35px',
+                                top: `${i * shelfHeight + shelfHeight / 2}px`,
+                                transform: 'translateY(-50%)',
+                                fontSize: '0.7rem',
+                                color: 'var(--text-muted)',
+                                whiteSpace: 'nowrap'
+                            }}>
+                                {shelfNum}段
+                            </div>
+                            {/* 棚板区切り線（最下段を除く） */}
+                            {i < planogram.shelfCount - 1 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    left: 0,
+                                    right: 0,
+                                    top: `${(i + 1) * shelfHeight}px`,
+                                    height: '1px',
+                                    background: 'var(--border-color)',
+                                    zIndex: 0,
+                                    pointerEvents: 'none'
+                                }} />
+                            )}
+                        </div>
+                    );
+                })}
+
+                {/* 空きスペース */}
+                {usedWidth < (actualWidth || planogram.width) && (
+                    <div style={{
+                        position: 'absolute',
+                        left: `${usedWidth * SCALE}px`,
+                        top: 0,
+                        width: `${((actualWidth || planogram.width) - usedWidth) * SCALE}px`,
+                        height: `${canvasHeight}px`,
+                        background: 'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(100,100,100,0.05) 6px, rgba(100,100,100,0.05) 12px)',
+                        border: '1px dashed var(--border-color)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 0,
+                        boxSizing: 'border-box'
+                    }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>空き</span>
+                    </div>
+                )}
+
+                {/* 配置済みブロック */}
+                {sortedBlocks.map(pb => {
+                    const master = blockMasters.find(b => b.id === pb.blockId);
+                    if (!master) return null;
+
+                    const blockW = master.width * SCALE;
+                    // positionY: 下から何段目か (0=最下段)
+                    const blockShelfSpan = Math.min(master.shelfCount, planogram.shelfCount - pb.positionY);
+                    const blockH = blockShelfSpan * shelfHeight;
+                    // 下段基準: canvasHeight の底から positionY 段 + blockH の高さ
+                    const blockTop = canvasHeight - (pb.positionY + blockShelfSpan) * shelfHeight;
+
+                    const blockColor = analyticsMode && selectedMetric
+                        ? calculateHeatmapColor(blockMetrics[pb.id] || 0, maxBlockMetric)
+                        : 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))';
+
+                    const shakuLabel = Math.round(master.width / 300 * 10) / 10;
 
                     return (
                         <div
-                            key={shelfIndex}
-                            className="shelf-row"
+                            key={pb.id}
                             style={{
-                                minHeight: `${Math.max(120, (planogram.height / planogram.shelfCount) * SCALE)}px`,
-                                position: 'relative',
-                                zIndex: 1 // ブロック線より手前
+                                position: 'absolute',
+                                left: `${pb.positionX * SCALE}px`,
+                                top: `${blockTop}px`,
+                                width: `${blockW}px`,
+                                height: `${blockH}px`,
+                                background: blockColor,
+                                border: '2px solid var(--border-color)',
+                                borderRadius: 'var(--radius-sm)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden',
+                                zIndex: 1,
+                                boxSizing: 'border-box'
                             }}
+                            title={`${master.name}\n${shakuLabel}尺 / ${master.shelfCount}段 / ${master.productPlacements.length}商品`}
                         >
-                            {/* 配置済み商品 */}
-                            {shelfProducts.map(sp => {
-                                const product = products.find(p => p.id === sp.productId);
-                                if (!product) return null;
-                                const width = product.width * sp.faceCount * SCALE;
-
-                                return (
-                                    <div
-                                        key={sp.id}
+                            {/* 上部バー：ブロック名 + 削除ボタン */}
+                            <div style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '3px 5px',
+                                background: 'rgba(0,0,0,0.18)',
+                                borderBottom: '1px solid var(--border-color)',
+                                minHeight: '22px'
+                            }}>
+                                <span style={{
+                                    fontSize: '0.68rem',
+                                    fontWeight: 700,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                    flex: 1
+                                }}>
+                                    {master.name}
+                                </span>
+                                {onDeleteBlock && (
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); onDeleteBlock(pb.id); }}
                                         style={{
-                                            position: 'absolute',
-                                            left: `${sp.positionX * SCALE}px`,
-                                            top: 0,
-                                            bottom: 0,
-                                            width: `${width}px`,
-                                            background: analyticsMode && selectedMetric
-                                                ? calculateHeatmapColor(product[selectedMetric] || 0, maxMetricValue)
-                                                : 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))',
-                                            border: '1px solid var(--border-color)',
-                                            borderRadius: 'var(--radius-sm)',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'flex-start',
-                                            padding: '4px 3px',
-                                            fontSize: '0.75rem',
-                                            overflow: 'hidden'
+                                            background: 'none',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            color: '#ef4444',
+                                            padding: '0 2px',
+                                            fontSize: '0.9rem',
+                                            lineHeight: 1,
+                                            flexShrink: 0,
+                                            marginLeft: '2px'
                                         }}
-                                        title={`${product.name} ×${sp.faceCount}${analyticsMode && selectedMetric ? `\n${selectedMetric}: ${product[selectedMetric] || 0}` : ''}`}
+                                        title="このブロックを削除"
                                     >
-                                        <div style={{ fontWeight: 500, wordBreak: 'break-word', textAlign: 'center', lineHeight: 1.3, maxWidth: '100%' }}>
-                                            {product.name}
-                                        </div>
-                                        <div style={{ color: 'var(--text-muted)', marginTop: 'auto', flexShrink: 0, paddingTop: '2px' }}>×{sp.faceCount}</div>
+                                        ×
+                                    </button>
+                                )}
+                            </div>
 
-                                        {/* 分析モード: メトリクスバッジ */}
-                                        {analyticsMode && selectedMetric && (
-                                            <div
-                                                style={{
-                                                    position: 'absolute',
-                                                    top: '2px',
-                                                    right: '2px',
-                                                    background: 'rgba(0,0,0,0.7)',
-                                                    color: 'white',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '3px',
-                                                    fontSize: '0.55rem',
-                                                    fontWeight: 600
-                                                }}
-                                            >
-                                                {formatMetricValue(product[selectedMetric] || 0)}
-                                            </div>
-                                        )}
+                            {/* 中央情報 */}
+                            <div style={{
+                                fontSize: '0.68rem',
+                                color: 'var(--text-muted)',
+                                textAlign: 'center',
+                                lineHeight: 1.6,
+                                marginTop: '22px'
+                            }}>
+                                <div>{shakuLabel}尺</div>
+                                <div>{master.shelfCount}段</div>
+                                <div>{master.productPlacements.length}商品</div>
+                                {analyticsMode && selectedMetric && (
+                                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>
+                                        {formatMetricValue(blockMetrics[pb.id] || 0)}
                                     </div>
-                                );
-                            })}
-
-                            {/* 空白スペース */}
-                            {emptyWidth > 0 && (
-                                <div
-                                    className="shelf-empty"
-                                    style={{
-                                        position: 'absolute',
-                                        right: 0,
-                                        top: 0,
-                                        bottom: 0,
-                                        width: `${emptyWidth * SCALE}px`
-                                    }}
-                                />
-                            )}
-
-                            {/* 段番号 */}
-                            <div
-                                style={{
-                                    position: 'absolute',
-                                    left: '-35px',
-                                    top: '50%',
-                                    transform: 'translateY(-50%)',
-                                    fontSize: '0.7rem',
-                                    color: 'var(--text-muted)'
-                                }}
-                            >
-                                {shelfIndex + 1}段
+                                )}
                             </div>
                         </div>
                     );
                 })}
             </div>
 
-            {planogram.products.length === 0 && (
+            {planogram.blocks.length === 0 && (
                 <div className="text-center text-muted" style={{ padding: '3rem' }}>
                     左のブロックをドラッグして配置してください
                 </div>
@@ -334,6 +416,7 @@ export function StandardPlanogramEditor() {
     const [selectedFixtureType, setSelectedFixtureType] = useState<FixtureType>('multi-tier');
     const [currentPlanogram, setCurrentPlanogram] = useState<StandardPlanogram | null>(null);
     const [activeBlock, setActiveBlock] = useState<ShelfBlock | null>(null);
+    const [hoveredShelfRow, setHoveredShelfRow] = useState<number | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [planogramName, setPlanogramName] = useState('');
     const [newStartDate, setNewStartDate] = useState('');
@@ -486,47 +569,87 @@ export function StandardPlanogramEditor() {
     const handleDragStart = (event: DragStartEvent) => {
         const block = event.active.data.current?.block as ShelfBlock | undefined;
         setActiveBlock(block || null);
+        setHoveredShelfRow(null);
+    };
+
+    // ドラッグ中（棚段ハイライト更新）
+    const handleDragOver = (event: DragOverEvent) => {
+        const { over } = event;
+        if (over && typeof over.id === 'string' && over.id.startsWith('shelf-row-')) {
+            const visualIndex = parseInt(over.id.replace('shelf-row-', ''), 10);
+            setHoveredShelfRow(visualIndex);
+        } else {
+            setHoveredShelfRow(null);
+        }
     };
 
     // ドラッグ終了（ブロック配置）
     const handleDragEnd = async (event: DragEndEvent) => {
         setActiveBlock(null);
+        setHoveredShelfRow(null);
         if (!currentPlanogram) return;
 
         const { active, over } = event;
-        if (!over || over.id !== 'planogram-canvas') return;
+        if (!over) return;
+        // キャンバスまたは棚段ドロップゾーンのみ受け付ける
+        const overId = String(over.id);
+        const isShelfRow = overId.startsWith('shelf-row-');
+        if (!isShelfRow && overId !== 'planogram-canvas') return;
 
         const block = active.data.current?.block as ShelfBlock | undefined;
         if (!block) return;
 
-        // ブロック内の商品を展開
-        const newProducts: StandardPlanogramProduct[] = [];
+        // --- Y方向: 棚段ドロップゾーンIDから配置段を決定（下基準: 0=最下段）---
+        const shelfHeight = Math.max(80, (currentPlanogram.height / currentPlanogram.shelfCount) * SCALE);
+        const canvasHeight = shelfHeight * currentPlanogram.shelfCount;
+        const maxPosY = Math.max(0, currentPlanogram.shelfCount - block.shelfCount);
+        let newPosY = 0;
 
-        // 配置位置を計算 (空いている場所を探す)
-        // 既存のブロックを位置順にソート
-        const sortedBlocks = [...currentPlanogram.blocks].sort((a, b) => a.positionX - b.positionX);
+        if (isShelfRow) {
+            // shelf-row-N は視覚的上からN番目 → 下段基準に変換
+            const visualRow = parseInt(overId.replace('shelf-row-', ''), 10);
+            // positionY = shelfCount - visualRow - blockShelfCount
+            newPosY = Math.max(0, Math.min(currentPlanogram.shelfCount - visualRow - block.shelfCount, maxPosY));
+        } else {
+            // フォールバック: ポインタ位置から計算
+            const translatedRect = active.rect.current.translated;
+            if (translatedRect && over.rect) {
+                const relativeY = Math.max(0, Math.min(translatedRect.top - over.rect.top, canvasHeight - 1));
+                const rawFromBottom = Math.floor((canvasHeight - relativeY) / shelfHeight);
+                newPosY = Math.max(0, Math.min(rawFromBottom, maxPosY));
+            }
+        }
+
+        const newBlockShelfEnd = newPosY + block.shelfCount;
+
+        // --- X方向: 同一Y範囲に重なるブロックのみを考慮して空き位置を探す ---
+        const overlappingBlocks = currentPlanogram.blocks
+            .filter(pb => {
+                const master = blocks.find(b => b.id === pb.blockId);
+                if (!master) return false;
+                const pbEnd = pb.positionY + master.shelfCount;
+                // Y範囲が重なるか
+                return pb.positionY < newBlockShelfEnd && pbEnd > newPosY;
+            })
+            .sort((a, b) => a.positionX - b.positionX);
+
         const newBlockWidth = block.width;
         let insertX = -1;
         let currentScanX = 0;
 
         // 隙間を探す
-        for (const placedBlock of sortedBlocks) {
-            // 現在のキャンバス位置(currentScanX)と、次のブロックの開始位置(placedBlock.positionX)の間の隙間
+        for (const placedBlock of overlappingBlocks) {
             const gap = placedBlock.positionX - currentScanX;
-            // 誤差許容
             if (gap >= newBlockWidth - 0.1) {
                 insertX = currentScanX;
                 break;
             }
-            // 次の探索開始位置は、このブロックの終わり
             const master = blocks.find(b => b.id === placedBlock.blockId);
-            const placedBlockWidth = master ? master.width : 0;
-            currentScanX = placedBlock.positionX + placedBlockWidth;
+            currentScanX = placedBlock.positionX + (master?.width || 0);
         }
 
-        // 途中に隙間がなければ、最後尾をチェック
+        // 途中に隙間がなければ最後尾をチェック
         if (insertX === -1) {
-            // 什器構成から動的に算出した総幅を使用（作成時の固定値ではなく）
             const { totalShaku } = generateFixtureCompositionText();
             const actualWidth = totalShaku > 0 ? totalShaku * 30 : currentPlanogram.width;
             const gap = actualWidth - currentScanX;
@@ -536,12 +659,14 @@ export function StandardPlanogramEditor() {
         }
 
         if (insertX === -1) {
-            alert('スペースが足りません。先に既存の商品を調整してください。');
+            alert('スペースが足りません。先に既存のブロックを調整してください。');
             return;
         }
 
         const placementX = insertX;
 
+        // 商品展開: shelfIndex を positionY 基準の絶対段番号に変換
+        const newProducts: StandardPlanogramProduct[] = [];
         for (const placement of block.productPlacements) {
             const product = products.find(p => p.id === placement.productId);
             if (!product) continue;
@@ -549,7 +674,8 @@ export function StandardPlanogramEditor() {
             newProducts.push({
                 id: crypto.randomUUID(),
                 productId: placement.productId,
-                shelfIndex: placement.shelfIndex,
+                // 下段基準の絶対段番号 = ブロックの開始段 + ブロック内相対段
+                shelfIndex: newPosY + placement.shelfIndex,
                 positionX: placementX + placement.positionX,
                 faceCount: placement.faceCount
             });
@@ -560,7 +686,7 @@ export function StandardPlanogramEditor() {
             id: crypto.randomUUID(),
             blockId: block.id,
             positionX: placementX,
-            positionY: 0
+            positionY: newPosY  // 下段基準の段インデックス
         };
 
         const updatedPlanogram = {
@@ -786,8 +912,9 @@ export function StandardPlanogramEditor() {
                     </div>
                     <DndContext
                         sensors={sensors}
-                        collisionDetection={closestCenter}
+                        collisionDetection={pointerWithin}
                         onDragStart={handleDragStart}
+                        onDragOver={handleDragOver}
                         onDragEnd={handleDragEnd}
                     >
                         <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '1.5rem' }}>
@@ -880,6 +1007,8 @@ export function StandardPlanogramEditor() {
                                                 const { totalShaku } = generateFixtureCompositionText();
                                                 return totalShaku > 0 ? totalShaku * 30 : currentPlanogram.width;
                                             })()}
+                                            hoveredVisualRow={hoveredShelfRow}
+                                            activeBlockShelfCount={activeBlock?.shelfCount}
                                         />
                                     </div>
                                 </div>
