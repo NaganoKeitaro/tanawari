@@ -212,6 +212,11 @@ export function ShelfBlockEditor() {
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<'multi-tier' | 'flat'>('multi-tier');
 
+    // 保存状態管理
+    const [isDirty, setIsDirty] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+
     // 新規ブロックフォーム
     const [newBlock, setNewBlock] = useState<{
         name: string;
@@ -278,6 +283,32 @@ export function ShelfBlockEditor() {
         setIsCreateModalOpen(false);
         setNewBlock({ name: '', description: '', blockType: activeTab, width: 900, height: 1800, shelfCount: 5 });
         setSelectedBlock(created);
+    };
+
+    // ブロック保存（自動保存・手動保存共通）
+    const saveBlock = async (updatedBlock: ShelfBlock): Promise<boolean> => {
+        setIsSaving(true);
+        setSaveStatus('idle');
+        try {
+            await shelfBlockRepository.update(updatedBlock.id, updatedBlock);
+            setIsDirty(false);
+            setSaveStatus('saved');
+            setTimeout(() => setSaveStatus('idle'), 2000);
+            return true;
+        } catch (e) {
+            console.error('保存エラー:', e);
+            setSaveStatus('error');
+            setIsDirty(true);
+            return false;
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // 手動保存ボタン
+    const handleManualSave = async () => {
+        if (!selectedBlock) return;
+        await saveBlock(selectedBlock);
     };
 
     // ブロック削除
@@ -360,9 +391,10 @@ export function ShelfBlockEditor() {
             updatedAt: new Date().toISOString()
         };
 
-        await shelfBlockRepository.update(selectedBlock.id, updatedBlock);
         setSelectedBlock(updatedBlock);
         setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
+        setIsDirty(true);
+        await saveBlock(updatedBlock);
     };
 
     // 配置削除（フェース減少）
@@ -411,9 +443,10 @@ export function ShelfBlockEditor() {
             updatedAt: new Date().toISOString()
         };
 
-        await shelfBlockRepository.update(selectedBlock.id, updatedBlock);
         setSelectedBlock(updatedBlock);
         setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
+        setIsDirty(true);
+        await saveBlock(updatedBlock);
     };
 
     // フィルター済み商品
@@ -495,7 +528,7 @@ export function ShelfBlockEditor() {
                                 <BlockCard
                                     key={block.id}
                                     block={block}
-                                    onClick={() => setSelectedBlock(block)}
+                                    onClick={() => { setSelectedBlock(block); setIsDirty(false); setSaveStatus('idle'); }}
                                     onDelete={() => handleDeleteBlock(block.id)}
                                 />
                             ))}
@@ -517,6 +550,30 @@ export function ShelfBlockEditor() {
                                         <div className="text-sm text-muted">
                                             <UnitDisplay valueMm={selectedBlock.width} /> × <UnitDisplay valueMm={selectedBlock.height} /> {selectedBlock.blockType === 'flat' ? '（奥行）' : ` / ${selectedBlock.shelfCount}段`}
                                         </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                        {/* 保存ステータス */}
+                                        {isSaving && (
+                                            <span className="text-sm text-muted">保存中...</span>
+                                        )}
+                                        {!isSaving && saveStatus === 'saved' && (
+                                            <span className="text-sm" style={{ color: 'var(--color-success, #22c55e)' }}>✓ 保存済み</span>
+                                        )}
+                                        {!isSaving && saveStatus === 'error' && (
+                                            <span className="text-sm" style={{ color: 'var(--color-danger, #ef4444)' }}>⚠ 保存失敗</span>
+                                        )}
+                                        {!isSaving && isDirty && saveStatus !== 'saved' && saveStatus !== 'error' && (
+                                            <span className="text-sm" style={{ color: 'var(--color-warning, #f59e0b)' }}>未保存</span>
+                                        )}
+                                        {/* 手動保存ボタン */}
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={handleManualSave}
+                                            disabled={isSaving}
+                                            style={{ minWidth: '80px' }}
+                                        >
+                                            {isSaving ? '保存中...' : '保存'}
+                                        </button>
                                     </div>
                                 </div>
 
