@@ -63,10 +63,8 @@ function DraggableProduct({ product }: { product: Product }) {
                 <div style={{
                     fontSize: '0.75rem',
                     fontWeight: 500,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    maxWidth: '100%'
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-all'
                 }} title={product.name}>
                     {product.name}
                 </div>
@@ -191,36 +189,65 @@ function ShelfRow({
     );
 }
 
-// 棚ブロックカード
+// 棚ブロックカード（横並びコンパクト版）
 function BlockCard({
     block,
+    selected,
     onClick,
     onDelete
 }: {
     block: ShelfBlock;
+    selected?: boolean;
     onClick: () => void;
     onDelete: () => void;
 }) {
     const isFlat = block.blockType === 'flat';
     return (
-        <div className="card" style={{ cursor: 'pointer' }} onClick={onClick}>
-            <div className="flex items-center justify-between mb-sm">
-                <h4 style={{ margin: 0 }}>{block.name}</h4>
-                <button
-                    className="btn btn-sm btn-danger"
-                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                >
-                    削除
-                </button>
+        <div
+            onClick={onClick}
+            style={{
+                flexShrink: 0,
+                width: '140px',
+                padding: '0.5rem 0.6rem',
+                background: selected ? 'var(--color-primary)' : 'var(--bg-secondary)',
+                border: `2px solid ${selected ? 'var(--color-primary)' : 'var(--border-color)'}`,
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                position: 'relative'
+            }}
+            title={block.name}
+        >
+            <button
+                className="btn btn-sm btn-danger"
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                style={{
+                    position: 'absolute',
+                    top: '4px',
+                    right: '4px',
+                    padding: '0 4px',
+                    fontSize: '0.65rem',
+                    lineHeight: '1.4'
+                }}
+            >
+                削除
+            </button>
+            <div style={{
+                fontSize: '0.78rem',
+                fontWeight: 600,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                color: selected ? 'white' : 'var(--text-primary)',
+                paddingRight: '28px'
+            }}>
+                {block.name}
             </div>
-            <div className="text-sm text-muted">
-                <UnitDisplay valueMm={block.width} /> × <UnitDisplay valueMm={block.height} /> {isFlat ? '（奥行）' : '（高さ）'}
+            <div style={{ fontSize: '0.65rem', color: selected ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)', marginTop: '2px' }}>
+                <UnitDisplay valueMm={block.width} />{isFlat ? '' : ` / ${block.shelfCount}段`}
             </div>
-            {!isFlat && <div className="text-sm text-muted">{block.shelfCount}段 / {block.productPlacements.length}商品</div>}
-            {isFlat && <div className="text-sm text-muted">{block.productPlacements.length}商品</div>}
-            {block.description && (
-                <div className="text-xs text-muted mt-sm">{block.description}</div>
-            )}
+            <div style={{ fontSize: '0.65rem', color: selected ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)' }}>
+                {block.productPlacements.length}商品
+            </div>
         </div>
     );
 }
@@ -502,69 +529,79 @@ export function ShelfBlockEditor() {
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
             >
-                <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 320px', gap: '1.5rem' }}>
-                    {/* ブロック一覧 */}
-                    <div>
-                        {/* タブ */}
-                        <div className="flex border-b border-border mb-md">
-                            <button
-                                className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'multi-tier'
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-muted hover:text-foreground'
-                                    }`}
-                                onClick={() => {
-                                    setActiveTab('multi-tier');
-                                    setNewBlock(prev => ({ ...prev, blockType: 'multi-tier' }));
-                                    setSelectedBlock(null);
-                                }}
-                            >
-                                多段
-                            </button>
-                            <button
-                                className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'flat'
-                                    ? 'border-primary text-primary'
-                                    : 'border-transparent text-muted hover:text-foreground'
-                                    }`}
-                                onClick={() => {
-                                    setActiveTab('flat');
-                                    setNewBlock(prev => ({ ...prev, blockType: 'flat' }));
-                                    setSelectedBlock(null);
-                                }}
-                            >
-                                平台
-                            </button>
-                        </div>
+                {/* ブロック選択エリア（横並びスクロール） */}
+                <div className="card mb-lg">
+                    {/* タブ */}
+                    <div className="flex border-b border-border mb-md">
+                        <button
+                            className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'multi-tier'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-muted hover:text-foreground'
+                                }`}
+                            onClick={() => {
+                                setActiveTab('multi-tier');
+                                setNewBlock(prev => ({ ...prev, blockType: 'multi-tier' }));
+                                setSelectedBlock(null);
+                            }}
+                        >
+                            多段
+                        </button>
+                        <button
+                            className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'flat'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-muted hover:text-foreground'
+                                }`}
+                            onClick={() => {
+                                setActiveTab('flat');
+                                setNewBlock(prev => ({ ...prev, blockType: 'flat' }));
+                                setSelectedBlock(null);
+                            }}
+                        >
+                            平台
+                        </button>
+                    </div>
 
-                        <div className="card mb-md">
-                            <button
-                                className="btn btn-primary w-full"
-                                onClick={() => {
-                                    setNewBlock({ name: '', description: '', blockType: activeTab, width: 900, height: activeTab === 'flat' ? 900 : 1800, shelfCount: 5 });
-                                    setIsCreateModalOpen(true);
-                                }}
-                            >
-                                ＋ 新規ブロック
-                            </button>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {/* 新規ボタン + 横スクロールブロック一覧 */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                        <button
+                            className="btn btn-primary"
+                            style={{ flexShrink: 0 }}
+                            onClick={() => {
+                                setNewBlock({ name: '', description: '', blockType: activeTab, width: 900, height: activeTab === 'flat' ? 900 : 1800, shelfCount: 5 });
+                                setIsCreateModalOpen(true);
+                            }}
+                        >
+                            ＋ 新規ブロック
+                        </button>
+                        <div style={{
+                            display: 'flex',
+                            gap: '0.5rem',
+                            overflowX: 'auto',
+                            flex: 1,
+                            paddingBottom: '0.25rem'
+                        }}>
                             {blocks.filter(b => (b.blockType || 'multi-tier') === activeTab).map(block => (
                                 <BlockCard
                                     key={block.id}
                                     block={block}
+                                    selected={selectedBlock?.id === block.id}
                                     onClick={() => { setSelectedBlock(block); setIsDirty(false); setSaveStatus('idle'); }}
                                     onDelete={() => handleDeleteBlock(block.id)}
                                 />
                             ))}
                             {blocks.filter(b => (b.blockType || 'multi-tier') === activeTab).length === 0 && (
-                                <div className="text-center text-muted" style={{ padding: '2rem' }}>
+                                <div className="text-muted" style={{ padding: '0.5rem 0', fontSize: '0.85rem' }}>
                                     ブロックがありません
                                 </div>
                             )}
                         </div>
                     </div>
+                </div>
 
-                    {/* 編集エリア */}
-                    <div>
+                {/* メインエリア：棚キャンバス（左詰め）＋ 商品一覧 */}
+                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                    {/* 棚キャンバス（左詰め、auto幅） */}
+                    <div style={{ flex: '0 0 auto' }}>
                         {selectedBlock ? (
                             <div className="card">
                                 <div className="card-header">
@@ -575,7 +612,6 @@ export function ShelfBlockEditor() {
                                         </div>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                        {/* 保存ステータス */}
                                         {isSaving && (
                                             <span className="text-sm text-muted">保存中...</span>
                                         )}
@@ -588,7 +624,6 @@ export function ShelfBlockEditor() {
                                         {!isSaving && isDirty && saveStatus !== 'saved' && saveStatus !== 'error' && (
                                             <span className="text-sm" style={{ color: 'var(--color-warning, #f59e0b)' }}>未保存</span>
                                         )}
-                                        {/* 手動保存ボタン */}
                                         <button
                                             className="btn btn-primary"
                                             onClick={handleManualSave}
@@ -635,15 +670,15 @@ export function ShelfBlockEditor() {
                                 </div>
                             </div>
                         ) : (
-                            <div className="card text-center text-muted" style={{ padding: '4rem' }}>
-                                左のリストからブロックを選択するか、<br />
+                            <div className="card text-center text-muted" style={{ padding: '4rem', minWidth: '300px' }}>
+                                上のリストからブロックを選択するか、<br />
                                 新規ブロックを作成してください
                             </div>
                         )}
                     </div>
 
-                    {/* 商品パレット */}
-                    <div>
+                    {/* 商品一覧（残り幅すべて） */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
                         <div className="card">
                             <h3 className="card-title mb-md">商品一覧</h3>
                             <input
