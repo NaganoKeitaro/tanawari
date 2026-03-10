@@ -524,6 +524,8 @@ tr:hover {
 .main-content {
   margin-left: var(--sidebar-width);
   flex: 1;
+  min-width: 0;
+  overflow-x: hidden;
   padding: var(--spacing-xl);
   min-height: 100vh;
 }
