@@ -39,20 +39,43 @@ function DraggableProduct({ product }: { product: Product }) {
     return (
         <div
             ref={setNodeRef}
-            style={style}
+            style={{
+                ...style,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                padding: '0.4rem 0.5rem',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'grab',
+                userSelect: 'none'
+            }}
             {...listeners}
             {...attributes}
-            className="product-card"
         >
             <img
                 src={product.imageUrl}
                 alt={product.name}
-                style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px' }}
+                style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '3px', flexShrink: 0 }}
             />
-            <div className="product-card-name">{product.name}</div>
-            <div className="product-card-size">{product.width}×{product.height}mm</div>
-            <div className="text-xs" style={{ color: 'var(--color-warning)' }}>
-                Rank: {product.salesRank}
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 500,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    maxWidth: '100%'
+                }} title={product.name}>
+                    {product.name}
+                </div>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                    {product.width}×{product.height}mm
+                </div>
+            </div>
+            <div style={{ fontSize: '0.68rem', color: 'var(--color-warning)', flexShrink: 0 }}>
+                R{product.salesRank}
             </div>
         </div>
     );
@@ -479,7 +502,7 @@ export function ShelfBlockEditor() {
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
             >
-                <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr 280px', gap: '1.5rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 320px', gap: '1.5rem' }}>
                     {/* ブロック一覧 */}
                     <div>
                         {/* タブ */}
@@ -632,9 +655,9 @@ export function ShelfBlockEditor() {
                             />
                             <div
                                 style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(2, 1fr)',
-                                    gap: '0.5rem',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '0.35rem',
                                     maxHeight: '500px',
                                     overflowY: 'auto'
                                 }}
@@ -653,18 +676,22 @@ export function ShelfBlockEditor() {
                 {/* ドラッグオーバーレイ */}
                 <DragOverlay>
                     {activeProduct ? (
-                        <div
-                            className="product-card"
-                            style={{
-                                background: 'var(--color-primary)',
-                                color: 'white',
-                                opacity: 0.9,
-                                cursor: 'grabbing',
-                                width: '80px'
-                            }}
-                        >
-                            <div className="product-card-name">{activeProduct.name}</div>
-                            <div className="product-card-size">{activeProduct.width}×{activeProduct.height}mm</div>
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.4rem 0.6rem',
+                            background: 'var(--color-primary)',
+                            color: 'white',
+                            borderRadius: 'var(--radius-sm)',
+                            opacity: 0.9,
+                            cursor: 'grabbing',
+                            width: '200px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                        }}>
+                            <div style={{ fontSize: '0.75rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {activeProduct.name}
+                            </div>
                         </div>
                     ) : null}
                 </DragOverlay>
