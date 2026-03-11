@@ -90,7 +90,7 @@ CREATE TABLE public.shelf_blocks (
   name varchar(100) not null,
   description text,
   block_type varchar(50),
-  width decimal(5,2) not null,
+  width decimal(8,2) not null,
   height decimal(5,2) not null,
   shelf_count int not null,
   created_at timestamp with time zone default now() not null,
@@ -103,7 +103,7 @@ CREATE TABLE public.shelf_block_products (
   block_id uuid references public.shelf_blocks(id) on delete cascade not null,
   product_id uuid references public.products(id) on delete cascade not null,
   shelf_index int not null,
-  position_x decimal(5,2) not null,
+  position_x decimal(8,2) not null,
   face_count int default 1 not null
 );
 
