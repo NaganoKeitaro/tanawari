@@ -697,9 +697,10 @@ export function StorePlanogramEditor() {
     };
 
     // フィルター済み商品
+    const lowerSearch = searchTerm.toLowerCase();
     const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        p.category.toLowerCase().includes(searchTerm.toLowerCase())
+        p.name.toLowerCase().includes(lowerSearch) ||
+        (p.category ?? '').toLowerCase().includes(lowerSearch)
     );
 
     // 分析モード（共通）
