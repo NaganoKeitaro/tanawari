@@ -171,18 +171,22 @@ class ShelfBlockRepository implements IRepository<ShelfBlock> {
         delete blockPayload.id;
 
         if (Object.keys(blockPayload).length > 0) {
-            await supabase.from('shelf_blocks').update(blockPayload).eq('id', id);
+            const { error: blockErr } = await supabase.from('shelf_blocks').update(blockPayload).eq('id', id);
+            if (blockErr) throw blockErr;
         }
 
         if (item.productPlacements) {
-            await supabase.from('shelf_block_products').delete().eq('block_id', id);
+            const { error: deleteErr } = await supabase.from('shelf_block_products').delete().eq('block_id', id);
+            if (deleteErr) throw deleteErr;
+
             if (item.productPlacements.length > 0) {
                 const prodPayloads = item.productPlacements.map(p => toSnake({
                     ...p,
                     id: crypto.randomUUID(),
                     blockId: id
                 }));
-                await supabase.from('shelf_block_products').insert(prodPayloads);
+                const { error: insertErr } = await supabase.from('shelf_block_products').insert(prodPayloads);
+                if (insertErr) throw insertErr;
             }
         }
         return this.getById(id);

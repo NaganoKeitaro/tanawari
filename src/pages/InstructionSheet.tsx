@@ -970,17 +970,68 @@ export function InstructionSheet() {
             {/* 印刷用CSS */}
             <style>{`
                 @media print {
+                    /* 非表示要素 */
                     .sidebar, .no-print { display: none !important; }
-                    .main-content { margin: 0 !important; padding: 0 !important; }
-                    .app-layout { display: block !important; }
-                    .instruction-sheet-body .card {
-                        border: 1px solid #ddd !important;
-                        box-shadow: none !important;
-                        break-inside: avoid;
+
+                    /* 全コンテナのoverflow・高さ制限を解除 */
+                    html, body, #root, .app-layout, .main-content, .instruction-sheet-page {
+                        overflow: visible !important;
+                        height: auto !important;
+                        min-height: 0 !important;
+                        max-height: none !important;
                     }
-                    body { background: white !important; font-size: 11px !important; }
+
+                    /* レイアウトリセット */
+                    .app-layout { display: block !important; }
+                    .main-content {
+                        margin: 0 !important;
+                        padding: 0.5rem !important;
+                        position: static !important;
+                    }
+
+                    /* 印刷用カラー：白背景・黒文字 */
+                    body {
+                        background: white !important;
+                        color: #1a1a1a !important;
+                        font-size: 11px !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+
+                    /* カードスタイル（印刷用） */
+                    .instruction-sheet-body .card {
+                        background: white !important;
+                        border: 1px solid #ccc !important;
+                        box-shadow: none !important;
+                        backdrop-filter: none !important;
+                        color: #1a1a1a !important;
+                        break-inside: auto;
+                    }
+                    .instruction-sheet-body .card-header {
+                        background: #f5f5f5 !important;
+                        color: #1a1a1a !important;
+                    }
+                    .instruction-sheet-body .card-title {
+                        color: #1a1a1a !important;
+                    }
+                    .instruction-sheet-body .text-muted {
+                        color: #666 !important;
+                    }
+
+                    /* overflow・高さ制限を全子要素で解除 */
+                    .instruction-sheet-body,
+                    .instruction-sheet-body * {
+                        overflow: visible !important;
+                        max-height: none !important;
+                    }
+
                     .instruction-sheet-page { padding: 0 !important; }
                     .page-header { margin-bottom: 0.5rem !important; }
+
+                    /* ページ分割の制御 */
+                    .instruction-planogram-section {
+                        page-break-inside: avoid;
+                    }
                 }
             `}</style>
         </div>
