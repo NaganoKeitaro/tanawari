@@ -361,6 +361,11 @@ export function ShelfBlockEditor() {
     // ドラッグプレビュー
     const [dragPreview, setDragPreview] = useState<DragPreviewState | null>(null);
 
+    // キャンバスパネル幅のリサイズ
+    const [canvasPanelWidth, setCanvasPanelWidth] = useState<number | null>(null);
+    const resizingRef = useRef(false);
+    const resizeStartRef = useRef<{ x: number; width: number }>({ x: 0, width: 0 });
+
     // 新規ブロックフォーム
     const [newBlock, setNewBlock] = useState<{
         name: string;
@@ -385,6 +390,32 @@ export function ShelfBlockEditor() {
             }
         })
     );
+
+    // リサイズハンドル
+    const handleResizeStart = useCallback((e: React.MouseEvent) => {
+        e.preventDefault();
+        resizingRef.current = true;
+        const currentWidth = canvasPanelWidth ?? (selectedBlock ? Math.min(selectedBlock.width * SCALE + 80, window.innerWidth * 0.6) : 500);
+        resizeStartRef.current = { x: e.clientX, width: currentWidth };
+
+        const onMouseMove = (e: MouseEvent) => {
+            if (!resizingRef.current) return;
+            const delta = e.clientX - resizeStartRef.current.x;
+            const newWidth = Math.max(300, resizeStartRef.current.width + delta);
+            setCanvasPanelWidth(newWidth);
+        };
+        const onMouseUp = () => {
+            resizingRef.current = false;
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+    }, [canvasPanelWidth, selectedBlock]);
 
     // プレビュー位置の計算
     const previewPositions: Record<string, number> | null = (() => {
@@ -815,9 +846,9 @@ export function ShelfBlockEditor() {
                 </div>
 
                 {/* メインエリア：棚キャンバス（左詰め）＋ 商品一覧 */}
-                <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
-                    {/* 棚キャンバス（左詰め、auto幅） */}
-                    <div style={{ flex: '0 0 auto' }}>
+                <div style={{ display: 'flex', gap: '0', alignItems: 'flex-start' }}>
+                    {/* 棚キャンバス（リサイズ可能） */}
+                    <div style={{ flex: '0 0 auto', width: canvasPanelWidth ? `${canvasPanelWidth}px` : undefined, maxWidth: 'calc(100vw - 350px)' }}>
                         {selectedBlock ? (
                             <div className="card">
                                 <div className="card-header">
@@ -895,8 +926,31 @@ export function ShelfBlockEditor() {
                         )}
                     </div>
 
+                    {/* リサイズハンドル */}
+                    <div
+                        onMouseDown={handleResizeStart}
+                        style={{
+                            flex: '0 0 8px',
+                            cursor: 'col-resize',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            alignSelf: 'stretch',
+                            minHeight: '200px',
+                        }}
+                        title="ドラッグで幅を調整"
+                    >
+                        <div style={{
+                            width: '4px',
+                            height: '40px',
+                            borderRadius: '2px',
+                            background: 'var(--border-color)',
+                            transition: 'background 0.15s',
+                        }} />
+                    </div>
+
                     {/* 商品一覧（残り幅すべて） */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
                         <div className="card">
                             <h3 className="card-title mb-md">商品一覧</h3>
                             <input
