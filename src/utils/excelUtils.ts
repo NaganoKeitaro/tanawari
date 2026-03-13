@@ -21,10 +21,17 @@ export interface ValidationResult {
     warnings: ValidationError[];
 }
 
+// スキップされた商品（同名複数該当など）
+export interface SkippedProduct {
+    product: Partial<Product>;
+    reason: string;
+}
+
 // インポート結果
 export interface ImportResult {
     newProducts: Partial<Product>[];
     updateProducts: Partial<Product>[];
+    skippedProducts: SkippedProduct[];
     errors: ValidationError[];
 }
 
@@ -193,12 +200,22 @@ export function validateProductData(
         const rowNum = index + 2; // Excelの行番号（ヘッダー分+1）
 
         // JAN未入力は警告（必須ではない）
+        // 商品名で既存マッチする場合は重複チェック側で適切な警告が出るため、
+        // ここでは「新規登録になる」ケースのみ警告する
         if (!product.jan || product.jan.trim() === '') {
-            warnings.push({
-                row: rowNum,
-                field: 'JAN',
-                message: 'JANコードが未入力です（JANなし商品として登録されます）'
-            });
+            const name = product.name?.trim();
+            const nameMatchCount = name
+                ? existingProducts.filter(p => p.name === name).length
+                : 0;
+
+            if (nameMatchCount === 0) {
+                warnings.push({
+                    row: rowNum,
+                    field: 'JAN',
+                    message: 'JANコードが未入力です（JANなし商品として新規登録されます）'
+                });
+            }
+            // nameMatchCount >= 1 の場合は重複チェック側で「商品名キーで更新されます」等の警告が出る
         }
 
         if (!product.name || product.name.trim() === '') {
@@ -210,8 +227,8 @@ export function validateProductData(
         }
 
         // JANコードの形式チェック（13桁または8桁）
-        if (product.jan) {
-            const jan = product.jan.trim();
+        const jan = product.jan?.trim();
+        if (jan) {
             if (!/^\d{8}$|^\d{13}$/.test(jan)) {
                 errors.push({
                     row: rowNum,
@@ -222,13 +239,29 @@ export function validateProductData(
         }
 
         // 重複チェック（既存データとの照合）
-        if (product.jan) {
-            const existing = existingProducts.find(p => p.jan === product.jan);
+        if (jan) {
+            const existing = existingProducts.find(p => p.jan === jan);
             if (existing) {
                 warnings.push({
                     row: rowNum,
                     field: 'JAN',
-                    message: `既存の商品「${existing.name}」が更新されます`
+                    message: `既存の商品「${existing.name}」がJANキーで更新されます`
+                });
+            }
+        } else if (product.name && product.name.trim() !== '') {
+            // JANなしの場合は商品名でマッチング
+            const matchingProducts = existingProducts.filter(p => p.name === product.name!.trim());
+            if (matchingProducts.length === 1) {
+                warnings.push({
+                    row: rowNum,
+                    field: '商品名',
+                    message: `既存の商品「${matchingProducts[0].name}」が商品名キーで更新されます`
+                });
+            } else if (matchingProducts.length > 1) {
+                warnings.push({
+                    row: rowNum,
+                    field: '商品名',
+                    message: `同名の既存商品が${matchingProducts.length}件あるため更新されません（未更新リストに出力）`
                 });
             }
         }
@@ -242,7 +275,9 @@ export function validateProductData(
 }
 
 /**
- * インポートデータを新規/更新に分類
+ * インポートデータを新規/更新/スキップに分類
+ * - JANがある場合: 同一JANをキーにUPDATE
+ * - JANがない場合: 商品名をキーにUPDATE（同名が複数件ある場合はスキップ）
  */
 export function categorizeImportData(
     data: Partial<Product>[],
@@ -250,32 +285,56 @@ export function categorizeImportData(
 ): ImportResult {
     const newProducts: Partial<Product>[] = [];
     const updateProducts: Partial<Product>[] = [];
+    const skippedProducts: SkippedProduct[] = [];
     const errors: ValidationError[] = [];
 
     data.forEach((product) => {
-        if (!product.jan) {
-            // JANなし商品は新規として登録
-            newProducts.push(product);
-            return;
-        }
+        const jan = product.jan?.trim();
 
-        const existing = existingProducts.find(p => p.jan === product.jan);
-
-        if (existing) {
-            // 既存商品の更新
-            updateProducts.push({
-                ...product,
-                id: existing.id  // 既存のIDを保持
-            });
+        if (jan) {
+            // JANがある場合: JANをキーにマッチング
+            const existing = existingProducts.find(p => p.jan === jan);
+            if (existing) {
+                updateProducts.push({
+                    ...product,
+                    id: existing.id
+                });
+            } else {
+                newProducts.push(product);
+            }
         } else {
-            // 新規商品
-            newProducts.push(product);
+            // JANがない場合: 商品名をキーにマッチング
+            const name = product.name?.trim();
+            if (!name) {
+                newProducts.push(product);
+                return;
+            }
+
+            const matchingProducts = existingProducts.filter(p => p.name === name);
+
+            if (matchingProducts.length === 1) {
+                // 1件だけマッチ → UPDATE
+                updateProducts.push({
+                    ...product,
+                    id: matchingProducts[0].id
+                });
+            } else if (matchingProducts.length > 1) {
+                // 複数件マッチ → スキップ（未更新リストへ）
+                skippedProducts.push({
+                    product,
+                    reason: `同名の既存商品が${matchingProducts.length}件あるため更新できません`
+                });
+            } else {
+                // マッチなし → 新規登録
+                newProducts.push(product);
+            }
         }
     });
 
     return {
         newProducts,
         updateProducts,
+        skippedProducts,
         errors
     };
 }
@@ -348,6 +407,62 @@ export function exportProductsToCSV(products: Product[]): Blob {
     const csvData = XLSX.write(wb, { bookType: 'csv', type: 'string' });
 
     // UTF-8 BOMを追加（Excelで正しく開けるように）
+    const bom = '\uFEFF';
+
+    return new Blob([bom + csvData], {
+        type: 'text/csv;charset=utf-8;'
+    });
+}
+
+/**
+ * 未更新商品リストをCSVにエクスポート
+ */
+export function exportSkippedProductsToCSV(skippedProducts: SkippedProduct[]): Blob {
+    const headers = [
+        'JAN', '商品名', '未更新理由',
+        '事業部CD', '事業部',
+        'ディビジョンCD', 'ディビジョン名',
+        'ラインCD', 'ライン名',
+        '部門CD', '部門名',
+        'カテゴリーCD', 'カテゴリ名',
+        'サブカテゴリーCD', 'サブカテゴリ名',
+        'セグメントCD', 'セグメント名',
+        'サブセグメントCD', 'サブセグメント名',
+        '売上数量', '幅', '高さ', '奥行'
+    ];
+
+    const rows = skippedProducts.map(({ product, reason }) => [
+        product.jan || '',
+        product.name || '',
+        reason,
+        product.divisionCode || '',
+        product.divisionName || '',
+        product.divisionSubCode || '',
+        product.divisionSubName || '',
+        product.lineCode || '',
+        product.lineName || '',
+        product.departmentCode || '',
+        product.departmentName || '',
+        product.categoryCode || '',
+        product.categoryName || '',
+        product.subCategoryCode || '',
+        product.subCategoryName || '',
+        product.segmentCode || '',
+        product.segmentName || '',
+        product.subSegmentCode || '',
+        product.subSegmentName || '',
+        product.salesQuantity != null ? String(product.salesQuantity) : '',
+        product.width != null ? String(product.width) : '',
+        product.height != null ? String(product.height) : '',
+        product.depth != null ? String(product.depth) : '',
+    ]);
+
+    const wsData = [headers, ...rows];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '未更新商品');
+
+    const csvData = XLSX.write(wb, { bookType: 'csv', type: 'string' });
     const bom = '\uFEFF';
 
     return new Blob([bom + csvData], {

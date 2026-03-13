@@ -8,13 +8,14 @@ import {
     validateProductData,
     categorizeImportData,
     generateExcelTemplate,
-    type ValidationError
+    type ValidationError,
+    type SkippedProduct
 } from '../../utils/excelUtils';
 
 interface ExcelImportModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImport: (newProducts: Partial<Product>[], updateProducts: Partial<Product>[]) => Promise<void>;
+    onImport: (newProducts: Partial<Product>[], updateProducts: Partial<Product>[], skippedProducts: SkippedProduct[]) => Promise<void>;
     existingProducts: Product[];
 }
 
@@ -30,7 +31,7 @@ export function ExcelImportModal({
     const [previewData, setPreviewData] = useState<Partial<Product>[]>([]);
     const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
     const [validationWarnings, setValidationWarnings] = useState<ValidationError[]>([]);
-    const [importSummary, setImportSummary] = useState({ new: 0, update: 0 });
+    const [importSummary, setImportSummary] = useState({ new: 0, update: 0, skipped: 0 });
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // ファイル選択
@@ -74,16 +75,17 @@ export function ExcelImportModal({
         setStep('importing');
 
         try {
-            const { newProducts, updateProducts } = categorizeImportData(
+            const { newProducts, updateProducts, skippedProducts } = categorizeImportData(
                 previewData,
                 existingProducts
             );
 
-            await onImport(newProducts, updateProducts);
+            await onImport(newProducts, updateProducts, skippedProducts);
 
             setImportSummary({
                 new: newProducts.length,
-                update: updateProducts.length
+                update: updateProducts.length,
+                skipped: skippedProducts.length
             });
 
             setStep('complete');
@@ -267,9 +269,17 @@ export function ExcelImportModal({
                             <div className="text-lg mb-sm">
                                 <strong>新規登録:</strong> {importSummary.new}件
                             </div>
-                            <div className="text-lg">
+                            <div className="text-lg mb-sm">
                                 <strong>更新:</strong> {importSummary.update}件
                             </div>
+                            {importSummary.skipped > 0 && (
+                                <div className="text-lg" style={{ color: 'var(--color-warning)' }}>
+                                    <strong>未更新:</strong> {importSummary.skipped}件
+                                    <div className="text-sm text-muted" style={{ marginTop: '0.25rem' }}>
+                                        同名の既存商品が複数あるため更新できなかった商品です。未更新商品リストCSVが自動ダウンロードされました。
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
