@@ -1,4 +1,4 @@
-// 棚割管理システム - アプリレイアウト
+// 棚割管理システム - アプリレイアウト（折りたたみ式サイドバー）
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 
@@ -54,14 +54,12 @@ const navSections: NavSection[] = [
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {
-    // const location = useLocation();
-
     return (
         <div className="app-layout">
             <aside className="sidebar">
                 <div className="sidebar-header">
-                    <div className="sidebar-logo">棚割管理システム</div>
-                    <div className="text-xs text-muted mt-sm">Planogram System MVP</div>
+                    <div className="sidebar-logo-icon">棚</div>
+                    <span className="sidebar-logo">棚割管理</span>
                 </div>
                 <nav className="sidebar-nav">
                     {navSections.map((section) => (
@@ -71,12 +69,13 @@ export function AppLayout({ children }: AppLayoutProps) {
                                 <NavLink
                                     key={item.path}
                                     to={item.path}
+                                    end={item.path === '/'}
                                     className={({ isActive }) =>
                                         `nav-link ${isActive ? 'active' : ''}`
                                     }
                                 >
-                                    <span>{item.icon}</span>
-                                    <span>{item.label}</span>
+                                    <span className="nav-icon">{item.icon}</span>
+                                    <span className="nav-label">{item.label}</span>
                                 </NavLink>
                             ))}
                         </div>

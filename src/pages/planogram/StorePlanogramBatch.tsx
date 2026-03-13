@@ -326,7 +326,7 @@ export function StorePlanogramBatch() {
                                                     borderRadius: 'var(--radius-sm)',
                                                     cursor: isGenerating ? 'default' : 'pointer',
                                                     border: isSelected ? '2px solid var(--color-primary)' : '2px solid var(--border-color)',
-                                                    background: isSelected ? 'rgba(99, 102, 241, 0.05)' : 'transparent',
+                                                    background: isSelected ? 'rgba(16, 185, 129, 0.05)' : 'transparent',
                                                     transition: 'all 0.15s ease'
                                                 }}
                                             >

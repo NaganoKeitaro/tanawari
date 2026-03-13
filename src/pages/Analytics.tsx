@@ -197,7 +197,7 @@ export function Analytics() {
                                     })
                                 ) : (
                                     shelfBlocks.map(b => (
-                                        <option key={b.id} value={b.id}>{b.name} (W:{b.width}cm)</option>
+                                        <option key={b.id} value={b.id}>{b.name} (W:{b.width}mm)</option>
                                     ))
                                 )}
                             </select>

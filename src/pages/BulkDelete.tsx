@@ -214,7 +214,7 @@ export function BulkDelete() {
                                 <span
                                     className="badge"
                                     style={{
-                                        backgroundColor: counts[item.key] > 0 ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-tertiary)',
+                                        backgroundColor: counts[item.key] > 0 ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-tertiary)',
                                         color: counts[item.key] > 0 ? 'var(--color-primary)' : 'var(--text-muted)'
                                     }}
                                 >
@@ -269,7 +269,7 @@ export function BulkDelete() {
                                 <span
                                     className="badge"
                                     style={{
-                                        backgroundColor: counts[item.key] > 0 ? 'rgba(99, 102, 241, 0.15)' : 'var(--bg-tertiary)',
+                                        backgroundColor: counts[item.key] > 0 ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-tertiary)',
                                         color: counts[item.key] > 0 ? 'var(--color-primary)' : 'var(--text-muted)'
                                     }}
                                 >

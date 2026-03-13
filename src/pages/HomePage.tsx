@@ -95,7 +95,7 @@ export function HomePage() {
                 <div
                     className="card mb-lg"
                     style={{
-                        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(16, 185, 129, 0.2))',
+                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.2))',
                         borderColor: 'var(--color-primary)'
                     }}
                 >

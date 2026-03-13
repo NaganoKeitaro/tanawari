@@ -20,6 +20,7 @@ import {
     shelfBlockRepository
 } from '../data/repositories/repositoryFactory';
 import { UnitDisplay } from '../components/common/UnitDisplay';
+import { getProductColor, initProductColorMap } from '../utils/productColorUtils';
 
 // ===== 定数 =====
 
@@ -48,11 +49,11 @@ const FIXTURE_GROUPS: Record<FixtureGroup, { label: string; types: FixtureType[]
 
 // ブロックオーバーレイ用カラーパレット
 const BLOCK_OVERLAY_COLORS = [
-    { bg: 'rgba(99, 102, 241, 0.35)', border: 'rgba(99, 102, 241, 0.7)', text: '#4338ca' },
+    { bg: 'rgba(59, 130, 246, 0.35)', border: 'rgba(59, 130, 246, 0.7)', text: '#1e40af' },
     { bg: 'rgba(16, 185, 129, 0.35)', border: 'rgba(16, 185, 129, 0.7)', text: '#065f46' },
     { bg: 'rgba(245, 158, 11, 0.35)', border: 'rgba(245, 158, 11, 0.7)', text: '#92400e' },
     { bg: 'rgba(239, 68, 68, 0.35)', border: 'rgba(239, 68, 68, 0.7)', text: '#991b1b' },
-    { bg: 'rgba(59, 130, 246, 0.35)', border: 'rgba(59, 130, 246, 0.7)', text: '#1e40af' },
+    { bg: 'rgba(6, 182, 212, 0.35)', border: 'rgba(6, 182, 212, 0.7)', text: '#155e75' },
     { bg: 'rgba(168, 85, 247, 0.35)', border: 'rgba(168, 85, 247, 0.7)', text: '#6b21a8' },
     { bg: 'rgba(236, 72, 153, 0.35)', border: 'rgba(236, 72, 153, 0.7)', text: '#9d174d' },
     { bg: 'rgba(20, 184, 166, 0.35)', border: 'rgba(20, 184, 166, 0.7)', text: '#115e59' },
@@ -154,7 +155,7 @@ function PlanogramVisual({
                             <div
                                 key={shelfIndex}
                                 style={{
-                                    height: `${Math.max(50, (planogram.shelfCount > 0 ? planogram.height / planogram.shelfCount : planogram.height) * SCALE)}px`,
+                                    height: `${Math.max(65, (planogram.shelfCount > 0 ? planogram.height / planogram.shelfCount : planogram.height) * SCALE)}px`,
                                     position: 'relative',
                                     borderBottom: '2px solid var(--border-color)',
                                     background: shelfIndex % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)'
@@ -170,20 +171,24 @@ function PlanogramVisual({
                                             style={{
                                                 position: 'absolute', left: `${sp.positionX * SCALE}px`,
                                                 top: 0, bottom: 0, width: `${width}px`,
-                                                background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.08))',
-                                                border: '1px solid rgba(99, 102, 241, 0.3)',
+                                                background: getProductColor(product.category).bg,
+                                                border: `1px solid ${getProductColor(product.category).border}`,
+                                                color: getProductColor(product.category).text,
                                                 borderRadius: 'var(--radius-sm)',
                                                 display: 'flex', flexDirection: 'column',
                                                 alignItems: 'center', justifyContent: 'center',
                                                 padding: '2px', fontSize: '0.55rem', overflow: 'hidden'
                                             }}
-                                            title={`${product.name} ×${sp.faceCount}`}
+                                            title={`${product.name} (${product.category || '未分類'}) ×${sp.faceCount}`}
                                         >
-                                            <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.55rem' }}>
                                                 {product.name}
                                             </div>
+                                            <div style={{ opacity: 0.8, fontSize: '0.45rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                                {product.jan}
+                                            </div>
                                             {sp.faceCount > 1 && (
-                                                <div style={{ fontSize: '0.5rem', color: 'var(--color-primary)', fontWeight: 600 }}>
+                                                <div style={{ fontSize: '0.45rem', opacity: 0.85, fontWeight: 600 }}>
                                                     ×{sp.faceCount}
                                                 </div>
                                             )}
@@ -336,6 +341,7 @@ export function InstructionSheet() {
             ]);
             setStores(storesData);
             setProducts(productsData);
+            initProductColorMap(productsData.map(p => p.category));
             setBlocks(blocksData);
             setFixtures(fixturesData);
             setStandardPlanograms(standardsData);

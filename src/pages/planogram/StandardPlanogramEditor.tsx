@@ -101,7 +101,7 @@ function DroppableShelfRow({ visualIndex, shelfHeight, canvasWidth }: {
                 height: `${shelfHeight}px`,
                 zIndex: 3,
                 pointerEvents: 'none',
-                background: isOver ? 'rgba(99,102,241,0.12)' : 'transparent',
+                background: isOver ? 'rgba(16,185,129,0.12)' : 'transparent',
                 borderTop: isOver ? '2px dashed var(--color-primary)' : 'none',
                 boxSizing: 'border-box',
                 transition: 'background 0.1s'
@@ -208,7 +208,7 @@ function PlanogramCanvas({
                             left: 0,
                             width: `${canvasWidth}px`,
                             height: `${Math.min(activeBlockShelfCount, planogram.shelfCount - hoveredVisualRow) * shelfHeight}px`,
-                            background: 'rgba(99,102,241,0.18)',
+                            background: 'rgba(16,185,129,0.18)',
                             border: '2px dashed var(--color-primary)',
                             borderRadius: 'var(--radius-sm)',
                             zIndex: 4,
@@ -651,7 +651,7 @@ export function StandardPlanogramEditor() {
         // 途中に隙間がなければ最後尾をチェック
         if (insertX === -1) {
             const { totalShaku } = generateFixtureCompositionText();
-            const actualWidth = totalShaku > 0 ? totalShaku * 30 : currentPlanogram.width;
+            const actualWidth = totalShaku > 0 ? totalShaku * 300 : currentPlanogram.width;
             const gap = actualWidth - currentScanX;
             if (gap >= newBlockWidth - 0.1) {
                 insertX = currentScanX;
@@ -1005,7 +1005,7 @@ export function StandardPlanogramEditor() {
                                             onDeleteBlock={handleDeleteBlock}
                                             actualWidth={(() => {
                                                 const { totalShaku } = generateFixtureCompositionText();
-                                                return totalShaku > 0 ? totalShaku * 30 : currentPlanogram.width;
+                                                return totalShaku > 0 ? totalShaku * 300 : currentPlanogram.width;
                                             })()}
                                             hoveredVisualRow={hoveredShelfRow}
                                             activeBlockShelfCount={activeBlock?.shelfCount}
