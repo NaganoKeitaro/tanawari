@@ -21,6 +21,7 @@ import {
 } from '../data/repositories/repositoryFactory';
 import { UnitDisplay } from '../components/common/UnitDisplay';
 import { getProductColor, initProductColorMap } from '../utils/productColorUtils';
+import { ProductTooltip } from '../components/common/ProductTooltip';
 
 // ===== 定数 =====
 
@@ -166,33 +167,33 @@ function PlanogramVisual({
                                     if (!product) return null;
                                     const width = product.width * sp.faceCount * SCALE;
                                     return (
-                                        <div
-                                            key={sp.id}
-                                            style={{
-                                                position: 'absolute', left: `${sp.positionX * SCALE}px`,
-                                                top: 0, bottom: 0, width: `${width}px`,
-                                                background: getProductColor(product.category).bg,
-                                                border: `1px solid ${getProductColor(product.category).border}`,
-                                                color: getProductColor(product.category).text,
-                                                borderRadius: 'var(--radius-sm)',
-                                                display: 'flex', flexDirection: 'column',
-                                                alignItems: 'center', justifyContent: 'center',
-                                                padding: '2px', fontSize: '0.55rem', overflow: 'hidden'
-                                            }}
-                                            title={`${product.name} (${product.category || '未分類'}) ×${sp.faceCount}`}
-                                        >
-                                            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.55rem' }}>
-                                                {product.name}
-                                            </div>
-                                            <div style={{ opacity: 0.8, fontSize: '0.45rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                                                {product.jan}
-                                            </div>
-                                            {sp.faceCount > 1 && (
-                                                <div style={{ fontSize: '0.45rem', opacity: 0.85, fontWeight: 600 }}>
-                                                    ×{sp.faceCount}
+                                        <ProductTooltip key={sp.id} productName={product.name} jan={product.jan || '-'} faceCount={sp.faceCount} category={product.category}>
+                                            <div
+                                                style={{
+                                                    position: 'absolute', left: `${sp.positionX * SCALE}px`,
+                                                    top: 0, bottom: 0, width: `${width}px`,
+                                                    background: getProductColor(product.category).bg,
+                                                    border: `1px solid ${getProductColor(product.category).border}`,
+                                                    color: getProductColor(product.category).text,
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    display: 'flex', flexDirection: 'column',
+                                                    alignItems: 'center', justifyContent: 'center',
+                                                    padding: '2px', fontSize: '0.55rem', overflow: 'hidden'
+                                                }}
+                                            >
+                                                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.55rem' }}>
+                                                    {product.name}
                                                 </div>
-                                            )}
-                                        </div>
+                                                <div style={{ opacity: 0.8, fontSize: '0.45rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                                    {product.jan || '-'}
+                                                </div>
+                                                {sp.faceCount > 1 && (
+                                                    <div style={{ fontSize: '0.45rem', opacity: 0.85, fontWeight: 600 }}>
+                                                        ×{sp.faceCount}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </ProductTooltip>
                                     );
                                 })}
                                 {emptyWidth > 0 && (
