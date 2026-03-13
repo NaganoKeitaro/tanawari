@@ -1,0 +1,55 @@
+flowchart LR
+    subgraph マスタ設定
+        A1["📦 商品マスタ登録<br/>Excel/CSVインポート<br/>手動入力"]
+        A2["🗄️ 什器マスタ登録<br/>什器タイプ・サイズ"]
+        A3["🏪 店舗マスタ登録<br/>FMT・地域"]
+        A4["📐 店舗棚尺配置<br/>什器のフロア配置"]
+    end
+
+    subgraph 棚割作成
+        B1["🧱 棚ブロック作成<br/>商品をD&Dで配置<br/>フェイス数設定"]
+        B2["📋 FMT標準棚割作成<br/>ブロックをD&Dで配置<br/>什器タイプ別"]
+    end
+
+    subgraph 個店展開
+        C1["🏬 一括自動生成<br/>店舗選択→実行"]
+        C2{"店舗棚幅 vs<br/>標準棚幅?"}
+        C3["ルールA: カット<br/>売上ランク下位から<br/>フェイス削減→商品削除"]
+        C4["ルールB: 拡張<br/>売上ランク上位から<br/>フェイス増加"]
+        C5["✏️ 個店棚割編集<br/>手動微調整<br/>フェイス±/商品追加削除"]
+        C6["🔄 同期<br/>ルールC: 標準棚割の<br/>最新状態を再適用"]
+    end
+
+    subgraph 出力
+        D1["📄 棚割指示書<br/>PDF出力<br/>注釈・コメント付き"]
+        D2["📊 分析ダッシュボード<br/>KPI・ヒートマップ"]
+    end
+
+    A1 --> B1
+    A2 --> A4
+    A3 --> A4
+    A4 --> B2
+    B1 --> B2
+    B2 --> C1
+    C1 --> C2
+    C2 -->|狭い| C3
+    C2 -->|広い| C4
+    C2 -->|同じ| C5
+    C3 --> C5
+    C4 --> C5
+    C5 --> C6
+    C5 --> D1
+    C5 --> D2
+    B2 --> D2
+
+    classDef master fill:#fef3c7,stroke:#d97706
+    classDef block fill:#dcfce7,stroke:#16a34a
+    classDef store fill:#dbeafe,stroke:#2563eb
+    classDef output fill:#f3e8ff,stroke:#9333ea
+    classDef decision fill:#fee2e2,stroke:#dc2626
+
+    class A1,A2,A3,A4 master
+    class B1,B2 block
+    class C1,C3,C4,C5,C6 store
+    class C2 decision
+    class D1,D2 output

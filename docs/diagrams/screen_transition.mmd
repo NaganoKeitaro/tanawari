@@ -1,0 +1,58 @@
+graph TB
+    subgraph SG1["Dashboard"]
+        HOME["HOME<br/>HomePage"]
+        DASH["Dashboard<br/>Dashboard"]
+        ANALYTICS["Analytics<br/>Analytics"]
+    end
+
+    subgraph SG2["Master Management"]
+        PROD["Product Master<br/>ProductMaster"]
+        HIER["Hierarchy Master<br/>ProductHierarchyMaster"]
+        FIX["Fixture Master<br/>FixtureMaster"]
+        STORE["Store Master<br/>StoreMaster"]
+        SFIX["Store Fixture<br/>StoreFixtureMaster"]
+    end
+
+    subgraph SG3["Planogram Management"]
+        BLOCK["Shelf Block<br/>ShelfBlockEditor"]
+        STD["Standard Planogram<br/>StandardPlanogramEditor"]
+        BATCH["Store Planogram Batch<br/>StorePlanogramBatch"]
+        SPED["Store Planogram Edit<br/>StorePlanogramEditor"]
+    end
+
+    subgraph SG4["Reports and Others"]
+        INST["Instruction Sheet<br/>InstructionSheet"]
+        DEL["Bulk Delete<br/>BulkDelete"]
+    end
+
+    HOME --> DASH
+    HOME --> ANALYTICS
+    HOME --> PROD
+    HOME --> STORE
+    HOME --> FIX
+    HOME --> SFIX
+    HOME --> HIER
+    HOME --> BLOCK
+    HOME --> STD
+    HOME --> BATCH
+    HOME --> INST
+    HOME --> DEL
+
+    PROD -.->|Product Data| BLOCK
+    FIX -.->|Fixture Data| SFIX
+    SFIX -.->|Fixture Layout| STD
+    BLOCK -.->|Block Placement| STD
+    STD -.->|Standard Planogram| BATCH
+    BATCH -->|Store Selection| SPED
+    SPED -.->|Planogram Data| INST
+    ANALYTICS -.->|Analysis| STD
+
+    classDef dashboard fill:#e0f2fe,stroke:#0284c7
+    classDef master fill:#fef3c7,stroke:#d97706
+    classDef planogram fill:#dcfce7,stroke:#16a34a
+    classDef report fill:#f3e8ff,stroke:#9333ea
+
+    class HOME,DASH,ANALYTICS dashboard
+    class PROD,HIER,FIX,STORE,SFIX master
+    class BLOCK,STD,BATCH,SPED planogram
+    class INST,DEL report

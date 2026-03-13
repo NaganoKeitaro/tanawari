@@ -1,0 +1,53 @@
+graph TB
+    subgraph Client["クライアント (ブラウザ)"]
+        subgraph UI["Presentation Layer"]
+            Pages["ページコンポーネント<br/>HomePage / Dashboard / Analytics<br/>ProductMaster / StoreMaster / FixtureMaster<br/>ShelfBlockEditor / StandardPlanogramEditor<br/>StorePlanogramBatch / StorePlanogramEditor<br/>InstructionSheet"]
+            Common["共通コンポーネント<br/>AppLayout / Modal / UnitInput<br/>UnitDisplay / ProductTooltip<br/>PlanogramVisualizer"]
+            Layout["レイアウトコンポーネント<br/>StoreLayoutEditor<br/>StoreLayoutVisualizer"]
+            DnD["DnD基盤<br/>@dnd-kit/core<br/>@dnd-kit/sortable"]
+        end
+
+        subgraph Service["Domain / Service Layer"]
+            Auto["automationService.ts<br/>棚割自動生成<br/>ルールA(カット) / B(拡張) / C(同期)"]
+            Utils["ユーティリティ<br/>unitConverter / excelUtils<br/>aggregationUtils / heatmapUtils<br/>productColorUtils / metricsGenerator<br/>hierarchyUtils / hierarchyHelpers"]
+        end
+
+        subgraph Data["Data Access Layer"]
+            Factory["repositoryFactory.ts<br/>環境自動判定"]
+            Repo["IRepository&lt;T&gt; インターフェース<br/>getAll / getById / create<br/>update / delete / query"]
+            LS["LocalStorageRepository<br/>開発・オフライン用"]
+            SB["SupabaseRepository<br/>本番用"]
+        end
+    end
+
+    subgraph Backend["バックエンド"]
+        Supabase["Supabase<br/>PostgreSQL<br/>12テーブル"]
+    end
+
+    subgraph Deploy["デプロイ"]
+        Vercel["Vercel<br/>SPA Hosting<br/>vercel.json リライト設定"]
+    end
+
+    Pages --> Common
+    Pages --> Layout
+    Pages --> DnD
+    Pages --> Auto
+    Pages --> Utils
+    Auto --> Repo
+    Factory --> LS
+    Factory --> SB
+    Repo --> Factory
+    SB --> Supabase
+    Client --> Deploy
+
+    classDef ui fill:#dbeafe,stroke:#2563eb
+    classDef service fill:#fef3c7,stroke:#d97706
+    classDef data fill:#dcfce7,stroke:#16a34a
+    classDef backend fill:#fee2e2,stroke:#dc2626
+    classDef deploy fill:#f3e8ff,stroke:#9333ea
+
+    class Pages,Common,Layout,DnD ui
+    class Auto,Utils service
+    class Factory,Repo,LS,SB data
+    class Supabase backend
+    class Vercel deploy
