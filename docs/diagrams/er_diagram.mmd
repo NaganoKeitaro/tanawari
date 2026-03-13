@@ -1,0 +1,147 @@
+erDiagram
+    products {
+        varchar id PK "UUID"
+        varchar jan "JANコード"
+        varchar name "商品名"
+        decimal width "幅(mm)"
+        decimal height "高さ(mm)"
+        decimal depth "奥行(mm)"
+        varchar category "カテゴリ"
+        varchar image_url "画像URL"
+        int sales_rank "売上ランク(1-100)"
+        int quantity "売上数量"
+        decimal sales "売上金額"
+        decimal gross_profit "粗利"
+        int traffic "客数"
+        decimal spend_per_customer "客単価"
+        varchar division_code "事業部CD"
+        varchar department_code "部門CD"
+        varchar category_code "カテゴリCD"
+        varchar segment_code "セグメントCD"
+    }
+
+    stores {
+        varchar id PK "UUID"
+        varchar code "店舗コード"
+        varchar name "店舗名"
+        varchar fmt "業態(FMT)"
+        varchar region "地域"
+    }
+
+    fixtures {
+        varchar id PK "UUID"
+        varchar name "什器名"
+        decimal width "幅(mm)"
+        decimal height "高さ(mm)"
+        decimal depth "奥行(mm)"
+        int shelf_count "段数"
+        varchar fixture_type "什器タイプ"
+        varchar manufacturer "メーカー"
+    }
+
+    store_fixture_placements {
+        varchar id PK "UUID"
+        varchar store_id FK
+        varchar fixture_id FK
+        decimal position_x "X座標(mm)"
+        decimal position_y "Y座標(mm)"
+        int order_num "配置順"
+        int direction "向き(0/90/180/270)"
+        varchar zone "ゾーン"
+        varchar label "ラベル"
+    }
+
+    shelf_blocks {
+        varchar id PK "UUID"
+        varchar name "ブロック名"
+        varchar block_type "種別(multi-tier/flat)"
+        decimal width "幅(mm)"
+        decimal height "高さ(mm)"
+        int shelf_count "段数"
+    }
+
+    shelf_block_products {
+        varchar id PK "UUID"
+        varchar block_id FK
+        varchar product_id FK
+        int shelf_index "段位置"
+        decimal position_x "横位置(mm)"
+        int face_count "フェイス数"
+    }
+
+    standard_planograms {
+        varchar id PK "UUID"
+        varchar fmt "適用FMT"
+        varchar name "名称"
+        varchar base_store_id FK
+        varchar fixture_type "什器タイプ"
+        decimal width "総幅(mm)"
+        decimal height "総高(mm)"
+        int shelf_count "段数"
+        date start_date "適用開始日"
+        date end_date "適用終了日"
+    }
+
+    standard_planogram_blocks {
+        varchar id PK "UUID"
+        varchar standard_planogram_id FK
+        varchar block_id FK
+        decimal position_x "横位置"
+        decimal position_y "縦位置"
+    }
+
+    standard_planogram_products {
+        varchar id PK "UUID"
+        varchar standard_planogram_id FK
+        varchar product_id FK
+        int shelf_index "段位置"
+        decimal position_x "横位置"
+        int face_count "フェイス数"
+    }
+
+    store_planograms {
+        varchar id PK "UUID"
+        varchar store_id FK
+        varchar standard_planogram_id FK
+        decimal width "棚幅(mm)"
+        decimal height "棚高(mm)"
+        int shelf_count "段数"
+        varchar status "ステータス"
+        jsonb warnings "警告情報"
+        datetime synced_at "同期日時"
+    }
+
+    store_planogram_products {
+        varchar id PK "UUID"
+        varchar store_planogram_id FK
+        varchar product_id FK
+        int shelf_index "段位置"
+        decimal position_x "横位置"
+        int face_count "フェイス数"
+        boolean is_auto_generated "自動生成"
+        boolean is_cut "カット済"
+    }
+
+    product_hierarchy {
+        varchar id PK "UUID"
+        varchar division_code "事業部CD"
+        varchar division_name "事業部"
+        varchar department_code "部門CD"
+        varchar department_name "部門"
+        varchar category_code "カテゴリCD"
+        varchar category_name "カテゴリ"
+    }
+
+    stores ||--o{ store_fixture_placements : "什器配置"
+    fixtures ||--o{ store_fixture_placements : "什器参照"
+    products ||--o{ shelf_block_products : "ブロック商品"
+    shelf_blocks ||--o{ shelf_block_products : "ブロック構成"
+    shelf_blocks ||--o{ standard_planogram_blocks : "標準棚割配置"
+    standard_planograms ||--o{ standard_planogram_blocks : "ブロック配置"
+    standard_planograms ||--o{ standard_planogram_products : "商品配置"
+    products ||--o{ standard_planogram_products : "商品参照"
+    stores ||--o{ store_planograms : "個店棚割"
+    standard_planograms ||--o{ store_planograms : "親棚割"
+    store_planograms ||--o{ store_planogram_products : "商品配置"
+    products ||--o{ store_planogram_products : "商品参照"
+    stores ||--o{ standard_planograms : "基準店舗"
