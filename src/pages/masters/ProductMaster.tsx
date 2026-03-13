@@ -125,8 +125,8 @@ export function ProductMaster() {
         const currentIndex = hierarchyOrder.indexOf(codeKey);
         if (currentIndex !== -1 && currentIndex < hierarchyOrder.length - 1) {
             for (let i = currentIndex + 1; i < hierarchyOrder.length; i++) {
-                updates[hierarchyOrder[i]] = '';
-                updates[nameKeys[i]] = '';
+                (updates as Record<string, string>)[hierarchyOrder[i]] = '';
+                (updates as Record<string, string>)[nameKeys[i]] = '';
             }
         }
 
