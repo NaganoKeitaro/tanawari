@@ -917,7 +917,7 @@ export function StandardPlanogramEditor() {
                         onDragOver={handleDragOver}
                         onDragEnd={handleDragEnd}
                     >
-                        <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr', gap: '1.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '250px minmax(0, 1fr)', gap: '1.5rem' }}>
                             {/* ブロックパレット */}
                             <div>
                                 <div className="card">
@@ -947,8 +947,8 @@ export function StandardPlanogramEditor() {
                             </div>
 
                             {/* キャンバス */}
-                            <div>
-                                <div className="card">
+                            <div style={{ minWidth: 0 }}>
+                                <div className="card" style={{ overflow: 'hidden' }}>
                                     <div className="card-header">
                                         <div>
                                             <h3 className="card-title">{currentPlanogram.name}</h3>
