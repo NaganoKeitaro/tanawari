@@ -20,6 +20,7 @@ import { Modal } from '../../components/common/Modal';
 import { UnitInput } from '../../components/common/UnitInput';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { getProductColor, initProductColorMap } from '../../utils/productColorUtils';
+import { ProductTooltip } from '../../components/common/ProductTooltip';
 
 // 1mm = 0.3px表示
 const SCALE = 0.3; // 1mm = 0.3px表示
@@ -128,38 +129,38 @@ function ShelfRow({
 
                 const productWidth = product.width * placement.faceCount * SCALE;
                 return (
-                    <div
-                        key={placement.id}
-                        style={{
-                            position: 'absolute',
-                            left: `${placement.positionX * SCALE}px`,
-                            top: 0,
-                            bottom: 0,
-                            width: `${productWidth}px`,
-                            background: getProductColor(product.category).bg,
-                            border: `1px solid ${getProductColor(product.category).border}`,
-                            borderRadius: 'var(--radius-sm)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            padding: '2px',
-                            fontSize: '0.6rem',
-                            overflow: 'hidden',
-                            cursor: 'pointer',
-                            color: getProductColor(product.category).text
-                        }}
-                        onClick={() => onRemove(placement.id)}
-                        title={`${product.name} (${product.category || '未分類'})\nクリックで削除`}
-                    >
-                        <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
-                            {product.name}
+                    <ProductTooltip key={placement.id} productName={product.name} jan={product.jan || '-'} faceCount={placement.faceCount} category={product.category}>
+                        <div
+                            style={{
+                                position: 'absolute',
+                                left: `${placement.positionX * SCALE}px`,
+                                top: 0,
+                                bottom: 0,
+                                width: `${productWidth}px`,
+                                background: getProductColor(product.category).bg,
+                                border: `1px solid ${getProductColor(product.category).border}`,
+                                borderRadius: 'var(--radius-sm)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                padding: '2px',
+                                fontSize: '0.6rem',
+                                overflow: 'hidden',
+                                cursor: 'pointer',
+                                color: getProductColor(product.category).text
+                            }}
+                            onClick={() => onRemove(placement.id)}
+                        >
+                            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
+                                {product.name}
+                            </div>
+                            <div style={{ opacity: 0.8, fontSize: '0.55rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                {product.jan || '-'}
+                            </div>
+                            <div style={{ opacity: 0.85, fontSize: '0.6rem' }}>×{placement.faceCount}</div>
                         </div>
-                        <div style={{ opacity: 0.8, fontSize: '0.55rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                            {product.jan}
-                        </div>
-                        <div style={{ opacity: 0.85, fontSize: '0.6rem' }}>×{placement.faceCount}</div>
-                    </div>
+                    </ProductTooltip>
                 );
             })}
 

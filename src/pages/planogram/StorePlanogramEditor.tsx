@@ -34,6 +34,7 @@ import { syncStorePlanogram, generateStorePlanogram } from '../../services/autom
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
 import { getProductColor, initProductColorMap } from '../../utils/productColorUtils';
+import { ProductTooltip } from '../../components/common/ProductTooltip';
 import type { Fixture, StoreFixturePlacement } from '../../data/types';
 
 const SCALE = 0.3;
@@ -186,6 +187,24 @@ function SinglePlanogramView({
 
         const current = await storePlanogramRepository.getById(planogram.id);
         if (!current) return;
+
+        // 幅オーバーフローチェック
+        const targetPlacement = current.products.find(p => p.id === productPlacementId);
+        if (targetPlacement && newFaceCount > targetPlacement.faceCount) {
+            const product = products.find(p => p.id === targetPlacement.productId);
+            if (product) {
+                const shelfProducts = current.products.filter(p => p.shelfIndex === targetPlacement.shelfIndex);
+                const currentShelfWidth = shelfProducts.reduce((sum, p) => {
+                    const prod = products.find(pr => pr.id === p.productId);
+                    return sum + (prod ? prod.width * p.faceCount : 0);
+                }, 0);
+                const additionalWidth = product.width * (newFaceCount - targetPlacement.faceCount);
+                if (currentShelfWidth + additionalWidth > planogram.width) {
+                    alert(`スペースが不足しています（残り: ${planogram.width - currentShelfWidth}mm）`);
+                    return;
+                }
+            }
+        }
 
         const updatedProducts = current.products.map(p =>
             p.id === productPlacementId
@@ -455,83 +474,83 @@ function SinglePlanogramView({
                                     const width = product.width * sp.faceCount * SCALE;
 
                                     return (
-                                        <div
-                                            key={sp.id}
-                                            style={{
-                                                position: 'absolute',
-                                                left: `${sp.positionX * SCALE}px`,
-                                                top: 0,
-                                                bottom: 0,
-                                                width: `${width}px`,
-                                                background: analyticsMode && selectedMetric
-                                                    ? calculateHeatmapColor(product[selectedMetric] || 0, maxMetricValue)
-                                                    : getProductColor(product.category).bg,
-                                                border: analyticsMode && selectedMetric
-                                                    ? '1px solid var(--border-color)'
-                                                    : `1px solid ${getProductColor(product.category).border}`,
-                                                color: analyticsMode && selectedMetric
-                                                    ? 'var(--text-primary)'
-                                                    : getProductColor(product.category).text,
-                                                borderRadius: 'var(--radius-sm)',
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                alignItems: 'center',
-                                                justifyContent: 'center',
-                                                padding: '4px',
-                                                fontSize: '0.65rem',
-                                                overflow: 'hidden',
-                                                cursor: 'pointer'
-                                            }}
-                                            title={`${product.name} (${product.category || '未分類'})\nクリックで編集`}
-                                        >
-                                            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
-                                                {product.name}
-                                            </div>
-                                            <div style={{ opacity: 0.8, fontSize: '0.5rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                                                {product.jan}
-                                            </div>
-                                            <div className="flex gap-sm items-center mt-sm">
-                                                <button
-                                                    className="btn btn-sm"
-                                                    style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
-                                                    onClick={(e) => { e.stopPropagation(); handleFaceCountChange(sp.id, sp.faceCount - 1); }}
-                                                >
-                                                    -
-                                                </button>
-                                                <span>×{sp.faceCount}</span>
-                                                <button
-                                                    className="btn btn-sm"
-                                                    style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
-                                                    onClick={(e) => { e.stopPropagation(); handleFaceCountChange(sp.id, sp.faceCount + 1); }}
-                                                >
-                                                    +
-                                                </button>
-                                                <button
-                                                    className="btn btn-sm btn-danger"
-                                                    style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
-                                                    onClick={(e) => { e.stopPropagation(); handleRemoveProduct(sp.id); }}
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
-                                            {analyticsMode && selectedMetric && (
-                                                <div
-                                                    style={{
-                                                        position: 'absolute',
-                                                        top: '2px',
-                                                        right: '2px',
-                                                        background: 'rgba(0,0,0,0.7)',
-                                                        color: 'white',
-                                                        padding: '1px 4px',
-                                                        borderRadius: '3px',
-                                                        fontSize: '0.55rem',
-                                                        fontWeight: 600
-                                                    }}
-                                                >
-                                                    {formatMetricValue(product[selectedMetric] || 0)}
+                                        <ProductTooltip key={sp.id} productName={product.name} jan={product.jan || '-'} faceCount={sp.faceCount} category={product.category}>
+                                            <div
+                                                style={{
+                                                    position: 'absolute',
+                                                    left: `${sp.positionX * SCALE}px`,
+                                                    top: 0,
+                                                    bottom: 0,
+                                                    width: `${width}px`,
+                                                    background: analyticsMode && selectedMetric
+                                                        ? calculateHeatmapColor(product[selectedMetric] || 0, maxMetricValue)
+                                                        : getProductColor(product.category).bg,
+                                                    border: analyticsMode && selectedMetric
+                                                        ? '1px solid var(--border-color)'
+                                                        : `1px solid ${getProductColor(product.category).border}`,
+                                                    color: analyticsMode && selectedMetric
+                                                        ? 'var(--text-primary)'
+                                                        : getProductColor(product.category).text,
+                                                    borderRadius: 'var(--radius-sm)',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: '4px',
+                                                    fontSize: '0.65rem',
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
+                                                    {product.name}
                                                 </div>
-                                            )}
-                                        </div>
+                                                <div style={{ opacity: 0.8, fontSize: '0.5rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                                    {product.jan || '-'}
+                                                </div>
+                                                <div className="flex gap-sm items-center mt-sm">
+                                                    <button
+                                                        className="btn btn-sm"
+                                                        style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
+                                                        onClick={(e) => { e.stopPropagation(); handleFaceCountChange(sp.id, sp.faceCount - 1); }}
+                                                    >
+                                                        -
+                                                    </button>
+                                                    <span>×{sp.faceCount}</span>
+                                                    <button
+                                                        className="btn btn-sm"
+                                                        style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
+                                                        onClick={(e) => { e.stopPropagation(); handleFaceCountChange(sp.id, sp.faceCount + 1); }}
+                                                    >
+                                                        +
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-sm btn-danger"
+                                                        style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
+                                                        onClick={(e) => { e.stopPropagation(); handleRemoveProduct(sp.id); }}
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                                {analyticsMode && selectedMetric && (
+                                                    <div
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '2px',
+                                                            right: '2px',
+                                                            background: 'rgba(0,0,0,0.7)',
+                                                            color: 'white',
+                                                            padding: '1px 4px',
+                                                            borderRadius: '3px',
+                                                            fontSize: '0.55rem',
+                                                            fontWeight: 600
+                                                        }}
+                                                    >
+                                                        {formatMetricValue(product[selectedMetric] || 0)}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </ProductTooltip>
                                     );
                                 })}
 

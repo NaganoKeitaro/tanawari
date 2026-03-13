@@ -16,6 +16,7 @@ import {
     getJanLevelValue
 } from '../../utils/heatmapUtils';
 import { getProductColor } from '../../utils/productColorUtils';
+import { ProductTooltip } from '../common/ProductTooltip';
 
 type PlanogramVisualizerProps = {
     planogram: StandardPlanogram | StorePlanogram;
@@ -433,83 +434,82 @@ export function PlanogramVisualizer({
                                 }
 
                                 return (
-                                    <div
-                                        key={sp.id}
-                                        style={{
-                                            position: 'absolute',
-                                            left: `${sp.positionX * SCALE}px`,
-                                            top: 0,
-                                            bottom: 0,
-                                            width: `${width}px`,
-                                            background: bgColor,
-                                            border: `1px solid ${(level === 'jan' || level === 'hierarchy' || level === 'block') ? 'var(--border-color)' : productColor.border}`,
-                                            color: textColor,
-                                            borderRadius: 'var(--radius-sm)',
-                                            display: 'flex',
-                                            flexDirection: 'column',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            padding: '2px',
-                                            fontSize: '0.6rem',
-                                            overflow: 'hidden',
-                                            // Fade out individual products when in aggregated modes
-                                            opacity: (level === 'block' || level === 'planogram' || level === 'hierarchy') ? 0.3 : 1
-                                        }}
-                                        title={`${product.name} (${product.category || '未分類'})`}
-                                    >
-                                        <div style={{
-                                            fontWeight: 500,
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            width: '100%',
-                                            textAlign: 'center',
-                                            lineHeight: 1.2,
-                                            fontSize: '0.6rem'
-                                        }}>
-                                            {product.name}
-                                        </div>
-
-                                        <div style={{
-                                            opacity: 0.8,
-                                            fontSize: '0.5rem',
-                                            fontFamily: 'monospace',
-                                            whiteSpace: 'nowrap',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            width: '100%',
-                                            textAlign: 'center'
-                                        }}>
-                                            {product.jan}
-                                        </div>
-
-                                        {sp.faceCount > 1 && (
+                                    <ProductTooltip key={sp.id} productName={product.name} jan={product.jan || '-'} faceCount={sp.faceCount} category={product.category}>
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${sp.positionX * SCALE}px`,
+                                                top: 0,
+                                                bottom: 0,
+                                                width: `${width}px`,
+                                                background: bgColor,
+                                                border: `1px solid ${(level === 'jan' || level === 'hierarchy' || level === 'block') ? 'var(--border-color)' : productColor.border}`,
+                                                color: textColor,
+                                                borderRadius: 'var(--radius-sm)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '2px',
+                                                fontSize: '0.6rem',
+                                                overflow: 'hidden',
+                                                opacity: (level === 'block' || level === 'planogram' || level === 'hierarchy') ? 0.3 : 1
+                                            }}
+                                        >
                                             <div style={{
-                                                fontSize: '0.55rem',
-                                                fontWeight: 'bold',
-                                                zIndex: 2,
-                                                marginBottom: '1px',
-                                                background: 'rgba(255,255,255,0.7)',
-                                                borderRadius: '2px',
-                                                padding: '0 2px'
+                                                fontWeight: 500,
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                width: '100%',
+                                                textAlign: 'center',
+                                                lineHeight: 1.2,
+                                                fontSize: '0.6rem'
                                             }}>
-                                                x{sp.faceCount}
+                                                {product.name}
                                             </div>
-                                        )}
 
-                                        {showBadge && level === 'jan' && (
                                             <div style={{
-                                                background: 'rgba(0,0,0,0.6)',
-                                                color: 'white',
-                                                padding: '1px 4px',
-                                                borderRadius: '3px',
-                                                fontSize: '0.55rem',
-                                                marginTop: '2px'
+                                                opacity: 0.8,
+                                                fontSize: '0.5rem',
+                                                fontFamily: 'monospace',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                width: '100%',
+                                                textAlign: 'center'
                                             }}>
-                                                {badgeValue}
+                                                {product.jan || '-'}
                                             </div>
-                                        )}
-                                    </div>
+
+                                            {sp.faceCount > 1 && (
+                                                <div style={{
+                                                    fontSize: '0.55rem',
+                                                    fontWeight: 'bold',
+                                                    zIndex: 2,
+                                                    marginBottom: '1px',
+                                                    background: 'rgba(255,255,255,0.7)',
+                                                    borderRadius: '2px',
+                                                    padding: '0 2px'
+                                                }}>
+                                                    x{sp.faceCount}
+                                                </div>
+                                            )}
+
+                                            {showBadge && level === 'jan' && (
+                                                <div style={{
+                                                    background: 'rgba(0,0,0,0.6)',
+                                                    color: 'white',
+                                                    padding: '1px 4px',
+                                                    borderRadius: '3px',
+                                                    fontSize: '0.55rem',
+                                                    marginTop: '2px'
+                                                }}>
+                                                    {badgeValue}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </ProductTooltip>
                                 );
                             })}
                         </div>
