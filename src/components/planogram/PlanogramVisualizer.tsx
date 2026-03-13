@@ -15,6 +15,7 @@ import {
     formatMetricValue,
     getJanLevelValue
 } from '../../utils/heatmapUtils';
+import { getProductColor } from '../../utils/productColorUtils';
 
 type PlanogramVisualizerProps = {
     planogram: StandardPlanogram | StorePlanogram;
@@ -265,7 +266,7 @@ export function PlanogramVisualizer({
                     <div style={{
                         position: 'absolute',
                         inset: 0,
-                        background: 'rgba(255, 255, 255, 0.3)',
+                        background: 'rgba(0, 0, 0, 0.15)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
@@ -411,20 +412,24 @@ export function PlanogramVisualizer({
                                 const width = product.width * sp.faceCount * SCALE;
 
                                 // Visuals
-                                let bgColor = 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))';
+                                const productColor = getProductColor(product.category);
+                                let bgColor = productColor.bg;
+                                let textColor = productColor.text;
                                 let showBadge = false;
                                 let badgeValue = '';
 
                                 if (level === 'jan') {
                                     const score = scores[sp.id] || 0;
                                     bgColor = calculateHeatmapColor(score, maxScore);
+                                    textColor = 'var(--text-primary)';
                                     showBadge = true;
                                     badgeValue = formatMetricValue(score);
                                 } else if (level === 'hierarchy') {
-                                    // Faded out, just showing presence
                                     bgColor = 'rgba(200, 200, 200, 0.2)';
+                                    textColor = 'var(--text-primary)';
                                 } else if (level === 'block') {
-                                    bgColor = 'rgba(255, 255, 255, 0.4)'; // More transparent
+                                    bgColor = 'rgba(255, 255, 255, 0.4)';
+                                    textColor = 'var(--text-primary)';
                                 }
 
                                 return (
@@ -437,7 +442,8 @@ export function PlanogramVisualizer({
                                             bottom: 0,
                                             width: `${width}px`,
                                             background: bgColor,
-                                            border: '1px solid var(--border-color)',
+                                            border: `1px solid ${(level === 'jan' || level === 'hierarchy' || level === 'block') ? 'var(--border-color)' : productColor.border}`,
+                                            color: textColor,
                                             borderRadius: 'var(--radius-sm)',
                                             display: 'flex',
                                             flexDirection: 'column',
@@ -449,7 +455,7 @@ export function PlanogramVisualizer({
                                             // Fade out individual products when in aggregated modes
                                             opacity: (level === 'block' || level === 'planogram' || level === 'hierarchy') ? 0.3 : 1
                                         }}
-                                        title={`${product.name}`}
+                                        title={`${product.name} (${product.category || '未分類'})`}
                                     >
                                         <div style={{
                                             fontWeight: 500,
@@ -458,14 +464,28 @@ export function PlanogramVisualizer({
                                             textOverflow: 'ellipsis',
                                             width: '100%',
                                             textAlign: 'center',
-                                            lineHeight: 1.2
+                                            lineHeight: 1.2,
+                                            fontSize: '0.6rem'
                                         }}>
                                             {product.name}
                                         </div>
 
+                                        <div style={{
+                                            opacity: 0.8,
+                                            fontSize: '0.5rem',
+                                            fontFamily: 'monospace',
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            width: '100%',
+                                            textAlign: 'center'
+                                        }}>
+                                            {product.jan}
+                                        </div>
+
                                         {sp.faceCount > 1 && (
                                             <div style={{
-                                                fontSize: '0.6rem', // Size up slightly
+                                                fontSize: '0.55rem',
                                                 fontWeight: 'bold',
                                                 zIndex: 2,
                                                 marginBottom: '1px',

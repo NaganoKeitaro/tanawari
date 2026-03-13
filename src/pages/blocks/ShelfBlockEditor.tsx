@@ -19,6 +19,7 @@ import {
 import { Modal } from '../../components/common/Modal';
 import { UnitInput } from '../../components/common/UnitInput';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
+import { getProductColor, initProductColorMap } from '../../utils/productColorUtils';
 
 // 1mm = 0.3px表示
 const SCALE = 0.3; // 1mm = 0.3px表示
@@ -98,7 +99,7 @@ function ShelfRow({
         data: { shelfIndex }
     });
 
-    const FIXED_ROW_HEIGHT = 140; // 固定高さ: テキスト視認性優先
+    const FIXED_ROW_HEIGHT = 170; // 固定高さ: テキスト視認性優先（JAN表示対応）
     const rowPlacements = placements.filter(p => p.shelfIndex === shelfIndex);
 
     // 空きスペース計算
@@ -135,8 +136,8 @@ function ShelfRow({
                             top: 0,
                             bottom: 0,
                             width: `${productWidth}px`,
-                            background: 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))',
-                            border: '1px solid var(--border-color)',
+                            background: getProductColor(product.category).bg,
+                            border: `1px solid ${getProductColor(product.category).border}`,
                             borderRadius: 'var(--radius-sm)',
                             display: 'flex',
                             flexDirection: 'column',
@@ -145,15 +146,19 @@ function ShelfRow({
                             padding: '2px',
                             fontSize: '0.6rem',
                             overflow: 'hidden',
-                            cursor: 'pointer'
+                            cursor: 'pointer',
+                            color: getProductColor(product.category).text
                         }}
                         onClick={() => onRemove(placement.id)}
-                        title="クリックで削除"
+                        title={`${product.name} (${product.category || '未分類'})\nクリックで削除`}
                     >
-                        <div style={{ fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                        <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
                             {product.name}
                         </div>
-                        <div style={{ color: 'var(--text-muted)' }}>×{placement.faceCount}</div>
+                        <div style={{ opacity: 0.8, fontSize: '0.55rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                            {product.jan}
+                        </div>
+                        <div style={{ opacity: 0.85, fontSize: '0.6rem' }}>×{placement.faceCount}</div>
                     </div>
                 );
             })}
@@ -303,6 +308,7 @@ export function ShelfBlockEditor() {
         productsData.sort((a, b) => a.salesRank - b.salesRank);
         setBlocks(blocksData);
         setProducts(productsData);
+        initProductColorMap(productsData.map(p => p.category));
         setLoading(false);
     }, []);
 

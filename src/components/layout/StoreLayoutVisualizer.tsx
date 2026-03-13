@@ -267,7 +267,7 @@ export function StoreLayoutVisualizer({
                     fontSize: `${Math.max(9, 11 * scale)}px`,
                     color: colors.text,
                     transition: 'all 0.2s ease',
-                    boxShadow: isSelected ? '0 0 0 3px rgba(99, 102, 241, 0.3)' : 'none',
+                    boxShadow: isSelected ? '0 0 0 3px rgba(16, 185, 129, 0.3)' : 'none',
                     writingMode: isEndCap ? 'vertical-rl' : 'horizontal-tb'
                 }}
                 onClick={() => onPlacementClick?.(placement, fixture)}

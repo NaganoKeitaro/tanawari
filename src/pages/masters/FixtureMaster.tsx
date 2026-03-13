@@ -213,7 +213,7 @@ export function FixtureMaster() {
                                                 <span className="badge" style={{
                                                     backgroundColor: fixture.fixtureType && fixture.fixtureType !== 'multi-tier'
                                                         ? 'rgba(34, 197, 94, 0.15)'
-                                                        : 'rgba(99, 102, 241, 0.15)',
+                                                        : 'rgba(16, 185, 129, 0.15)',
                                                     color: fixture.fixtureType && fixture.fixtureType !== 'multi-tier'
                                                         ? '#22C55E'
                                                         : 'var(--color-primary)'

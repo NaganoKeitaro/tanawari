@@ -188,7 +188,7 @@ function StoreDropArea({
                         padding: '1.5rem',
                         border: '2px dashed var(--border-color)',
                         borderRadius: 'var(--radius-md)',
-                        background: isOver ? 'rgba(99, 102, 241, 0.1)' : 'transparent'
+                        background: isOver ? 'rgba(16, 185, 129, 0.1)' : 'transparent'
                     }}
                 >
                     什器をここにドロップして配置

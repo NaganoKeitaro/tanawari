@@ -156,14 +156,14 @@ function DraggablePlacement({
                     width: '100%',
                     height: '100%',
                     background: isSelected
-                        ? 'linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.2))'
+                        ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.1))'
                         : bgColor,
                     border: `2px solid ${isSelected ? 'var(--color-primary)' : 'rgba(148, 163, 184, 0.6)'}`,
                     borderRadius: '6px',
                     boxShadow: isDragging
                         ? '0 20px 25px -5px rgba(0, 0, 0, 0.15), 0 10px 10px -5px rgba(0, 0, 0, 0.1)'
                         : isSelected
-                            ? '0 0 0 3px rgba(99, 102, 241, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                            ? '0 0 0 3px rgba(16, 185, 129, 0.2), 0 4px 6px -1px rgba(0, 0, 0, 0.1)'
                             : '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
                     display: 'flex',
                     alignItems: 'center',
@@ -284,7 +284,7 @@ function GridDropZone({
                 width: `${bounds.width * scale}px`,
                 height: `${bounds.height * scale}px`,
                 position: 'relative',
-                background: isOver ? 'rgba(99, 102, 241, 0.05)' : 'transparent',
+                background: isOver ? 'rgba(16, 185, 129, 0.05)' : 'transparent',
                 transition: 'background 0.2s',
             }}
         >
