@@ -146,6 +146,9 @@ CREATE TABLE public.store_planograms (
   store_id uuid references public.stores(id) on delete cascade not null,
   standard_planogram_id uuid references public.standard_planograms(id) not null,
   status varchar(20) not null,
+  width decimal(8,2),
+  height decimal(8,2),
+  shelf_count int,
   warnings jsonb,
   created_at timestamp with time zone default now() not null,
   updated_at timestamp with time zone default now() not null,
@@ -164,6 +167,29 @@ CREATE TABLE public.store_planogram_products (
   is_cut boolean default false
 );
 
+-- 12. product_hierarchy
+CREATE TABLE public.product_hierarchy (
+  id uuid primary key default gen_random_uuid(),
+  division_code varchar,
+  division_name varchar,
+  division_sub_code varchar,
+  division_sub_name varchar,
+  line_code varchar,
+  line_name varchar,
+  department_code varchar,
+  department_name varchar,
+  category_code varchar,
+  category_name varchar,
+  sub_category_code varchar,
+  sub_category_name varchar,
+  segment_code varchar,
+  segment_name varchar,
+  sub_segment_code varchar,
+  sub_segment_name varchar,
+  created_at timestamp with time zone default now() not null,
+  updated_at timestamp with time zone default now() not null
+);
+
 -- ===== ENABLE ROW LEVEL SECURITY =====
 alter table public.products enable row level security;
 alter table public.stores enable row level security;
@@ -176,6 +202,7 @@ alter table public.standard_planogram_blocks enable row level security;
 alter table public.standard_planogram_products enable row level security;
 alter table public.store_planograms enable row level security;
 alter table public.store_planogram_products enable row level security;
+alter table public.product_hierarchy enable row level security;
 
 -- ===== SETUP RLS POLICIES (Allow All for MVP) =====
 -- Note: In production with Auth, these should be restricted to authenticated users.
@@ -190,3 +217,4 @@ create policy "Allow all operations for anon - standard_planogram_blocks" on pub
 create policy "Allow all operations for anon - standard_planogram_products" on public.standard_planogram_products for all using (true) with check (true);
 create policy "Allow all operations for anon - store_planograms" on public.store_planograms for all using (true) with check (true);
 create policy "Allow all operations for anon - store_planogram_products" on public.store_planogram_products for all using (true) with check (true);
+create policy "Allow all operations for anon - product_hierarchy" on public.product_hierarchy for all using (true) with check (true);

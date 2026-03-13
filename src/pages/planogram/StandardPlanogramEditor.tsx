@@ -780,7 +780,7 @@ export function StandardPlanogramEditor() {
 
             if (isMatch) {
                 const isFlatOrEnd = String(fixture.fixtureType).includes('flat') || String(fixture.fixtureType).includes('end-cap');
-                const shaku = Math.round(fixture.width / 30);
+                const shaku = Math.round(fixture.width / 300);
 
                 let key = '';
                 if (isFlatOrEnd) {

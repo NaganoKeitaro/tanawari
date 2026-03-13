@@ -345,10 +345,6 @@ class StorePlanogramRepository implements IRepository<StorePlanogram> {
         const id = crypto.randomUUID();
         const payload = toSnake({ ...item, id });
         delete payload.products;
-        // These columns may not yet exist in older DB instances
-        delete payload.width;
-        delete payload.height;
-        delete payload.shelf_count;
 
         const { error } = await supabase.from('store_planograms').insert(payload);
         if (error) throw error;

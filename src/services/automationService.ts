@@ -232,7 +232,7 @@ function applyRuleB(
 
         // 残り幅を警告として記録
         if (targetWidth - currentUsed > 10) {
-            warnings.push(`段${shelfIndex + 1}: ${Math.round(targetWidth - currentUsed)}cmの余白あり`);
+            warnings.push(`段${shelfIndex + 1}: ${Math.round(targetWidth - currentUsed)}mmの余白あり`);
         }
     }
 

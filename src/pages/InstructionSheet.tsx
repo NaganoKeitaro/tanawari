@@ -154,7 +154,7 @@ function PlanogramVisual({
                             <div
                                 key={shelfIndex}
                                 style={{
-                                    height: `${Math.max(50, (planogram.height / planogram.shelfCount) * SCALE)}px`,
+                                    height: `${Math.max(50, (planogram.shelfCount > 0 ? planogram.height / planogram.shelfCount : planogram.height) * SCALE)}px`,
                                     position: 'relative',
                                     borderBottom: '2px solid var(--border-color)',
                                     background: shelfIndex % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)'
@@ -828,7 +828,7 @@ export function InstructionSheet() {
                                                                     position: 'relative',
                                                                     zIndex: 2
                                                                 }}>
-                                                                    {Math.round(fixture.width / 30)}尺 / {fixture.shelfCount}段
+                                                                    {Math.round(fixture.width / 300)}尺 / {fixture.shelfCount}段
                                                                 </span>
 
                                                                 {/* 段のストライプ表示 */}

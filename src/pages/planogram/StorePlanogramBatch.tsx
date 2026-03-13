@@ -99,9 +99,19 @@ export function StorePlanogramBatch() {
         setResults([]);
 
         for (let i = 0; i < selectedStoreIds.length; i++) {
-            const result = await generateStorePlanogram(selectedStoreIds[i], selectedStandardPlanogram);
-            setProgress({ current: i + 1, total: totalOps });
-            setResults(prev => [...prev, result]);
+            try {
+                const result = await generateStorePlanogram(selectedStoreIds[i], selectedStandardPlanogram);
+                setProgress({ current: i + 1, total: totalOps });
+                setResults(prev => [...prev, result]);
+            } catch (error) {
+                setProgress({ current: i + 1, total: totalOps });
+                setResults(prev => [...prev, {
+                    storeId: selectedStoreIds[i],
+                    storeName: '',
+                    status: 'error' as const,
+                    message: `生成エラー: ${(error as Error).message}`
+                }]);
+            }
         }
 
         setIsGenerating(false);

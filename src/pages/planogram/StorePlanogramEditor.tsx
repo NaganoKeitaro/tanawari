@@ -1101,7 +1101,7 @@ export function StorePlanogramEditor() {
                                                                 position: 'relative',
                                                                 zIndex: 2
                                                             }}>
-                                                                {Math.round(fixture.width / 30)}尺 / {fixture.shelfCount}段
+                                                                {Math.round(fixture.width / 300)}尺 / {fixture.shelfCount}段
                                                             </span>
 
                                                             {/* 段のストライプ表示 */}

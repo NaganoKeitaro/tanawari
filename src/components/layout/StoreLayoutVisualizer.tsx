@@ -278,7 +278,7 @@ export function StoreLayoutVisualizer({
                 </div>
                 {!isEndCap && (
                     <div style={{ fontSize: `${Math.max(8, 9 * scale)}px`, opacity: 0.8 }}>
-                        {Math.round(fixture.width / 30)}尺
+                        {Math.round(fixture.width / 300)}尺
                     </div>
                 )}
                 {onRemovePlacement && isSelected && (
@@ -472,7 +472,7 @@ export function StoreLayoutVisualizer({
                             />
                             <span>{zone}</span>
                             <span className="text-muted">
-                                ({Math.round(stats.totalWidth / 30)}尺)
+                                ({Math.round(stats.totalWidth / 300)}尺)
                             </span>
                         </div>
                     );

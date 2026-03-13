@@ -51,7 +51,11 @@ export function UnitInput({
 
         // 数値のみの入力の場合、現在の単位に基づいて変換
         const numValue = parseFloat(rawValue);
-        if (!isNaN(numValue)) {
+        if (isNaN(numValue)) {
+            setError('数値を入力してください');
+            return;
+        }
+        {
             let mmValue = unit === 'mm' ? numValue : numValue * 300;
 
             // バリデーション
