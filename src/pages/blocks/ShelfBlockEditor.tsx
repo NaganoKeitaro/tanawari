@@ -1,5 +1,5 @@
 // 棚割管理システム - 棚ブロック管理（Building Blocks）
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     DndContext,
     DragOverlay,
@@ -10,7 +10,7 @@ import {
     useSensor,
     useSensors
 } from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent, DragMoveEvent } from '@dnd-kit/core';
 import type { ShelfBlock, Product, ProductPlacement } from '../../data/types';
 import {
     shelfBlockRepository,
@@ -24,6 +24,14 @@ import { ProductTooltip } from '../../components/common/ProductTooltip';
 
 // 1mm = 0.3px表示
 const SCALE = 0.3; // 1mm = 0.3px表示
+
+// ドラッグプレビュー状態の型
+type DragPreviewState = {
+    placementId: string;
+    targetShelfIndex: number;
+    insertIndex: number;
+    productWidthMm: number;
+};
 
 // ドラッグ可能な商品
 function DraggableProduct({ product }: { product: Product }) {
@@ -81,19 +89,102 @@ function DraggableProduct({ product }: { product: Product }) {
     );
 }
 
+// 配置済み商品（ドラッグ可能）
+function DraggablePlacedProduct({
+    placement,
+    product,
+    onRemove,
+    previewX
+}: {
+    placement: ProductPlacement;
+    product: Product;
+    onRemove: (placementId: string) => void;
+    previewX?: number;
+}) {
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+        id: `placed-${placement.id}`,
+        data: { placement, product, type: 'placed-product' }
+    });
+
+    // ドラッグ後のクリック誤発火を防止
+    const wasDraggingRef = useRef(false);
+    useEffect(() => {
+        if (isDragging) {
+            wasDraggingRef.current = true;
+        }
+    }, [isDragging]);
+
+    const handleClick = () => {
+        if (wasDraggingRef.current) {
+            wasDraggingRef.current = false;
+            return;
+        }
+        onRemove(placement.id);
+    };
+
+    const productWidth = product.width * placement.faceCount * SCALE;
+    const displayX = previewX !== undefined ? previewX : placement.positionX;
+
+    return (
+        <ProductTooltip productName={product.name} jan={product.jan || '-'} faceCount={placement.faceCount} category={product.category}>
+            <div
+                ref={setNodeRef}
+                {...listeners}
+                {...attributes}
+                style={{
+                    position: 'absolute',
+                    left: `${displayX * SCALE}px`,
+                    top: 0,
+                    bottom: 0,
+                    width: `${productWidth}px`,
+                    background: getProductColor(product.category).bg,
+                    border: `1px solid ${getProductColor(product.category).border}`,
+                    borderRadius: 'var(--radius-sm)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '2px',
+                    fontSize: '0.6rem',
+                    overflow: 'hidden',
+                    cursor: isDragging ? 'grabbing' : 'grab',
+                    color: getProductColor(product.category).text,
+                    opacity: isDragging ? 0.3 : 1,
+                    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+                    zIndex: isDragging ? 100 : undefined,
+                    transition: !isDragging && previewX !== undefined ? 'left 0.15s ease' : undefined,
+                }}
+                onClick={handleClick}
+            >
+                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
+                    {product.name}
+                </div>
+                <div style={{ opacity: 0.8, fontSize: '0.55rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                    {product.jan || '-'}
+                </div>
+                <div style={{ opacity: 0.85, fontSize: '0.6rem' }}>×{placement.faceCount}</div>
+            </div>
+        </ProductTooltip>
+    );
+}
+
 // 棚段ドロップエリア
 function ShelfRow({
     shelfIndex,
     width,
     placements,
     products,
-    onRemove
+    onRemove,
+    previewPositions,
+    draggedPlacementId
 }: {
     shelfIndex: number;
     width: number;
     placements: ProductPlacement[];
     products: Product[];
     onRemove: (placementId: string) => void;
+    previewPositions: Record<string, number> | null;
+    draggedPlacementId: string | null;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: `shelf-${shelfIndex}`,
@@ -118,54 +209,28 @@ function ShelfRow({
                 height: `${FIXED_ROW_HEIGHT}px`,
                 borderColor: isOver ? 'var(--color-primary)' : 'var(--border-color)',
                 borderWidth: isOver ? '2px' : '1px',
-                borderStyle: 'solid',
-                position: 'relative'
+                borderStyle: isOver ? 'dashed' : 'solid',
+                position: 'relative',
+                backgroundColor: isOver ? 'rgba(16, 185, 129, 0.05)' : 'transparent'
             }}
         >
-            {/* 配置済み商品 */}
+            {/* 配置済み商品（ドラッグで移動可能） */}
             {rowPlacements.map(placement => {
                 const product = products.find(p => p.id === placement.productId);
                 if (!product) return null;
-
-                const productWidth = product.width * placement.faceCount * SCALE;
                 return (
-                    <ProductTooltip key={placement.id} productName={product.name} jan={product.jan || '-'} faceCount={placement.faceCount} category={product.category}>
-                        <div
-                            style={{
-                                position: 'absolute',
-                                left: `${placement.positionX * SCALE}px`,
-                                top: 0,
-                                bottom: 0,
-                                width: `${productWidth}px`,
-                                background: getProductColor(product.category).bg,
-                                border: `1px solid ${getProductColor(product.category).border}`,
-                                borderRadius: 'var(--radius-sm)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '2px',
-                                fontSize: '0.6rem',
-                                overflow: 'hidden',
-                                cursor: 'pointer',
-                                color: getProductColor(product.category).text
-                            }}
-                            onClick={() => onRemove(placement.id)}
-                        >
-                            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
-                                {product.name}
-                            </div>
-                            <div style={{ opacity: 0.8, fontSize: '0.55rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                                {product.jan || '-'}
-                            </div>
-                            <div style={{ opacity: 0.85, fontSize: '0.6rem' }}>×{placement.faceCount}</div>
-                        </div>
-                    </ProductTooltip>
+                    <DraggablePlacedProduct
+                        key={placement.id}
+                        placement={placement}
+                        product={product}
+                        onRemove={onRemove}
+                        previewX={previewPositions?.[placement.id]}
+                    />
                 );
             })}
 
             {/* 空白スペース表示 */}
-            {emptyWidth > 0 && (
+            {!draggedPlacementId && emptyWidth > 0 && (
                 <div
                     className="shelf-empty"
                     style={{
@@ -258,6 +323,26 @@ function BlockCard({
     );
 }
 
+// ドラッグ中の挿入インデックスを計算するヘルパー
+function calcInsertIndex(
+    targetShelfPlacements: ProductPlacement[],
+    targetXmm: number,
+    products: Product[]
+): number {
+    let insertIdx = targetShelfPlacements.length;
+    for (let i = 0; i < targetShelfPlacements.length; i++) {
+        const p = targetShelfPlacements[i];
+        const prod = products.find(pr => pr.id === p.productId);
+        if (!prod) continue;
+        const centerX = p.positionX + (prod.width * p.faceCount) / 2;
+        if (targetXmm < centerX) {
+            insertIdx = i;
+            break;
+        }
+    }
+    return insertIdx;
+}
+
 export function ShelfBlockEditor() {
     const [blocks, setBlocks] = useState<ShelfBlock[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
@@ -272,6 +357,9 @@ export function ShelfBlockEditor() {
     const [isDirty, setIsDirty] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle');
+
+    // ドラッグプレビュー
+    const [dragPreview, setDragPreview] = useState<DragPreviewState | null>(null);
 
     // 新規ブロックフォーム
     const [newBlock, setNewBlock] = useState<{
@@ -297,6 +385,37 @@ export function ShelfBlockEditor() {
             }
         })
     );
+
+    // プレビュー位置の計算
+    const previewPositions: Record<string, number> | null = (() => {
+        if (!dragPreview || !selectedBlock) return null;
+
+        const positions: Record<string, number> = {};
+
+        for (let si = 0; si < selectedBlock.shelfCount; si++) {
+            const shelfProducts = selectedBlock.productPlacements
+                .filter(p => p.id !== dragPreview.placementId && p.shelfIndex === si)
+                .sort((a, b) => a.positionX - b.positionX);
+
+            let currentX = 0;
+
+            for (let i = 0; i < shelfProducts.length; i++) {
+                // 移動先の棚で、挿入位置にギャップを入れる
+                if (si === dragPreview.targetShelfIndex && i === dragPreview.insertIndex) {
+                    currentX += dragPreview.productWidthMm;
+                }
+                positions[shelfProducts[i].id] = currentX;
+                const prod = products.find(p => p.id === shelfProducts[i].productId);
+                currentX += prod ? prod.width * shelfProducts[i].faceCount : 0;
+            }
+            // 末尾に挿入する場合
+            if (si === dragPreview.targetShelfIndex && dragPreview.insertIndex >= shelfProducts.length) {
+                // ギャップは末尾なのでシフト不要
+            }
+        }
+
+        return positions;
+    })();
 
     // データ読み込み
     const loadData = useCallback(async () => {
@@ -379,79 +498,182 @@ export function ShelfBlockEditor() {
         }
     };
 
+    // 位置再計算（左詰め）ヘルパー
+    const recalculatePositions = (placements: ProductPlacement[], block: ShelfBlock): ProductPlacement[] => {
+        const result: ProductPlacement[] = [];
+        for (let si = 0; si < block.shelfCount; si++) {
+            const shelfPlacements = placements
+                .filter(p => p.shelfIndex === si)
+                .sort((a, b) => a.positionX - b.positionX);
+            let currentX = 0;
+            for (const placement of shelfPlacements) {
+                const prod = products.find(p => p.id === placement.productId);
+                result.push({ ...placement, positionX: currentX });
+                currentX += prod ? prod.width * placement.faceCount : 0;
+            }
+        }
+        return result;
+    };
+
     // ドラッグ開始
     const handleDragStart = (event: DragStartEvent) => {
         const product = event.active.data.current?.product as Product | undefined;
         setActiveProduct(product || null);
+        setDragPreview(null);
     };
 
-    // ドラッグ終了（商品配置）
+    // ドラッグ中（プレビュー更新）
+    const handleDragMove = (event: DragMoveEvent) => {
+        if (!selectedBlock) return;
+        const { active, over } = event;
+
+        const type = active.data.current?.type as string;
+        if (type !== 'placed-product') { setDragPreview(null); return; }
+        if (!over) { setDragPreview(null); return; }
+
+        const overId = over.id as string;
+        if (!overId.startsWith('shelf-')) { setDragPreview(null); return; }
+
+        const targetShelfIndex = parseInt(overId.replace('shelf-', ''));
+        const placement = active.data.current?.placement as ProductPlacement;
+        const product = active.data.current?.product as Product;
+
+        const targetXmm = placement.positionX + event.delta.x / SCALE;
+
+        // 移動元を除いた移動先棚の商品
+        const remainingOnTarget = selectedBlock.productPlacements
+            .filter(p => p.id !== placement.id && p.shelfIndex === targetShelfIndex)
+            .sort((a, b) => a.positionX - b.positionX);
+
+        const insertIdx = calcInsertIndex(remainingOnTarget, targetXmm, products);
+
+        setDragPreview({
+            placementId: placement.id,
+            targetShelfIndex,
+            insertIndex: insertIdx,
+            productWidthMm: product.width * placement.faceCount
+        });
+    };
+
+    // ドラッグ終了（商品配置 / 移動）
     const handleDragEnd = async (event: DragEndEvent) => {
         setActiveProduct(null);
+        setDragPreview(null);
         if (!selectedBlock) return;
 
         const { active, over } = event;
         if (!over) return;
 
-        const product = active.data.current?.product as Product | undefined;
+        const type = active.data.current?.type as string;
         const overId = over.id as string;
 
-        if (!product || !overId.startsWith('shelf-')) return;
+        if (!overId.startsWith('shelf-')) return;
 
-        const shelfIndex = parseInt(overId.replace('shelf-', ''));
+        const targetShelfIndex = parseInt(overId.replace('shelf-', ''));
 
-        // 既存配置の取得（左から順にソート）
-        const existingPlacements = selectedBlock.productPlacements
-            .filter(p => p.shelfIndex === shelfIndex)
-            .sort((a, b) => a.positionX - b.positionX);
+        if (type === 'placed-product') {
+            // === 配置済み商品の移動（ドロップ位置で並び順を決定）===
+            const placement = active.data.current?.placement as ProductPlacement;
+            const product = active.data.current?.product as Product;
 
-        // 使用済み幅の計算
-        const usedWidth = existingPlacements.reduce((sum, p) => {
-            const prod = products.find(pr => pr.id === p.productId);
-            return sum + (prod ? prod.width * p.faceCount : 0);
-        }, 0);
+            // 元の位置から除外した配置リスト
+            const remainingPlacements = selectedBlock.productPlacements.filter(p => p.id !== placement.id);
 
-        // スペースチェック
-        if (usedWidth + product.width > selectedBlock.width) {
-            alert('この段にはスペースがありません');
-            return;
-        }
+            // 移動先の段の既存商品（移動元を除く）
+            const targetShelfPlacements = remainingPlacements
+                .filter(p => p.shelfIndex === targetShelfIndex)
+                .sort((a, b) => a.positionX - b.positionX);
 
-        let updatedPlacements = [...selectedBlock.productPlacements];
+            const usedWidth = targetShelfPlacements.reduce((sum, p) => {
+                const prod = products.find(pr => pr.id === p.productId);
+                return sum + (prod ? prod.width * p.faceCount : 0);
+            }, 0);
 
-        // 末尾の商品と同じ場合は統合（フェース追加）
-        const lastPlacement = existingPlacements[existingPlacements.length - 1];
-        if (lastPlacement && lastPlacement.productId === product.id) {
-            // 統合
-            const updatedLast = {
-                ...lastPlacement,
-                faceCount: lastPlacement.faceCount + 1
+            if (usedWidth + product.width * placement.faceCount > selectedBlock.width) {
+                alert('移動先の段にはスペースがありません');
+                return;
+            }
+
+            // ドロップ位置のX座標（mm）を計算
+            const targetXmm = placement.positionX + event.delta.x / SCALE;
+
+            // ドロップX位置を基に挿入インデックスを決定
+            const insertIdx = calcInsertIndex(targetShelfPlacements, targetXmm, products);
+
+            // 新しい並び順で配置リストを構築（positionXを連番にして順序を保持）
+            const movedPlacement = { ...placement, shelfIndex: targetShelfIndex };
+            const reorderedShelf = [
+                ...targetShelfPlacements.slice(0, insertIdx),
+                movedPlacement,
+                ...targetShelfPlacements.slice(insertIdx)
+            ].map((p, idx) => ({ ...p, positionX: idx }));
+
+            // 他の段のプレースメントと結合
+            const otherPlacements = remainingPlacements.filter(p => p.shelfIndex !== targetShelfIndex);
+            const updatedPlacements = [...otherPlacements, ...reorderedShelf];
+
+            // 全位置再計算（左詰め）
+            const recalculated = recalculatePositions(updatedPlacements, selectedBlock);
+
+            const updatedBlock = {
+                ...selectedBlock,
+                productPlacements: recalculated,
+                updatedAt: new Date().toISOString()
             };
-            updatedPlacements = updatedPlacements.map(p =>
-                p.id === lastPlacement.id ? updatedLast : p
-            );
+
+            setSelectedBlock(updatedBlock);
+            setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
+            setIsDirty(true);
+            await saveBlock(updatedBlock);
         } else {
-            // 新規追加
-            const newPlacement: ProductPlacement = {
-                id: crypto.randomUUID(),
-                productId: product.id,
-                shelfIndex,
-                positionX: usedWidth, // 左詰め
-                faceCount: 1
+            // === パレットからの新規配置 ===
+            const product = active.data.current?.product as Product | undefined;
+            if (!product) return;
+
+            const existingPlacements = selectedBlock.productPlacements
+                .filter(p => p.shelfIndex === targetShelfIndex)
+                .sort((a, b) => a.positionX - b.positionX);
+
+            const usedWidth = existingPlacements.reduce((sum, p) => {
+                const prod = products.find(pr => pr.id === p.productId);
+                return sum + (prod ? prod.width * p.faceCount : 0);
+            }, 0);
+
+            if (usedWidth + product.width > selectedBlock.width) {
+                alert('この段にはスペースがありません');
+                return;
+            }
+
+            let updatedPlacements = [...selectedBlock.productPlacements];
+
+            const lastPlacement = existingPlacements[existingPlacements.length - 1];
+            if (lastPlacement && lastPlacement.productId === product.id) {
+                const updatedLast = { ...lastPlacement, faceCount: lastPlacement.faceCount + 1 };
+                updatedPlacements = updatedPlacements.map(p =>
+                    p.id === lastPlacement.id ? updatedLast : p
+                );
+            } else {
+                const newPlacement: ProductPlacement = {
+                    id: crypto.randomUUID(),
+                    productId: product.id,
+                    shelfIndex: targetShelfIndex,
+                    positionX: usedWidth,
+                    faceCount: 1
+                };
+                updatedPlacements.push(newPlacement);
+            }
+
+            const updatedBlock = {
+                ...selectedBlock,
+                productPlacements: updatedPlacements,
+                updatedAt: new Date().toISOString()
             };
-            updatedPlacements.push(newPlacement);
+
+            setSelectedBlock(updatedBlock);
+            setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
+            setIsDirty(true);
+            await saveBlock(updatedBlock);
         }
-
-        const updatedBlock = {
-            ...selectedBlock,
-            productPlacements: updatedPlacements,
-            updatedAt: new Date().toISOString()
-        };
-
-        setSelectedBlock(updatedBlock);
-        setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
-        setIsDirty(true);
-        await saveBlock(updatedBlock);
     };
 
     // 配置削除（フェース減少）
@@ -476,23 +698,7 @@ export function ShelfBlockEditor() {
         }
 
         // 位置を再計算（左詰め）
-        const recalculatedPlacements: ProductPlacement[] = [];
-
-        for (let shelfIndex = 0; shelfIndex < selectedBlock.shelfCount; shelfIndex++) {
-            const shelfPlacements = updatedPlacements
-                .filter(p => p.shelfIndex === shelfIndex)
-                .sort((a, b) => a.positionX - b.positionX); // 元の位置順に処理
-
-            let currentX = 0;
-            for (const placement of shelfPlacements) {
-                const product = products.find(p => p.id === placement.productId);
-                recalculatedPlacements.push({
-                    ...placement,
-                    positionX: currentX
-                });
-                currentX += product ? product.width * placement.faceCount : 0;
-            }
-        }
+        const recalculatedPlacements = recalculatePositions(updatedPlacements, selectedBlock);
 
         const updatedBlock = {
             ...selectedBlock,
@@ -535,7 +741,9 @@ export function ShelfBlockEditor() {
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragStart={handleDragStart}
+                onDragMove={handleDragMove}
                 onDragEnd={handleDragEnd}
+                onDragCancel={() => { setActiveProduct(null); setDragPreview(null); }}
             >
                 {/* ブロック選択エリア（横並びスクロール） */}
                 <div className="card mb-lg">
@@ -668,13 +876,15 @@ export function ShelfBlockEditor() {
                                                 placements={selectedBlock.productPlacements}
                                                 products={products}
                                                 onRemove={handleRemovePlacement}
+                                                previewPositions={previewPositions}
+                                                draggedPlacementId={dragPreview?.placementId || null}
                                             />
                                         ))}
                                     </div>
                                 </div>
 
                                 <div className="text-sm text-muted mt-md">
-                                    商品をドラッグして配置 / クリックで削除 / 空白は赤で表示
+                                    商品をドラッグして配置・移動 / クリックで削除 / 空白は赤で表示
                                 </div>
                             </div>
                         ) : (

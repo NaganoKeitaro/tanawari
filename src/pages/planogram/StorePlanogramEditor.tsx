@@ -11,7 +11,7 @@ import {
     useSensor,
     useSensors
 } from '@dnd-kit/core';
-import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent, DragMoveEvent } from '@dnd-kit/core';
 import type {
     Store,
     StorePlanogram,
@@ -115,6 +115,123 @@ function DraggableProduct({ product }: { product: Product }) {
     );
 }
 
+// 配置済み商品（ドラッグ移動可能）
+function DraggablePlacedProduct({
+    placement,
+    product,
+    planogramId,
+    analyticsMode,
+    selectedMetric,
+    maxMetricValue,
+    onFaceCountChange,
+    onRemove,
+    previewX
+}: {
+    placement: StorePlanogramProduct;
+    product: Product;
+    planogramId: string;
+    analyticsMode: boolean;
+    selectedMetric: 'sales' | 'grossProfit' | 'quantity' | 'traffic' | null;
+    maxMetricValue: number;
+    onFaceCountChange: (id: string, count: number) => void;
+    onRemove: (id: string) => void;
+    previewX?: number;
+}) {
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+        id: `placed-store-product-${placement.id}`,
+        data: { placement, product, planogramId, type: 'placed-store-product' }
+    });
+
+    const width = product.width * placement.faceCount * SCALE;
+
+    return (
+        <ProductTooltip productName={product.name} jan={product.jan || '-'} faceCount={placement.faceCount} category={product.category}>
+            <div
+                ref={setNodeRef}
+                {...listeners}
+                {...attributes}
+                style={{
+                    position: 'absolute',
+                    left: `${(previewX !== undefined ? previewX : placement.positionX) * SCALE}px`,
+                    top: 0,
+                    bottom: 0,
+                    width: `${width}px`,
+                    background: analyticsMode && selectedMetric
+                        ? calculateHeatmapColor(product[selectedMetric] || 0, maxMetricValue)
+                        : getProductColor(product.category).bg,
+                    border: analyticsMode && selectedMetric
+                        ? '1px solid var(--border-color)'
+                        : `1px solid ${getProductColor(product.category).border}`,
+                    color: analyticsMode && selectedMetric
+                        ? 'var(--text-primary)'
+                        : getProductColor(product.category).text,
+                    borderRadius: 'var(--radius-sm)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '4px',
+                    fontSize: '0.65rem',
+                    overflow: 'hidden',
+                    cursor: isDragging ? 'grabbing' : 'grab',
+                    opacity: isDragging ? 0.3 : 1,
+                    transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+                    zIndex: isDragging ? 100 : undefined,
+                    transition: !isDragging && previewX !== undefined ? 'left 0.15s ease' : undefined,
+                }}
+            >
+                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
+                    {product.name}
+                </div>
+                <div style={{ opacity: 0.8, fontSize: '0.5rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                    {product.jan || '-'}
+                </div>
+                <div className="flex gap-sm items-center mt-sm">
+                    <button
+                        className="btn btn-sm"
+                        style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
+                        onClick={(e) => { e.stopPropagation(); onFaceCountChange(placement.id, placement.faceCount - 1); }}
+                    >
+                        -
+                    </button>
+                    <span>×{placement.faceCount}</span>
+                    <button
+                        className="btn btn-sm"
+                        style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
+                        onClick={(e) => { e.stopPropagation(); onFaceCountChange(placement.id, placement.faceCount + 1); }}
+                    >
+                        +
+                    </button>
+                    <button
+                        className="btn btn-sm btn-danger"
+                        style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
+                        onClick={(e) => { e.stopPropagation(); onRemove(placement.id); }}
+                    >
+                        ×
+                    </button>
+                </div>
+                {analyticsMode && selectedMetric && (
+                    <div
+                        style={{
+                            position: 'absolute',
+                            top: '2px',
+                            right: '2px',
+                            background: 'rgba(0,0,0,0.7)',
+                            color: 'white',
+                            padding: '1px 4px',
+                            borderRadius: '3px',
+                            fontSize: '0.55rem',
+                            fontWeight: 600
+                        }}
+                    >
+                        {formatMetricValue(product[selectedMetric] || 0)}
+                    </div>
+                )}
+            </div>
+        </ProductTooltip>
+    );
+}
+
 // 棚段ドロップエリア
 function ShelfRowWithDrop({
     planogramId,
@@ -163,7 +280,8 @@ function SinglePlanogramView({
     analyticsMode,
     selectedMetric,
     onSync,
-    onUpdate
+    onUpdate,
+    dragPreview
 }: {
     store: Store;
     planogram: StorePlanogram | null;
@@ -177,6 +295,13 @@ function SinglePlanogramView({
     selectedMetric: 'sales' | 'grossProfit' | 'quantity' | 'traffic' | null;
     onSync: (planogramId: string) => Promise<void>;
     onUpdate: (updated: StorePlanogram) => Promise<void>;
+    dragPreview?: {
+        placementId: string;
+        planogramId: string;
+        targetShelfIndex: number;
+        insertIndex: number;
+        productWidthMm: number;
+    } | null;
 }) {
     const [loading, setLoading] = useState(false);
     const [selectedStdId, setSelectedStdId] = useState<string>(standardPlanogram?.id || '');
@@ -456,7 +581,33 @@ function SinglePlanogramView({
                         );
                     })}
 
-                    {Array.from({ length: planogram.shelfCount }).map((_, i) => i).reverse().map((shelfIndex) => {
+                    {(() => {
+                        // プレビュー位置の計算
+                        const previewPositions: Record<string, number> | null = (() => {
+                            if (!dragPreview || dragPreview.planogramId !== planogram.id) return null;
+                            const positions: Record<string, number> = {};
+                            for (let si = 0; si < planogram.shelfCount; si++) {
+                                const shelfProds = planogram.products
+                                    .filter(p => p.id !== dragPreview.placementId && p.shelfIndex === si)
+                                    .sort((a, b) => a.positionX - b.positionX);
+                                let currentX = 0;
+                                for (let i = 0; i < shelfProds.length; i++) {
+                                    if (si === dragPreview.targetShelfIndex && i === dragPreview.insertIndex) {
+                                        currentX += dragPreview.productWidthMm;
+                                    }
+                                    positions[shelfProds[i].id] = currentX;
+                                    const prod = products.find(p => p.id === shelfProds[i].productId);
+                                    currentX += prod ? prod.width * shelfProds[i].faceCount : 0;
+                                }
+                                // Handle insert at end
+                                if (si === dragPreview.targetShelfIndex && dragPreview.insertIndex >= shelfProds.length) {
+                                    // gap at end — no action needed for positions
+                                }
+                            }
+                            return positions;
+                        })();
+
+                        return Array.from({ length: planogram.shelfCount }).map((_, i) => i).reverse().map((shelfIndex) => {
                         const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
                         const usedWidth = usedWidthByShelf[shelfIndex] || 0;
                         const emptyWidth = planogram.width - usedWidth;
@@ -471,86 +622,19 @@ function SinglePlanogramView({
                                 {shelfProducts.map(sp => {
                                     const product = products.find(p => p.id === sp.productId);
                                     if (!product) return null;
-                                    const width = product.width * sp.faceCount * SCALE;
-
                                     return (
-                                        <ProductTooltip key={sp.id} productName={product.name} jan={product.jan || '-'} faceCount={sp.faceCount} category={product.category}>
-                                            <div
-                                                style={{
-                                                    position: 'absolute',
-                                                    left: `${sp.positionX * SCALE}px`,
-                                                    top: 0,
-                                                    bottom: 0,
-                                                    width: `${width}px`,
-                                                    background: analyticsMode && selectedMetric
-                                                        ? calculateHeatmapColor(product[selectedMetric] || 0, maxMetricValue)
-                                                        : getProductColor(product.category).bg,
-                                                    border: analyticsMode && selectedMetric
-                                                        ? '1px solid var(--border-color)'
-                                                        : `1px solid ${getProductColor(product.category).border}`,
-                                                    color: analyticsMode && selectedMetric
-                                                        ? 'var(--text-primary)'
-                                                        : getProductColor(product.category).text,
-                                                    borderRadius: 'var(--radius-sm)',
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    padding: '4px',
-                                                    fontSize: '0.65rem',
-                                                    overflow: 'hidden',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
-                                                    {product.name}
-                                                </div>
-                                                <div style={{ opacity: 0.8, fontSize: '0.5rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-                                                    {product.jan || '-'}
-                                                </div>
-                                                <div className="flex gap-sm items-center mt-sm">
-                                                    <button
-                                                        className="btn btn-sm"
-                                                        style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
-                                                        onClick={(e) => { e.stopPropagation(); handleFaceCountChange(sp.id, sp.faceCount - 1); }}
-                                                    >
-                                                        -
-                                                    </button>
-                                                    <span>×{sp.faceCount}</span>
-                                                    <button
-                                                        className="btn btn-sm"
-                                                        style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
-                                                        onClick={(e) => { e.stopPropagation(); handleFaceCountChange(sp.id, sp.faceCount + 1); }}
-                                                    >
-                                                        +
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-sm btn-danger"
-                                                        style={{ padding: '0 4px', fontSize: '0.6rem', minWidth: '20px' }}
-                                                        onClick={(e) => { e.stopPropagation(); handleRemoveProduct(sp.id); }}
-                                                    >
-                                                        ×
-                                                    </button>
-                                                </div>
-                                                {analyticsMode && selectedMetric && (
-                                                    <div
-                                                        style={{
-                                                            position: 'absolute',
-                                                            top: '2px',
-                                                            right: '2px',
-                                                            background: 'rgba(0,0,0,0.7)',
-                                                            color: 'white',
-                                                            padding: '1px 4px',
-                                                            borderRadius: '3px',
-                                                            fontSize: '0.55rem',
-                                                            fontWeight: 600
-                                                        }}
-                                                    >
-                                                        {formatMetricValue(product[selectedMetric] || 0)}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </ProductTooltip>
+                                        <DraggablePlacedProduct
+                                            key={sp.id}
+                                            placement={sp}
+                                            product={product}
+                                            planogramId={planogram.id}
+                                            analyticsMode={analyticsMode}
+                                            selectedMetric={selectedMetric}
+                                            maxMetricValue={maxMetricValue}
+                                            onFaceCountChange={handleFaceCountChange}
+                                            onRemove={handleRemoveProduct}
+                                            previewX={previewPositions?.[sp.id]}
+                                        />
                                     );
                                 })}
 
@@ -588,7 +672,8 @@ function SinglePlanogramView({
                                 </div>
                             </ShelfRowWithDrop>
                         );
-                    })}
+                    });
+                    })()}
                 </div>
             </div>
         </div>
@@ -618,6 +703,15 @@ export function StorePlanogramEditor() {
     const [activeProduct, setActiveProduct] = useState<Product | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
 
+    // ドラッグプレビュー状態
+    const [dragPreview, setDragPreview] = useState<{
+        placementId: string;
+        planogramId: string;
+        targetShelfIndex: number;
+        insertIndex: number;
+        productWidthMm: number;
+    } | null>(null);
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -626,96 +720,230 @@ export function StorePlanogramEditor() {
         })
     );
 
+    // 位置再計算（左詰め）
+    const recalculatePositions = (placements: StorePlanogramProduct[], productMaster: Product[]) => {
+        const result: StorePlanogramProduct[] = [];
+        const shelfIndices = [...new Set(placements.map(p => p.shelfIndex))].sort();
+
+        for (const sIdx of shelfIndices) {
+            const shelfProds = placements.filter(p => p.shelfIndex === sIdx).sort((a, b) => a.positionX - b.positionX);
+            let posX = 0;
+            for (const sp of shelfProds) {
+                const prod = productMaster.find(p => p.id === sp.productId);
+                result.push({
+                    ...sp,
+                    positionX: posX
+                });
+                posX += prod ? prod.width * sp.faceCount : 0;
+            }
+        }
+        return result;
+    };
+
+    // ドロップ先のplanogramIdとshelfIndexをパース
+    const parseShelfDropId = (overId: string): { planogramId: string; shelfIndex: number } | null => {
+        if (!overId.startsWith('shelf-')) return null;
+        const remaining = overId.slice('shelf-'.length);
+        const lastDashIndex = remaining.lastIndexOf('-');
+        return {
+            planogramId: remaining.slice(0, lastDashIndex),
+            shelfIndex: parseInt(remaining.slice(lastDashIndex + 1), 10)
+        };
+    };
+
     const handleDragStart = (event: DragStartEvent) => {
         const { active } = event;
-        if (active.data.current?.type === 'palette-product') {
-            setActiveProduct(active.data.current.product as Product);
+        const type = active.data.current?.type;
+        if (type === 'palette-product' || type === 'placed-store-product') {
+            setActiveProduct(active.data.current!.product as Product);
         }
+    };
+
+    const handleDragMove = (event: DragMoveEvent) => {
+        const { active, over } = event;
+        const type = active.data.current?.type as string;
+        if (type !== 'placed-store-product' || !over) {
+            setDragPreview(null);
+            return;
+        }
+
+        const placement = active.data.current?.placement as StorePlanogramProduct;
+        const product = active.data.current?.product as Product;
+        const sourcePlanogramId = active.data.current?.planogramId as string;
+
+        const overId = String(over.id);
+        const dropTarget = parseShelfDropId(overId);
+        if (!dropTarget || dropTarget.planogramId !== sourcePlanogramId) {
+            setDragPreview(null);
+            return;
+        }
+
+        const targetPlanogram = allStorePlanograms.find(p => p.id === dropTarget.planogramId);
+        if (!targetPlanogram) { setDragPreview(null); return; }
+
+        const targetShelfPlacements = targetPlanogram.products
+            .filter(p => p.id !== placement.id && p.shelfIndex === dropTarget.shelfIndex)
+            .sort((a, b) => a.positionX - b.positionX);
+
+        const targetXmm = placement.positionX + event.delta.x / SCALE;
+
+        // recalculate actual positions for center comparison
+        let scanX = 0;
+        let insertIdx = targetShelfPlacements.length;
+        for (let i = 0; i < targetShelfPlacements.length; i++) {
+            const p = targetShelfPlacements[i];
+            const prod = products.find(pr => pr.id === p.productId);
+            const w = prod ? prod.width * p.faceCount : 0;
+            const centerX = scanX + w / 2;
+            if (targetXmm < centerX) {
+                insertIdx = i;
+                break;
+            }
+            scanX += w;
+        }
+
+        setDragPreview({
+            placementId: placement.id,
+            planogramId: sourcePlanogramId,
+            targetShelfIndex: dropTarget.shelfIndex,
+            insertIndex: insertIdx,
+            productWidthMm: product.width * placement.faceCount,
+        });
     };
 
     const handleDragEnd = async (event: DragEndEvent) => {
         setActiveProduct(null);
+        setDragPreview(null);
         const { active, over } = event;
         if (!over) return;
 
-        const product = active.data.current?.product as Product;
+        const type = active.data.current?.type as string;
         const overId = String(over.id);
+        const dropTarget = parseShelfDropId(overId);
+        if (!dropTarget) return;
 
-        if (!product || !overId.startsWith('shelf-')) return;
+        const { planogramId: targetPlanogramId, shelfIndex: targetShelfIndex } = dropTarget;
 
-        const remaining = overId.slice('shelf-'.length);
-        const lastDashIndex = remaining.lastIndexOf('-');
-        const planogramId = remaining.slice(0, lastDashIndex);
-        const shelfIndex = parseInt(remaining.slice(lastDashIndex + 1), 10);
+        if (type === 'placed-store-product') {
+            // === 配置済み商品の移動（ドロップ位置で並び順を決定）===
+            const placement = active.data.current?.placement as StorePlanogramProduct;
+            const product = active.data.current?.product as Product;
+            const sourcePlanogramId = active.data.current?.planogramId as string;
 
-        const targetPlanogram = await storePlanogramRepository.getById(planogramId);
-        if (!targetPlanogram) return;
+            // 同一棚割内の移動のみサポート
+            if (sourcePlanogramId !== targetPlanogramId) return;
 
-        const existingPlacements = targetPlanogram.products
-            .filter(p => p.shelfIndex === shelfIndex)
-            .sort((a, b) => a.positionX - b.positionX);
+            const targetPlanogram = await storePlanogramRepository.getById(targetPlanogramId);
+            if (!targetPlanogram) return;
 
-        const usedWidth = existingPlacements.reduce((sum, p) => {
-            const prod = products.find(pr => pr.id === p.productId);
-            return sum + (prod ? prod.width * p.faceCount : 0);
-        }, 0);
+            // 元の位置から除外
+            const remainingProducts = targetPlanogram.products.filter(p => p.id !== placement.id);
 
-        if (usedWidth + product.width > targetPlanogram.width) {
-            alert(`この段にはスペースがありません (残り: ${targetPlanogram.width - usedWidth}mm, 商品: ${product.width}mm)`);
-            return;
-        }
+            // 移動先の段の既存商品（移動元を除く）
+            const targetShelfPlacements = remainingProducts
+                .filter(p => p.shelfIndex === targetShelfIndex)
+                .sort((a, b) => a.positionX - b.positionX);
 
-        let updatedProducts = [...targetPlanogram.products];
+            const usedWidth = targetShelfPlacements.reduce((sum, p) => {
+                const prod = products.find(pr => pr.id === p.productId);
+                return sum + (prod ? prod.width * p.faceCount : 0);
+            }, 0);
 
-        const lastPlacement = existingPlacements[existingPlacements.length - 1];
-        if (lastPlacement && lastPlacement.productId === product.id) {
-            // フェイス追加
-            updatedProducts = updatedProducts.map(p =>
-                p.id === lastPlacement.id ? { ...p, faceCount: p.faceCount + 1, isAutoGenerated: false } : p
-            );
-        } else {
-            // 新規配置
-            const newPlacement: StorePlanogramProduct = {
-                id: crypto.randomUUID(),
-                productId: product.id,
-                shelfIndex,
-                positionX: usedWidth, // 仮設定、後で再計算
-                faceCount: 1,
-                isAutoGenerated: false,
-                isCut: false
-            };
-            updatedProducts.push(newPlacement);
-        }
+            if (usedWidth + product.width * placement.faceCount > targetPlanogram.width) {
+                alert('移動先の段にはスペースがありません');
+                return;
+            }
 
-        // 位置再計算（左詰め）
-        const recalculatePositions = (placements: StorePlanogramProduct[], productMaster: Product[]) => {
-            const result: StorePlanogramProduct[] = [];
-            const shelfIndices = [...new Set(placements.map(p => p.shelfIndex))].sort();
+            // ドロップ位置のX座標（mm）を計算
+            const targetXmm = placement.positionX + event.delta.x / SCALE;
 
-            for (const sIdx of shelfIndices) {
-                const shelfProds = placements.filter(p => p.shelfIndex === sIdx).sort((a, b) => a.positionX - b.positionX);
-                let posX = 0;
-                for (const sp of shelfProds) {
-                    const prod = productMaster.find(p => p.id === sp.productId);
-                    result.push({
-                        ...sp,
-                        positionX: posX
-                    });
-                    posX += prod ? prod.width * sp.faceCount : 0;
+            // ドロップX位置を基に挿入インデックスを決定
+            let insertIdx = targetShelfPlacements.length;
+            for (let i = 0; i < targetShelfPlacements.length; i++) {
+                const p = targetShelfPlacements[i];
+                const prod = products.find(pr => pr.id === p.productId);
+                if (!prod) continue;
+                const centerX = p.positionX + (prod.width * p.faceCount) / 2;
+                if (targetXmm < centerX) {
+                    insertIdx = i;
+                    break;
                 }
             }
-            return result;
-        };
 
-        const recalculated = recalculatePositions(updatedProducts, products);
+            // 新しい並び順で配置リストを構築
+            const movedPlacement = { ...placement, shelfIndex: targetShelfIndex, isAutoGenerated: false };
+            const reorderedShelf = [
+                ...targetShelfPlacements.slice(0, insertIdx),
+                movedPlacement,
+                ...targetShelfPlacements.slice(insertIdx)
+            ].map((p, idx) => ({ ...p, positionX: idx }));
 
-        const updated = {
-            ...targetPlanogram,
-            products: recalculated,
-            updatedAt: new Date().toISOString()
-        };
+            // 他の段の商品と結合
+            const otherProducts = remainingProducts.filter(p => p.shelfIndex !== targetShelfIndex);
+            const updatedProducts = [...otherProducts, ...reorderedShelf];
 
-        await handleUpdatePlanogram(updated);
+            const recalculated = recalculatePositions(updatedProducts, products);
+
+            const updated = {
+                ...targetPlanogram,
+                products: recalculated,
+                updatedAt: new Date().toISOString()
+            };
+
+            await handleUpdatePlanogram(updated);
+
+        } else {
+            // === パレットからの新規配置 ===
+            const product = active.data.current?.product as Product;
+            if (!product) return;
+
+            const targetPlanogram = await storePlanogramRepository.getById(targetPlanogramId);
+            if (!targetPlanogram) return;
+
+            const existingPlacements = targetPlanogram.products
+                .filter(p => p.shelfIndex === targetShelfIndex)
+                .sort((a, b) => a.positionX - b.positionX);
+
+            const usedWidth = existingPlacements.reduce((sum, p) => {
+                const prod = products.find(pr => pr.id === p.productId);
+                return sum + (prod ? prod.width * p.faceCount : 0);
+            }, 0);
+
+            if (usedWidth + product.width > targetPlanogram.width) {
+                alert(`この段にはスペースがありません (残り: ${targetPlanogram.width - usedWidth}mm, 商品: ${product.width}mm)`);
+                return;
+            }
+
+            let updatedProducts = [...targetPlanogram.products];
+
+            const lastPlacement = existingPlacements[existingPlacements.length - 1];
+            if (lastPlacement && lastPlacement.productId === product.id) {
+                updatedProducts = updatedProducts.map(p =>
+                    p.id === lastPlacement.id ? { ...p, faceCount: p.faceCount + 1, isAutoGenerated: false } : p
+                );
+            } else {
+                const newPlacement: StorePlanogramProduct = {
+                    id: crypto.randomUUID(),
+                    productId: product.id,
+                    shelfIndex: targetShelfIndex,
+                    positionX: usedWidth,
+                    faceCount: 1,
+                    isAutoGenerated: false,
+                    isCut: false
+                };
+                updatedProducts.push(newPlacement);
+            }
+
+            const recalculated = recalculatePositions(updatedProducts, products);
+
+            const updated = {
+                ...targetPlanogram,
+                products: recalculated,
+                updatedAt: new Date().toISOString()
+            };
+
+            await handleUpdatePlanogram(updated);
+        }
     };
 
     // フィルター済み商品
@@ -834,7 +1062,9 @@ export function StorePlanogramEditor() {
                 sensors={sensors}
                 collisionDetection={closestCenter}
                 onDragStart={handleDragStart}
+                onDragMove={handleDragMove}
                 onDragEnd={handleDragEnd}
+                onDragCancel={() => { setActiveProduct(null); setDragPreview(null); }}
             >
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 280px', gap: 'var(--spacing-lg)', alignItems: 'start' }}>
                     {/* 左側：編集エリア */}
@@ -923,6 +1153,7 @@ export function StorePlanogramEditor() {
                                     selectedMetric={selectedMetric}
                                     onSync={handleSync}
                                     onUpdate={handleUpdatePlanogram}
+                                    dragPreview={dragPreview}
                                 />
                             );
                         })}
