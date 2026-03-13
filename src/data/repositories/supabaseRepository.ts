@@ -85,8 +85,15 @@ class SupabaseSimpleRepository<T extends { id: string }> implements IRepository<
             }
         }
 
+        // Remove undefined values to avoid sending them to Supabase
+        for (const key in payload) {
+            if (payload[key] === undefined) {
+                delete payload[key];
+            }
+        }
+
         const { data, error } = await supabase.from(this.tableName).update(payload).eq('id', id).select().single();
-        if (error) return null;
+        if (error) throw error;
         return toCamel(data) as T;
     }
 

@@ -7,7 +7,7 @@ import { SizeInput } from '../../components/common/UnitInput';
 import { DimensionDisplay } from '../../components/common/UnitDisplay';
 import { ExcelImportModal } from '../../components/masters/ExcelImportModal';
 import { BulkEditModal } from '../../components/masters/BulkEditModal';
-import { exportProductsToCSV, calculateSalesRank } from '../../utils/excelUtils';
+import { exportProductsToCSV, calculateSalesRank, exportSkippedProductsToCSV, type SkippedProduct } from '../../utils/excelUtils';
 import { renderHierarchyLevel } from '../../utils/hierarchyHelpers';
 import { productHierarchyRepository } from '../../data/repositories/repositoryFactory';
 import type { HierarchyEntry } from '../../data/types/productHierarchy';
@@ -125,8 +125,8 @@ export function ProductMaster() {
         const currentIndex = hierarchyOrder.indexOf(codeKey);
         if (currentIndex !== -1 && currentIndex < hierarchyOrder.length - 1) {
             for (let i = currentIndex + 1; i < hierarchyOrder.length; i++) {
-                updates[hierarchyOrder[i]] = undefined;
-                updates[nameKeys[i]] = undefined;
+                updates[hierarchyOrder[i]] = '';
+                updates[nameKeys[i]] = '';
             }
         }
 
@@ -230,43 +230,63 @@ export function ProductMaster() {
     };
 
     // Excelインポート
-    const handleImport = async (newProducts: Partial<Product>[], updateProducts: Partial<Product>[]) => {
+    const handleImport = async (
+        newProducts: Partial<Product>[],
+        updateProducts: Partial<Product>[],
+        skippedProducts: SkippedProduct[]
+    ) => {
         // 売上数量がある場合はランクを計算
         const allImportProducts = [...newProducts, ...updateProducts];
         const hasSalesQuantity = allImportProducts.some(p => p.salesQuantity !== undefined && p.salesQuantity !== null && String(p.salesQuantity).trim() !== '');
 
         let productsWithRank = allImportProducts;
         if (hasSalesQuantity) {
-            // 売上数量からランクを計算
             productsWithRank = calculateSalesRank(allImportProducts);
         }
 
-        // 新規商品と更新商品を分離（ランク計算後）
+        // 新規商品と更新商品を再分離（ランク計算後）
+        // JANがある場合はJANでマッチ、JANがない場合は商品名でマッチ
         const newProductsWithRank: Partial<Product>[] = [];
         const updateProductsWithRank: Partial<Product>[] = [];
 
         for (const product of productsWithRank) {
-            const existingProduct = products.find(p => p.jan === product.jan);
-            if (existingProduct) {
-                updateProductsWithRank.push({ ...product, id: existingProduct.id });
+            const jan = product.jan?.trim();
+
+            if (jan) {
+                // JANでマッチング
+                const existingProduct = products.find(p => p.jan === jan);
+                if (existingProduct) {
+                    updateProductsWithRank.push({ ...product, id: existingProduct.id });
+                } else {
+                    newProductsWithRank.push(product);
+                }
             } else {
-                newProductsWithRank.push(product);
+                // 商品名でマッチング（IDが既に設定されている場合はそのまま更新扱い）
+                if (product.id) {
+                    updateProductsWithRank.push(product);
+                } else {
+                    newProductsWithRank.push(product);
+                }
             }
         }
 
-        // 新規商品をJANで重複排除（同一JANは後の行が優先＝上書き）
-        const deduplicatedNew = new Map<string, Partial<Product>>();
-        const noJanProducts: Partial<Product>[] = [];
+        // 新規商品を重複排除（同一キーは後の行が優先＝上書き）
+        // JAN有り: JANで重複排除、JAN無し: 商品名で重複排除
+        const deduplicatedByJan = new Map<string, Partial<Product>>();
+        const deduplicatedByName = new Map<string, Partial<Product>>();
+        const noKeyProducts: Partial<Product>[] = [];
         for (const product of newProductsWithRank) {
             if (product.jan && product.jan.trim() !== '') {
-                deduplicatedNew.set(product.jan, product);
+                deduplicatedByJan.set(product.jan, product);
+            } else if (product.name && product.name.trim() !== '') {
+                deduplicatedByName.set(product.name.trim(), product);
             } else {
-                noJanProducts.push(product);
+                noKeyProducts.push(product);
             }
         }
-        const uniqueNewProducts = [...deduplicatedNew.values(), ...noJanProducts];
+        const uniqueNewProducts = [...deduplicatedByJan.values(), ...deduplicatedByName.values(), ...noKeyProducts];
 
-        // 新規商品を一括作成（createBulkで1回のread/writeで全件追加）
+        // 新規商品を一括作成
         if (uniqueNewProducts.length > 0) {
             const newItems = uniqueNewProducts.map(product => ({
                 ...product,
@@ -281,13 +301,25 @@ export function ProductMaster() {
             console.log(`新規商品 ${uniqueNewProducts.length}件を一括登録しました`);
         }
 
-        // 既存商品を一括更新（updateBulkで1回のread/writeで全件更新）
+        // 既存商品を一括更新
         if (updateProductsWithRank.length > 0) {
             const updateItems = updateProductsWithRank
                 .filter(p => p.id)
                 .map(p => ({ id: p.id!, data: p }));
             await productRepository.updateBulk(updateItems);
             console.log(`既存商品 ${updateProductsWithRank.length}件を一括更新しました`);
+        }
+
+        // 未更新商品がある場合はCSVをダウンロード
+        if (skippedProducts.length > 0) {
+            const blob = exportSkippedProductsToCSV(skippedProducts);
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `未更新商品リスト_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+            console.log(`未更新商品 ${skippedProducts.length}件のCSVを出力しました`);
         }
 
         loadProducts();
