@@ -18,6 +18,15 @@ export function MetricsChart({
         return item.metrics[metric];
     };
 
+    if (data.length === 0) {
+        return (
+            <div className="card" style={{ padding: 'var(--spacing-lg)' }}>
+                <h3 className="text-lg mb-md" style={{ margin: 0 }}>{title}</h3>
+                <p className="text-muted">データがありません</p>
+            </div>
+        );
+    }
+
     const maxValue = Math.max(...data.map(getMetricValue));
     const total = data.reduce((sum, item) => sum + getMetricValue(item), 0);
 

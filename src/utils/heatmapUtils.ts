@@ -55,7 +55,7 @@ export const aggregateByHierarchy = (
     const counts: Record<string, number> = {};
 
     products.forEach(p => {
-        const key = String(p[hierarchyField] || 'Uncategorized');
+        const key = String(p[hierarchyField] || '未分類');
         sums[key] = (sums[key] || 0) + (p[metric] || 0);
         counts[key] = (counts[key] || 0) + 1;
     });

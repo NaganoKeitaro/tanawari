@@ -79,7 +79,7 @@ function generateStores(): Omit<Store, 'id'>[] {
 
         return {
             code: generateStoreCode(fmt, index),
-            name: `${data.name}店`,
+            name: data.name.endsWith('店') ? data.name : `${data.name}店`,
             fmt,
             region
         };

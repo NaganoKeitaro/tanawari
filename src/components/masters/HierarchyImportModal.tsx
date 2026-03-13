@@ -71,13 +71,41 @@ export const HierarchyImportModal: React.FC<HierarchyImportModalProps> = ({ isOp
             // Import - batch save to avoid race condition with individual add() calls
             const existingEntries = await productHierarchyRepository.getAll();
             const now = new Date().toISOString();
-            const newEntries = previewData.map(entry => ({
+
+            // 重複チェック: 全コードが一致するエントリを除外
+            const isDuplicate = (entry: typeof previewData[0]) => {
+                return existingEntries.some(e =>
+                    e.divisionCode === entry.divisionCode &&
+                    e.divisionSubCode === entry.divisionSubCode &&
+                    e.lineCode === entry.lineCode &&
+                    e.departmentCode === entry.departmentCode &&
+                    e.categoryCode === entry.categoryCode &&
+                    e.subCategoryCode === entry.subCategoryCode &&
+                    e.segmentCode === entry.segmentCode &&
+                    e.subSegmentCode === entry.subSegmentCode
+                );
+            };
+
+            const uniqueNewData = previewData.filter(entry => !isDuplicate(entry));
+            const duplicateCount = previewData.length - uniqueNewData.length;
+
+            if (duplicateCount > 0 && uniqueNewData.length === 0) {
+                setError(`全${duplicateCount}件が既存データと重複しているため、インポートするデータがありません。`);
+                setIsLoading(false);
+                return;
+            }
+
+            const newEntries = uniqueNewData.map(entry => ({
                 ...entry,
                 id: crypto.randomUUID(),
                 createdAt: now,
                 updatedAt: now,
             }));
             await productHierarchyRepository.saveAll([...existingEntries, ...newEntries]);
+
+            if (duplicateCount > 0) {
+                alert(`${duplicateCount}件の重複データをスキップし、${uniqueNewData.length}件をインポートしました。`);
+            }
 
             onImportComplete();
             onClose();

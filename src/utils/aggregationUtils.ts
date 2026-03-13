@@ -57,7 +57,7 @@ export function aggregateMetrics(products: Product[]): AggregatedMetrics {
     return {
         ...totals,
         // 客単価は平均値を計算
-        spendPerCustomer: totals.traffic > 0 ? Math.floor(totals.sales / totals.traffic) : 0,
+        spendPerCustomer: totals.traffic > 0 ? Math.round(totals.sales / totals.traffic) : 0,
         productCount: products.length
     };
 }
