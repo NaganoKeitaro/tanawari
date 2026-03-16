@@ -107,6 +107,12 @@ function DraggableProduct({ product }: { product: Product }) {
                     style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px' }}
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                        {product.jan || '-'}
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                        {product.category}
+                    </div>
                     <div className="product-card-name" style={{ fontSize: '0.8rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</div>
                     <div className="product-card-size" style={{ fontSize: '0.7rem' }}>{product.width}×{product.height}mm</div>
                 </div>

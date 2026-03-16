@@ -70,6 +70,12 @@ function DraggableProduct({ product }: { product: Product }) {
                 style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '3px', flexShrink: 0 }}
             />
             <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
+                    {product.jan || '-'}
+                </div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                    {product.category}
+                </div>
                 <div style={{
                     fontSize: '0.75rem',
                     fontWeight: 500,
