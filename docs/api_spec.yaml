@@ -1,0 +1,1682 @@
+openapi: 3.0.3
+info:
+  title: 棚割管理システム API
+  description: |
+    棚割管理システムのAPI仕様。
+    本システムはリポジトリパターンを採用し、Supabase（PostgreSQL）またはLocalStorageをバックエンドとして使用する。
+    各リポジトリはIRepository<T>インターフェースに準拠し、getAll/getById/create/update/delete/queryの共通操作を提供する。
+  version: 1.0.0
+
+paths:
+  # ============================
+  # Product API
+  # ============================
+  /products:
+    get:
+      summary: 商品一覧取得
+      operationId: getProducts
+      tags: [Product]
+      responses:
+        '200':
+          description: 商品一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      summary: 商品登録
+      operationId: createProduct
+      tags: [Product]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          description: 登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+
+  /products/{id}:
+    get:
+      summary: 商品詳細取得
+      operationId: getProductById
+      tags: [Product]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 商品詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: 商品が見つからない
+    put:
+      summary: 商品更新
+      operationId: updateProduct
+      tags: [Product]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+    delete:
+      summary: 商品削除
+      operationId: deleteProduct
+      tags: [Product]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 削除成功
+
+  /products/query:
+    post:
+      summary: 商品検索
+      operationId: queryProducts
+      tags: [Product]
+      description: 条件に合致する商品を検索する
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category:
+                  type: string
+                fmt:
+                  type: string
+      responses:
+        '200':
+          description: 検索結果
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+  # ============================
+  # Store API
+  # ============================
+  /stores:
+    get:
+      summary: 店舗一覧取得
+      operationId: getStores
+      tags: [Store]
+      responses:
+        '200':
+          description: 店舗一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Store'
+    post:
+      summary: 店舗登録
+      operationId: createStore
+      tags: [Store]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreInput'
+      responses:
+        '201':
+          description: 登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+
+  /stores/{id}:
+    get:
+      summary: 店舗詳細取得
+      operationId: getStoreById
+      tags: [Store]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 店舗詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Store'
+    put:
+      summary: 店舗更新
+      operationId: updateStore
+      tags: [Store]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreInput'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 店舗削除
+      operationId: deleteStore
+      tags: [Store]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 削除成功
+
+  # ============================
+  # Fixture API
+  # ============================
+  /fixtures:
+    get:
+      summary: 什器一覧取得
+      operationId: getFixtures
+      tags: [Fixture]
+      responses:
+        '200':
+          description: 什器一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Fixture'
+    post:
+      summary: 什器登録
+      operationId: createFixture
+      tags: [Fixture]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FixtureInput'
+      responses:
+        '201':
+          description: 登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fixture'
+
+  /fixtures/{id}:
+    get:
+      summary: 什器詳細取得
+      operationId: getFixtureById
+      tags: [Fixture]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 什器詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Fixture'
+    put:
+      summary: 什器更新
+      operationId: updateFixture
+      tags: [Fixture]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FixtureInput'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 什器削除
+      operationId: deleteFixture
+      tags: [Fixture]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 削除成功
+
+  # ============================
+  # Product Hierarchy API
+  # ============================
+  /product-hierarchy:
+    get:
+      summary: 商品階層一覧取得
+      operationId: getProductHierarchy
+      tags: [ProductHierarchy]
+      responses:
+        '200':
+          description: 階層一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ProductHierarchy'
+    post:
+      summary: 商品階層登録
+      operationId: createProductHierarchy
+      tags: [ProductHierarchy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductHierarchyInput'
+      responses:
+        '201':
+          description: 登録成功
+
+  /product-hierarchy/{id}:
+    put:
+      summary: 商品階層更新
+      operationId: updateProductHierarchy
+      tags: [ProductHierarchy]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductHierarchyInput'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 商品階層削除
+      operationId: deleteProductHierarchy
+      tags: [ProductHierarchy]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 削除成功
+
+  # ============================
+  # Store Fixture Placement API
+  # ============================
+  /store-fixture-placements:
+    get:
+      summary: 店舗什器配置一覧取得
+      operationId: getStoreFixturePlacements
+      tags: [StoreFixturePlacement]
+      parameters:
+        - name: storeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 配置一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StoreFixturePlacement'
+    post:
+      summary: 店舗什器配置登録
+      operationId: createStoreFixturePlacement
+      tags: [StoreFixturePlacement]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreFixturePlacementInput'
+      responses:
+        '201':
+          description: 登録成功
+
+  /store-fixture-placements/{id}:
+    put:
+      summary: 店舗什器配置更新
+      operationId: updateStoreFixturePlacement
+      tags: [StoreFixturePlacement]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StoreFixturePlacementInput'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 店舗什器配置削除
+      operationId: deleteStoreFixturePlacement
+      tags: [StoreFixturePlacement]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 削除成功
+
+  # ============================
+  # Shelf Block API
+  # ============================
+  /shelf-blocks:
+    get:
+      summary: 棚ブロック一覧取得
+      operationId: getShelfBlocks
+      tags: [ShelfBlock]
+      responses:
+        '200':
+          description: ブロック一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ShelfBlock'
+    post:
+      summary: 棚ブロック登録
+      operationId: createShelfBlock
+      tags: [ShelfBlock]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShelfBlockInput'
+      responses:
+        '201':
+          description: 登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShelfBlock'
+
+  /shelf-blocks/{id}:
+    get:
+      summary: 棚ブロック詳細取得
+      operationId: getShelfBlockById
+      tags: [ShelfBlock]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: ブロック詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShelfBlock'
+    put:
+      summary: 棚ブロック更新
+      operationId: updateShelfBlock
+      tags: [ShelfBlock]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShelfBlockInput'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 棚ブロック削除
+      operationId: deleteShelfBlock
+      tags: [ShelfBlock]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 削除成功
+
+  # ============================
+  # Standard Planogram API
+  # ============================
+  /standard-planograms:
+    get:
+      summary: 標準棚割一覧取得
+      operationId: getStandardPlanograms
+      tags: [StandardPlanogram]
+      parameters:
+        - name: fmt
+          in: query
+          schema:
+            type: string
+            enum: [MEGA, SuC, SMART, GO, FC]
+      responses:
+        '200':
+          description: 標準棚割一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StandardPlanogram'
+    post:
+      summary: 標準棚割登録
+      operationId: createStandardPlanogram
+      tags: [StandardPlanogram]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StandardPlanogramInput'
+      responses:
+        '201':
+          description: 登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardPlanogram'
+
+  /standard-planograms/{id}:
+    get:
+      summary: 標準棚割詳細取得
+      operationId: getStandardPlanogramById
+      tags: [StandardPlanogram]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 標準棚割詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardPlanogram'
+    put:
+      summary: 標準棚割更新
+      operationId: updateStandardPlanogram
+      tags: [StandardPlanogram]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StandardPlanogramInput'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 標準棚割削除
+      operationId: deleteStandardPlanogram
+      tags: [StandardPlanogram]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 削除成功
+
+  /standard-planograms/{id}/duplicate:
+    post:
+      summary: 標準棚割複製
+      operationId: duplicateStandardPlanogram
+      tags: [StandardPlanogram]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: 複製成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardPlanogram'
+
+  # ============================
+  # Store Planogram API
+  # ============================
+  /store-planograms:
+    get:
+      summary: 個店棚割一覧取得
+      operationId: getStorePlanograms
+      tags: [StorePlanogram]
+      parameters:
+        - name: storeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: standardPlanogramId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 個店棚割一覧
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StorePlanogram'
+
+  /store-planograms/batch-generate:
+    post:
+      summary: 個店棚割一括生成
+      operationId: batchGenerateStorePlanograms
+      tags: [StorePlanogram]
+      description: 標準棚割を基に、複数店舗の個店棚割を一括生成する。ルールA（カット）/ルールB（拡張）を自動適用する。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - standardPlanogramId
+                - storeIds
+              properties:
+                standardPlanogramId:
+                  type: string
+                  format: uuid
+                  description: 元となる標準棚割ID
+                storeIds:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+                  description: 対象店舗IDリスト
+      responses:
+        '200':
+          description: 一括生成結果
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StorePlanogram'
+                  summary:
+                    type: object
+                    properties:
+                      total:
+                        type: integer
+                      success:
+                        type: integer
+                      warning:
+                        type: integer
+                      error:
+                        type: integer
+
+  /store-planograms/{id}:
+    get:
+      summary: 個店棚割詳細取得
+      operationId: getStorePlanogramById
+      tags: [StorePlanogram]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 個店棚割詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorePlanogram'
+    put:
+      summary: 個店棚割更新
+      operationId: updateStorePlanogram
+      tags: [StorePlanogram]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StorePlanogramInput'
+      responses:
+        '200':
+          description: 更新成功
+    delete:
+      summary: 個店棚割削除
+      operationId: deleteStorePlanogram
+      tags: [StorePlanogram]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 削除成功
+
+  /store-planograms/{id}/sync:
+    post:
+      summary: 個店棚割同期
+      operationId: syncStorePlanogram
+      tags: [StorePlanogram]
+      description: 最新の標準棚割を取得し、ルールA/Bを再適用して個店棚割を更新する
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 同期成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorePlanogram'
+
+  # ============================
+  # Analytics API
+  # ============================
+  /analytics/dashboard:
+    get:
+      summary: KPIダッシュボードデータ取得
+      operationId: getDashboardData
+      tags: [Analytics]
+      parameters:
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum: [all, store]
+        - name: storeId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: metric
+          in: query
+          schema:
+            type: string
+            enum: [sales, grossProfit, quantity, traffic]
+      responses:
+        '200':
+          description: ダッシュボードデータ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  kpis:
+                    type: object
+                    properties:
+                      sales:
+                        type: number
+                      grossProfit:
+                        type: number
+                      traffic:
+                        type: number
+                      spendPerCustomer:
+                        type: number
+                  categoryMetrics:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        category:
+                          type: string
+                        value:
+                          type: number
+                        ratio:
+                          type: number
+
+  /analytics/heatmap:
+    get:
+      summary: ヒートマップデータ取得
+      operationId: getHeatmapData
+      tags: [Analytics]
+      parameters:
+        - name: level
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [jan, hierarchy, block, planogram]
+        - name: metric
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [sales, grossProfit, quantity, traffic, spendPerCustomer]
+        - name: scope
+          in: query
+          schema:
+            type: string
+            enum: [standard, store, block]
+      responses:
+        '200':
+          description: ヒートマップデータ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        value:
+                          type: number
+                        color:
+                          type: string
+                        position:
+                          type: object
+
+  # ============================
+  # Bulk Operations API
+  # ============================
+  /bulk-delete/{entityType}:
+    delete:
+      summary: データ一括削除
+      operationId: bulkDelete
+      tags: [BulkOperation]
+      parameters:
+        - name: entityType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [products, stores, fixtures, shelf-blocks, standard-planograms, store-planograms, store-fixture-placements, product-hierarchy]
+      responses:
+        '204':
+          description: 一括削除成功
+
+  /seed-data:
+    post:
+      summary: シードデータ生成
+      operationId: generateSeedData
+      tags: [BulkOperation]
+      responses:
+        '201':
+          description: 生成成功
+
+components:
+  schemas:
+    # ============================
+    # Product Schemas
+    # ============================
+    Product:
+      type: object
+      required: [id, name, width, height, depth, category, salesRank]
+      properties:
+        id:
+          type: string
+          format: uuid
+        jan:
+          type: string
+          description: JANコード（任意）
+        name:
+          type: string
+        width:
+          type: number
+          description: 幅（mm）
+        height:
+          type: number
+          description: 高さ（mm）
+        depth:
+          type: number
+          description: 奥行き（mm）
+        category:
+          type: string
+        imageUrl:
+          type: string
+        salesRank:
+          type: integer
+          minimum: 1
+          maximum: 100
+          description: 売上ランク（1が最高）
+        sales:
+          type: number
+        grossProfit:
+          type: number
+        traffic:
+          type: number
+        quantity:
+          type: number
+        spendPerCustomer:
+          type: number
+        divisionCode:
+          type: string
+        divisionName:
+          type: string
+        divisionSubCode:
+          type: string
+        divisionSubName:
+          type: string
+        lineCode:
+          type: string
+        lineName:
+          type: string
+        departmentCode:
+          type: string
+        departmentName:
+          type: string
+        categoryCode:
+          type: string
+        categoryName:
+          type: string
+        subCategoryCode:
+          type: string
+        subCategoryName:
+          type: string
+        segmentCode:
+          type: string
+        segmentName:
+          type: string
+        subSegmentCode:
+          type: string
+        subSegmentName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProductInput:
+      type: object
+      required: [name, width, height, depth, category, salesRank]
+      properties:
+        jan:
+          type: string
+        name:
+          type: string
+        width:
+          type: number
+        height:
+          type: number
+        depth:
+          type: number
+        category:
+          type: string
+        imageUrl:
+          type: string
+        salesRank:
+          type: integer
+          minimum: 1
+          maximum: 100
+        sales:
+          type: number
+        grossProfit:
+          type: number
+        traffic:
+          type: number
+        quantity:
+          type: number
+        spendPerCustomer:
+          type: number
+        divisionCode:
+          type: string
+        divisionName:
+          type: string
+        divisionSubCode:
+          type: string
+        divisionSubName:
+          type: string
+        lineCode:
+          type: string
+        lineName:
+          type: string
+        departmentCode:
+          type: string
+        departmentName:
+          type: string
+        categoryCode:
+          type: string
+        categoryName:
+          type: string
+        subCategoryCode:
+          type: string
+        subCategoryName:
+          type: string
+        segmentCode:
+          type: string
+        segmentName:
+          type: string
+        subSegmentCode:
+          type: string
+        subSegmentName:
+          type: string
+
+    # ============================
+    # Store Schemas
+    # ============================
+    Store:
+      type: object
+      required: [id, code, name, fmt, region]
+      properties:
+        id:
+          type: string
+          format: uuid
+        code:
+          type: string
+          description: 店舗コード（FMTプレフィックス＋4桁番号、自動採番）
+        name:
+          type: string
+        fmt:
+          $ref: '#/components/schemas/FMT'
+        region:
+          $ref: '#/components/schemas/Region'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    StoreInput:
+      type: object
+      required: [name, fmt, region]
+      properties:
+        name:
+          type: string
+        fmt:
+          $ref: '#/components/schemas/FMT'
+        region:
+          $ref: '#/components/schemas/Region'
+
+    # ============================
+    # Fixture Schemas
+    # ============================
+    Fixture:
+      type: object
+      required: [id, name, width, height, depth, shelfCount, fixtureType]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        width:
+          type: number
+          description: 幅（mm）
+        height:
+          type: number
+          description: 高さ（mm）
+        depth:
+          type: number
+          description: 奥行き（mm）
+        shelfCount:
+          type: integer
+        fixtureType:
+          $ref: '#/components/schemas/FixtureType'
+        manufacturer:
+          type: string
+        modelNumber:
+          type: string
+        installDate:
+          type: string
+          format: date
+        warrantyEndDate:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+
+    FixtureInput:
+      type: object
+      required: [name, width, height, depth, shelfCount, fixtureType]
+      properties:
+        name:
+          type: string
+        width:
+          type: number
+        height:
+          type: number
+        depth:
+          type: number
+        shelfCount:
+          type: integer
+        fixtureType:
+          $ref: '#/components/schemas/FixtureType'
+        manufacturer:
+          type: string
+        modelNumber:
+          type: string
+        installDate:
+          type: string
+          format: date
+        warrantyEndDate:
+          type: string
+          format: date
+
+    # ============================
+    # Product Hierarchy Schemas
+    # ============================
+    ProductHierarchy:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        divisionCode:
+          type: string
+        divisionName:
+          type: string
+        divisionSubCode:
+          type: string
+        divisionSubName:
+          type: string
+        lineCode:
+          type: string
+        lineName:
+          type: string
+        departmentCode:
+          type: string
+        departmentName:
+          type: string
+        categoryCode:
+          type: string
+        categoryName:
+          type: string
+        subCategoryCode:
+          type: string
+        subCategoryName:
+          type: string
+        segmentCode:
+          type: string
+        segmentName:
+          type: string
+        subSegmentCode:
+          type: string
+        subSegmentName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ProductHierarchyInput:
+      type: object
+      properties:
+        divisionCode:
+          type: string
+        divisionName:
+          type: string
+        divisionSubCode:
+          type: string
+        divisionSubName:
+          type: string
+        lineCode:
+          type: string
+        lineName:
+          type: string
+        departmentCode:
+          type: string
+        departmentName:
+          type: string
+        categoryCode:
+          type: string
+        categoryName:
+          type: string
+        subCategoryCode:
+          type: string
+        subCategoryName:
+          type: string
+        segmentCode:
+          type: string
+        segmentName:
+          type: string
+        subSegmentCode:
+          type: string
+        subSegmentName:
+          type: string
+
+    # ============================
+    # Store Fixture Placement Schemas
+    # ============================
+    StoreFixturePlacement:
+      type: object
+      required: [id, storeId, fixtureId, positionX, positionY, order]
+      properties:
+        id:
+          type: string
+          format: uuid
+        storeId:
+          type: string
+          format: uuid
+        fixtureId:
+          type: string
+          format: uuid
+        positionX:
+          type: number
+          description: X座標（mm）
+        positionY:
+          type: number
+          description: Y座標（mm）
+        order:
+          type: integer
+          description: 配置順序
+        direction:
+          type: integer
+          enum: [0, 90, 180, 270]
+          description: 回転角度
+        zone:
+          $ref: '#/components/schemas/ZoneType'
+        label:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    StoreFixturePlacementInput:
+      type: object
+      required: [storeId, fixtureId, positionX, positionY, order]
+      properties:
+        storeId:
+          type: string
+          format: uuid
+        fixtureId:
+          type: string
+          format: uuid
+        positionX:
+          type: number
+        positionY:
+          type: number
+        order:
+          type: integer
+        direction:
+          type: integer
+          enum: [0, 90, 180, 270]
+        zone:
+          $ref: '#/components/schemas/ZoneType'
+        label:
+          type: string
+
+    # ============================
+    # Shelf Block Schemas
+    # ============================
+    ShelfBlock:
+      type: object
+      required: [id, name, width, height, shelfCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        blockType:
+          type: string
+          enum: [multi-tier, flat]
+        width:
+          type: number
+          description: 幅（mm）
+        height:
+          type: number
+          description: 高さ（mm）
+        shelfCount:
+          type: integer
+        productPlacements:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductPlacement'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ShelfBlockInput:
+      type: object
+      required: [name, width, height, shelfCount]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        blockType:
+          type: string
+          enum: [multi-tier, flat]
+        width:
+          type: number
+        height:
+          type: number
+        shelfCount:
+          type: integer
+        productPlacements:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProductPlacementInput'
+
+    ProductPlacement:
+      type: object
+      required: [id, productId, shelfIndex, positionX, faceCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        shelfIndex:
+          type: integer
+          description: 段インデックス（0始まり）
+        positionX:
+          type: number
+          description: 段内X座標（mm）
+        faceCount:
+          type: integer
+          minimum: 1
+          description: フェイス数
+
+    ProductPlacementInput:
+      type: object
+      required: [productId, shelfIndex, positionX, faceCount]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        shelfIndex:
+          type: integer
+        positionX:
+          type: number
+        faceCount:
+          type: integer
+          minimum: 1
+
+    # ============================
+    # Standard Planogram Schemas
+    # ============================
+    StandardPlanogram:
+      type: object
+      required: [id, name, fmt, baseStoreId, width, height, shelfCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        fmt:
+          $ref: '#/components/schemas/FMT'
+        baseStoreId:
+          type: string
+          format: uuid
+        fixtureType:
+          $ref: '#/components/schemas/FixtureType'
+        width:
+          type: number
+          description: 幅（mm）
+        height:
+          type: number
+          description: 高さ（mm）
+        shelfCount:
+          type: integer
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        description:
+          type: string
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/StandardPlanogramBlock'
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/StandardPlanogramProduct'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    StandardPlanogramInput:
+      type: object
+      required: [name, fmt, baseStoreId, width, height, shelfCount]
+      properties:
+        name:
+          type: string
+        fmt:
+          $ref: '#/components/schemas/FMT'
+        baseStoreId:
+          type: string
+          format: uuid
+        fixtureType:
+          $ref: '#/components/schemas/FixtureType'
+        width:
+          type: number
+        height:
+          type: number
+        shelfCount:
+          type: integer
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        description:
+          type: string
+
+    StandardPlanogramBlock:
+      type: object
+      required: [id, standardPlanogramId, blockId, positionX, positionY]
+      properties:
+        id:
+          type: string
+          format: uuid
+        standardPlanogramId:
+          type: string
+          format: uuid
+        blockId:
+          type: string
+          format: uuid
+        positionX:
+          type: number
+        positionY:
+          type: number
+
+    StandardPlanogramProduct:
+      type: object
+      required: [id, standardPlanogramId, productId, shelfIndex, positionX, faceCount]
+      properties:
+        id:
+          type: string
+          format: uuid
+        standardPlanogramId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        shelfIndex:
+          type: integer
+        positionX:
+          type: number
+        faceCount:
+          type: integer
+          minimum: 1
+
+    # ============================
+    # Store Planogram Schemas
+    # ============================
+    StorePlanogram:
+      type: object
+      required: [id, storeId, standardPlanogramId, width, height, shelfCount, status, warnings]
+      properties:
+        id:
+          type: string
+          format: uuid
+        storeId:
+          type: string
+          format: uuid
+        standardPlanogramId:
+          type: string
+          format: uuid
+        width:
+          type: number
+          description: 幅（mm）
+        height:
+          type: number
+          description: 高さ（mm）
+        shelfCount:
+          type: integer
+        status:
+          $ref: '#/components/schemas/PlanogramStatus'
+        warnings:
+          type: array
+          items:
+            type: string
+        syncedAt:
+          type: string
+          format: date-time
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorePlanogramProduct'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    StorePlanogramInput:
+      type: object
+      properties:
+        width:
+          type: number
+        height:
+          type: number
+        shelfCount:
+          type: integer
+        status:
+          $ref: '#/components/schemas/PlanogramStatus'
+        warnings:
+          type: array
+          items:
+            type: string
+        products:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorePlanogramProductInput'
+
+    StorePlanogramProduct:
+      type: object
+      required: [id, storePlanogramId, productId, shelfIndex, positionX, faceCount, isAutoGenerated, isCut]
+      properties:
+        id:
+          type: string
+          format: uuid
+        storePlanogramId:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        shelfIndex:
+          type: integer
+        positionX:
+          type: number
+        faceCount:
+          type: integer
+          minimum: 1
+        isAutoGenerated:
+          type: boolean
+          description: ルールA/B自動適用フラグ
+        isCut:
+          type: boolean
+          description: ルールAカットフラグ
+
+    StorePlanogramProductInput:
+      type: object
+      required: [productId, shelfIndex, positionX, faceCount]
+      properties:
+        productId:
+          type: string
+          format: uuid
+        shelfIndex:
+          type: integer
+        positionX:
+          type: number
+        faceCount:
+          type: integer
+          minimum: 1
+        isAutoGenerated:
+          type: boolean
+        isCut:
+          type: boolean
+
+    # ============================
+    # Enum Schemas
+    # ============================
+    FMT:
+      type: string
+      enum: [MEGA, SuC, SMART, GO, FC]
+      description: 店舗フォーマットタイプ
+
+    Region:
+      type: string
+      enum: [北海道, 東北, 関東, 中部, 近畿, 中国・四国, 九州, 全地域]
+      description: 地域
+
+    FixtureType:
+      type: string
+      enum: [multi-tier, flat-refrigerated, flat-frozen, end-cap-refrigerated, end-cap-frozen, gondola]
+      description: 什器タイプ
+
+    ZoneType:
+      type: string
+      enum: [多段, 平台冷蔵, 平台冷蔵エンド, 平台冷凍, 平台冷凍エンド]
+      description: ゾーンタイプ
+
+    PlanogramStatus:
+      type: string
+      enum: [pending, generated, warning, error, synced]
+      description: 個店棚割ステータス

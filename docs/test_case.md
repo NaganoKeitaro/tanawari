@@ -1,0 +1,293 @@
+# Test Case
+
+## Test Case List
+| test_case_id | related_usecase | description |
+|-------------|----------------|-------------|
+| TC-001 | UC-001 | 商品登録：必須項目のみで正常登録 |
+| TC-002 | UC-001 | 商品登録：全項目入力で正常登録 |
+| TC-003 | UC-001 | 商品登録：商品名未入力でエラー |
+| TC-004 | UC-001 | 商品登録：寸法に0以下を入力でエラー |
+| TC-005 | UC-001 | 商品登録：売上ランク範囲外でエラー |
+| TC-006 | UC-002 | 商品更新：名前変更で正常更新 |
+| TC-007 | UC-003 | 商品削除：正常削除 |
+| TC-008 | UC-004 | インポート：正常なExcelファイルで一括取込 |
+| TC-009 | UC-004 | インポート：重複JANスキップ |
+| TC-010 | UC-004 | インポート：重複JAN上書き |
+| TC-011 | UC-004 | インポート：不正なファイル形式でエラー |
+| TC-012 | UC-004 | インポート：必須カラム欠損でエラー |
+| TC-013 | UC-005 | エクスポート：CSV出力正常 |
+| TC-014 | UC-007 | 店舗登録：正常登録（コード自動採番） |
+| TC-015 | UC-008 | 什器登録：正常登録 |
+| TC-016 | UC-008 | 什器登録：段数0でエラー |
+| TC-017 | UC-009 | 階層管理：ノード追加正常 |
+| TC-018 | UC-011 | ブロック作成：正常作成 |
+| TC-019 | UC-012 | ブロック商品配置：ドラッグ&ドロップで正常配置 |
+| TC-020 | UC-012 | ブロック商品配置：shelfIndex範囲外でエラー |
+| TC-021 | UC-013 | 標準棚割作成：正常作成 |
+| TC-022 | UC-013 | 標準棚割作成：ブロック配置→商品展開 |
+| TC-023 | UC-014 | 標準棚割複製：正常複製 |
+| TC-024 | UC-015 | 一括生成：什器幅=標準幅（そのまま配置） |
+| TC-025 | UC-015 | 一括生成：什器幅<標準幅（ルールA適用） |
+| TC-026 | UC-015 | 一括生成：什器幅>標準幅（ルールB適用） |
+| TC-027 | UC-015 | 一括生成：什器データ未設定（エラー） |
+| TC-028 | UC-015 | 一括生成：進捗バー正常更新 |
+| TC-029 | UC-016 | 手動調整：商品追加正常 |
+| TC-030 | UC-016 | 手動調整：フェイス数増加正常 |
+| TC-031 | UC-016 | 手動調整：棚幅オーバーフロー検知 |
+| TC-032 | UC-016 | 手動調整：同一商品統合（ルールD） |
+| TC-033 | UC-017 | 同期：正常同期 |
+| TC-034 | UC-017 | 同期：標準棚割削除済みでエラー |
+| TC-035 | UC-018 | 什器配置：正常配置 |
+| TC-036 | UC-018 | 什器配置：AABB衝突検知 |
+| TC-037 | UC-018 | 什器配置：回転正常 |
+| TC-038 | UC-019 | KPIダッシュボード：全店スコープ表示 |
+| TC-039 | UC-019 | KPIダッシュボード：個店スコープ表示 |
+| TC-040 | UC-020 | ヒートマップ：JAN レベル表示 |
+| TC-041 | UC-020 | ヒートマップ：階層レベル表示 |
+| TC-042 | UC-021 | 指示書出力：正常生成 |
+| TC-043 | UC-015 | ルールA：フェイス数削減→商品削除の順序 |
+| TC-044 | UC-015 | ルールB：第1パス超過時リバート |
+| TC-045 | UC-015 | ルールB：第2パス超過時リバート |
+
+## Test Case Detail
+
+### TC-001
+- pre_condition: 商品マスタ画面が表示されている
+- input:
+  - name: "テスト商品A"
+  - width: 100
+  - height: 200
+  - depth: 50
+  - category: "飲料"
+  - salesRank: 10
+- expected_output:
+  - 商品が正常に登録される
+  - 商品一覧にテスト商品Aが表示される
+  - id（UUID）が自動生成される
+- related_validation_rule: VR-001, VR-002, VR-003, VR-004, VR-005
+
+### TC-002
+- pre_condition: 商品マスタ画面が表示されている
+- input:
+  - jan: "4901234567890"
+  - name: "テスト商品B"
+  - width: 80
+  - height: 150
+  - depth: 40
+  - category: "菓子"
+  - salesRank: 5
+  - imageUrl: "https://example.com/image.jpg"
+  - sales: 100000
+  - grossProfit: 30000
+  - traffic: 500
+  - spendPerCustomer: 200
+  - divisionCode: "01"
+  - divisionName: "食品事業部"
+- expected_output:
+  - 全項目が正しく登録される
+  - 8階層の分類データが保存される
+- related_validation_rule: VR-001 - VR-006
+
+### TC-003
+- pre_condition: 商品マスタ画面が表示されている
+- input:
+  - name: ""（空文字）
+  - width: 100
+  - height: 200
+  - depth: 50
+  - category: "飲料"
+  - salesRank: 10
+- expected_output:
+  - バリデーションエラーが表示される
+  - 「商品名は必須です」メッセージが表示される
+  - 商品は登録されない
+- related_validation_rule: VR-001
+
+### TC-004
+- pre_condition: 商品マスタ画面が表示されている
+- input:
+  - name: "テスト商品"
+  - width: -10
+  - height: 0
+  - depth: 50
+  - category: "飲料"
+  - salesRank: 10
+- expected_output:
+  - バリデーションエラーが表示される
+  - 幅・高さの不正値が指摘される
+- related_validation_rule: VR-002, VR-003
+
+### TC-005
+- pre_condition: 商品マスタ画面が表示されている
+- input:
+  - name: "テスト商品"
+  - width: 100
+  - height: 200
+  - depth: 50
+  - category: "飲料"
+  - salesRank: 101
+- expected_output:
+  - バリデーションエラーが表示される
+  - 「売上ランクは1-100の範囲で入力してください」メッセージ
+- related_validation_rule: VR-005
+
+### TC-008
+- pre_condition: 商品マスタ画面が表示されている、正常なExcelファイルが準備済み
+- input:
+  - ファイル: 5件の商品を含むXLSXファイル
+  - 重複処理: スキップ
+- expected_output:
+  - プレビューに5件が表示される
+  - 5件すべてが正常にインポートされる
+  - 売上ランクが自動計算される
+  - インポート結果：成功5件、スキップ0件
+- related_validation_rule: VR-034, VR-035, VR-036
+
+### TC-009
+- pre_condition: JAN=4901234567890の商品が登録済み
+- input:
+  - ファイル: JAN=4901234567890を含む3件のXLSXファイル
+  - 重複処理: スキップ
+- expected_output:
+  - 2件が新規登録、1件がスキップされる
+  - インポート結果：成功2件、スキップ1件
+- related_validation_rule: VR-006
+
+### TC-010
+- pre_condition: JAN=4901234567890の商品が登録済み
+- input:
+  - ファイル: JAN=4901234567890を含む3件のXLSXファイル
+  - 重複処理: 上書き
+- expected_output:
+  - 3件すべてが正常にインポートされる
+  - 既存商品の情報が上書き更新される
+- related_validation_rule: VR-006
+
+### TC-014
+- pre_condition: 店舗マスタ画面が表示されている
+- input:
+  - name: "テスト店舗"
+  - fmt: "MEGA"
+  - region: "九州"
+- expected_output:
+  - 店舗が正常に登録される
+  - 店舗コードが"MEGA0001"形式で自動採番される
+- related_validation_rule: VR-007, VR-008, VR-009, VR-010
+
+### TC-024
+- pre_condition: 標準棚割（幅=1200mm）が作成済み、什器幅=1200mmの店舗が存在
+- input:
+  - standardPlanogramId: 作成済み標準棚割のID
+  - storeIds: [什器幅1200mmの店舗ID]
+- expected_output:
+  - ステータス: generated
+  - 商品配置が標準棚割と同一
+  - warnings: []
+- related_validation_rule: VR-037
+
+### TC-025
+- pre_condition: 標準棚割（幅=1200mm、商品10件配置済み）が作成済み、什器幅=800mmの店舗が存在
+- input:
+  - standardPlanogramId: 作成済み標準棚割のID
+  - storeIds: [什器幅800mmの店舗ID]
+- expected_output:
+  - ステータス: warning
+  - 各段の商品幅合計 ≤ 800mm
+  - 売上ランクの低い商品がカットされている
+  - isCut=true, isAutoGenerated=trueが設定されている
+  - warningsにカット対象商品名が含まれる
+- related_validation_rule: VR-031, VR-037
+
+### TC-026
+- pre_condition: 標準棚割（幅=900mm、商品15件配置済み）が作成済み、什器幅=1500mmの店舗が存在
+- input:
+  - standardPlanogramId: 作成済み標準棚割のID
+  - storeIds: [什器幅1500mmの店舗ID]
+- expected_output:
+  - ステータス: generated
+  - 上位10商品のフェイス数が2倍
+  - 11位以降のフェイス数が1.5倍
+  - 各段の商品幅合計 ≤ 1500mm
+  - isAutoGenerated=trueが設定されている
+- related_validation_rule: VR-031, VR-037
+
+### TC-027
+- pre_condition: 標準棚割が作成済み、什器配置が未設定の店舗が存在
+- input:
+  - standardPlanogramId: 作成済み標準棚割のID
+  - storeIds: [什器未設定の店舗ID]
+- expected_output:
+  - ステータス: error
+  - warnings: ["什器データが設定されていません"]
+- related_validation_rule: VR-037
+
+### TC-031
+- pre_condition: 個店棚割（幅=1200mm）が生成済み、段1の残りスペースが50mm
+- input:
+  - 幅100mmの商品のフェイス数を+1（100mm追加が必要）
+- expected_output:
+  - アラート表示：「フェイス数を増加できません。残りスペース: 50mm」
+  - フェイス数は増加しない
+- related_validation_rule: VR-031, VR-038
+
+### TC-032
+- pre_condition: 個店棚割が生成済み、段1に商品A（フェイス数=2）が配置済み
+- input:
+  - 同じ商品Aを段1の商品Aの位置にドロップ（フェイス数=1）
+- expected_output:
+  - 商品Aのフェイス数が3に統合される（2+1）
+  - 新しい配置エントリは作成されない
+- related_validation_rule: -
+
+### TC-033
+- pre_condition: 個店棚割が生成済み（ステータス=generated）、標準棚割が更新済み
+- input:
+  - 「同期」ボタン押下
+- expected_output:
+  - ステータス: synced
+  - syncedAt: 現在日時
+  - 商品配置が最新の標準棚割で再生成される
+  - ルールA/Bが再適用される
+- related_validation_rule: -
+
+### TC-036
+- pre_condition: 什器A（幅1200mm、奥行600mm）がposition(0,0)に配置済み
+- input:
+  - 什器B（幅1200mm、奥行600mm）をposition(1000,0)に配置
+- expected_output:
+  - AABB衝突が検知される
+  - 「什器が重なっています」アラートが表示される
+  - 什器Bは配置されない
+- related_validation_rule: VR-032
+
+### TC-043
+- pre_condition: 標準棚割に段あたり5商品（全フェイス数=2、幅=100mm、合計=1000mm）配置済み
+- input:
+  - 什器幅=600mmの店舗で生成
+- expected_output:
+  - 売上ランクの低い順にフェイス数が2→1に削減される
+  - それでも収まらない場合は商品が完全削除される
+  - 削減→削除の順序が守られる
+  - 最終的に各段の合計幅 ≤ 600mm
+- related_validation_rule: VR-031
+
+### TC-044
+- pre_condition: 標準棚割（幅=600mm）に商品12件（各幅=50mm、フェイス=1、合計=600mm）配置済み
+- input:
+  - 什器幅=700mmの店舗で生成
+  - 上位10商品の2倍で合計=50*2*10 + 50*2=1100mm（超過）
+- expected_output:
+  - 第1パスの2倍拡張が超過のためリバートされる
+  - 元のフェイス数が維持される
+- related_validation_rule: -
+
+### TC-045
+- pre_condition: 標準棚割（幅=600mm）に商品12件配置済み
+- input:
+  - 什器幅=1100mmの店舗で生成
+  - 第1パス（上位10商品2倍）は収まるが、第2パス（11位以降1.5倍）で超過
+- expected_output:
+  - 第1パスの2倍拡張が適用される
+  - 第2パスの1.5倍拡張が超過のためリバートされる
+  - 11位以降の商品は元のフェイス数が維持される
+- related_validation_rule: -
