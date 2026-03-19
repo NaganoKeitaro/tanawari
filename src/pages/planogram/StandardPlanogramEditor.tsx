@@ -230,7 +230,7 @@ function DraggablePlacedBlock({
                 opacity: isDragging ? 0.3 : 1,
                 cursor: isDragging ? 'grabbing' : 'grab',
                 transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-                transition: !isDragging && previewX !== undefined ? 'left 0.15s ease' : undefined,
+                transition: !isDragging ? 'left 0.15s ease, top 0.15s ease' : undefined,
             }}
             title={`${master.name}\n${shakuLabel}尺 / ${master.shelfCount}段 / ${master.productPlacements.length}商品`}
         >
@@ -968,7 +968,7 @@ export function StandardPlanogramEditor() {
     };
 
     // 矢印ボタンによるブロック入れ替え
-    const handleSwapBlock = async (blockId: string, direction: SwapDirection) => {
+    const handleSwapBlock = (blockId: string, direction: SwapDirection) => {
         if (!currentPlanogram) return;
         const actualWidth = getActualWidth();
         const productIdSet = new Set(products.map(p => p.id));
@@ -1021,9 +1021,10 @@ export function StandardPlanogramEditor() {
             updatedAt: new Date().toISOString()
         };
 
-        await standardPlanogramRepository.update(currentPlanogram.id, updatedPlanogram);
+        // UI即時更新 → DB保存はバックグラウンド
         setCurrentPlanogram(updatedPlanogram);
         setPlanograms(planograms.map(p => p.id === currentPlanogram.id ? updatedPlanogram : p));
+        standardPlanogramRepository.update(currentPlanogram.id, updatedPlanogram);
     };
 
     const handleDeleteBlock = async (planogramBlockId: string) => {
