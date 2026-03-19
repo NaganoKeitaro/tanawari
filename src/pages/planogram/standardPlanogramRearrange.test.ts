@@ -698,7 +698,6 @@ describe('統合テスト: ブロック再配置シナリオ', () => {
                 master('A', 300, 3),
                 master('B', 600, 3),
             ];
-            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 300, 0)];
             // A(300) + B(600) = 900 → ちょうど収まる
             const result = packBlocksLeftAligned(
                 [pb('1', 'A', 0, 0), pb('2', 'B', 0, 0)],

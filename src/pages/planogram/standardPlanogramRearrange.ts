@@ -1,11 +1,8 @@
 // 標準棚割 棚ブロック再配置ロジック（純粋関数として抽出）
 import type {
-    ShelfBlock,
-    StandardPlanogram,
     StandardPlanogramBlock,
     StandardPlanogramProduct,
-    ProductPlacement,
-    Product
+    ProductPlacement
 } from '../../data/types';
 
 /** ブロックマスタ参照用の最小型 */
