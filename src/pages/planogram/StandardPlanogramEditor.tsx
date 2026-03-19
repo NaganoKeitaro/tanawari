@@ -755,6 +755,38 @@ export function StandardPlanogramEditor() {
         }
     };
 
+    // Y位置を調整して空きスペースを探すヘルパー
+    // 初期Yでスペースが見つからない場合、近傍のY位置を試行して縦配置を実現する
+    const findBestPlacement = (
+        planogram: StandardPlanogram,
+        blockWidth: number,
+        blockShelfCount: number,
+        initialPosY: number,
+        excludeBlockId?: string
+    ): { posY: number; insertX: number } | null => {
+        const maxPosY = Math.max(0, planogram.shelfCount - blockShelfCount);
+
+        // まず初期Yで試行
+        const initialX = findInsertX(planogram, blockWidth, initialPosY, initialPosY + blockShelfCount, excludeBlockId);
+        if (initialX !== -1) {
+            return { posY: initialPosY, insertX: initialX };
+        }
+
+        // 初期Yで配置不可の場合、近傍のY位置を探索（縦配置の実現）
+        for (let delta = 1; delta <= maxPosY; delta++) {
+            const candidates = [initialPosY - delta, initialPosY + delta];
+            for (const tryY of candidates) {
+                if (tryY < 0 || tryY > maxPosY) continue;
+                const x = findInsertX(planogram, blockWidth, tryY, tryY + blockShelfCount, excludeBlockId);
+                if (x !== -1) {
+                    return { posY: tryY, insertX: x };
+                }
+            }
+        }
+
+        return null;
+    };
+
     // ブロックの商品展開ヘルパー
     const expandBlockProducts = (
         block: ShelfBlock,
@@ -793,67 +825,89 @@ export function StandardPlanogramEditor() {
             const planogramBlock = active.data.current?.planogramBlock as StandardPlanogramBlock;
             const masterBlock = active.data.current?.masterBlock as ShelfBlock;
 
-            const newPosY = calculatePosY(event, currentPlanogram, masterBlock.shelfCount);
+            const initialPosY = calculatePosY(event, currentPlanogram, masterBlock.shelfCount);
+            const maxPosY = Math.max(0, currentPlanogram.shelfCount - masterBlock.shelfCount);
 
             // ドロップ位置のX座標（mm）を計算
             const targetXmm = planogramBlock.positionX + event.delta.x / SCALE;
 
-            // 移動元以外のブロックをpositionX順にソート
-            const remainingBlocks = currentPlanogram.blocks
-                .filter(b => b.id !== planogramBlock.id)
-                .sort((a, b) => a.positionX - b.positionX);
-
-            // ドロップX位置を基に挿入インデックスを決定
-            let insertIdx = remainingBlocks.length;
-            for (let i = 0; i < remainingBlocks.length; i++) {
-                const rb = remainingBlocks[i];
-                const rbMaster = blocks.find(b => b.id === rb.blockId);
-                if (!rbMaster) continue;
-                const rbCenter = rb.positionX + rbMaster.width / 2;
-                if (targetXmm < rbCenter) {
-                    insertIdx = i;
-                    break;
-                }
-            }
-
-            // 新しい並び順でブロックリストを構築
-            const movedBlock = { ...planogramBlock, positionY: newPosY };
-            const orderedBlocks = [
-                ...remainingBlocks.slice(0, insertIdx),
-                movedBlock,
-                ...remainingBlocks.slice(insertIdx)
-            ];
-
-            // 左詰めで再配置（Y範囲の重なりを考慮）
             const { totalShaku } = generateFixtureCompositionText();
             const actualWidth = totalShaku > 0 ? totalShaku * 300 : currentPlanogram.width;
-            const packedBlocks: StandardPlanogramBlock[] = [];
-            let overflow = false;
 
-            for (const ob of orderedBlocks) {
-                const obMaster = blocks.find(b => b.id === ob.blockId);
-                if (!obMaster) { packedBlocks.push(ob); continue; }
+            // Y位置候補を試行するパッキング関数
+            const tryPackWithPosY = (newPosY: number): StandardPlanogramBlock[] | null => {
+                // 移動元以外のブロックをpositionX順にソート
+                const remainingBlocks = currentPlanogram.blocks
+                    .filter(b => b.id !== planogramBlock.id)
+                    .sort((a, b) => a.positionX - b.positionX);
 
-                const obShelfEnd = ob.positionY + obMaster.shelfCount;
-
-                // Y範囲が重なる既配置ブロックの最大右端を算出
-                let leftmostX = 0;
-                for (const placed of packedBlocks) {
-                    const pMaster = blocks.find(b => b.id === placed.blockId);
-                    if (!pMaster) continue;
-                    const pEnd = placed.positionY + pMaster.shelfCount;
-                    if (placed.positionY < obShelfEnd && pEnd > ob.positionY) {
-                        leftmostX = Math.max(leftmostX, placed.positionX + pMaster.width);
+                // ドロップX位置を基に挿入インデックスを決定
+                let insertIdx = remainingBlocks.length;
+                for (let i = 0; i < remainingBlocks.length; i++) {
+                    const rb = remainingBlocks[i];
+                    const rbMaster = blocks.find(b => b.id === rb.blockId);
+                    if (!rbMaster) continue;
+                    const rbCenter = rb.positionX + rbMaster.width / 2;
+                    if (targetXmm < rbCenter) {
+                        insertIdx = i;
+                        break;
                     }
                 }
 
-                if (leftmostX + obMaster.width > actualWidth + 0.1) {
-                    overflow = true;
+                // 新しい並び順でブロックリストを構築
+                const movedBlock = { ...planogramBlock, positionY: newPosY };
+                const orderedBlocks = [
+                    ...remainingBlocks.slice(0, insertIdx),
+                    movedBlock,
+                    ...remainingBlocks.slice(insertIdx)
+                ];
+
+                // 左詰めで再配置（Y範囲の重なりを考慮）
+                const packedBlocks: StandardPlanogramBlock[] = [];
+                let overflow = false;
+
+                for (const ob of orderedBlocks) {
+                    const obMaster = blocks.find(b => b.id === ob.blockId);
+                    if (!obMaster) { packedBlocks.push(ob); continue; }
+
+                    const obShelfEnd = ob.positionY + obMaster.shelfCount;
+
+                    // Y範囲が重なる既配置ブロックの最大右端を算出
+                    let leftmostX = 0;
+                    for (const placed of packedBlocks) {
+                        const pMaster = blocks.find(b => b.id === placed.blockId);
+                        if (!pMaster) continue;
+                        const pEnd = placed.positionY + pMaster.shelfCount;
+                        if (placed.positionY < obShelfEnd && pEnd > ob.positionY) {
+                            leftmostX = Math.max(leftmostX, placed.positionX + pMaster.width);
+                        }
+                    }
+
+                    if (leftmostX + obMaster.width > actualWidth + 0.1) {
+                        overflow = true;
+                        break;
+                    }
+                    packedBlocks.push({ ...ob, positionX: leftmostX });
                 }
-                packedBlocks.push({ ...ob, positionX: leftmostX });
+
+                return overflow ? null : packedBlocks;
+            };
+
+            // 初期Yで試行し、失敗時は近傍Y位置を自動探索（縦配置対応）
+            let packedBlocks = tryPackWithPosY(initialPosY);
+            if (!packedBlocks) {
+                for (let delta = 1; delta <= maxPosY; delta++) {
+                    const candidates = [initialPosY - delta, initialPosY + delta];
+                    for (const tryY of candidates) {
+                        if (tryY < 0 || tryY > maxPosY) continue;
+                        packedBlocks = tryPackWithPosY(tryY);
+                        if (packedBlocks) break;
+                    }
+                    if (packedBlocks) break;
+                }
             }
 
-            if (overflow) {
+            if (!packedBlocks) {
                 alert('移動先にスペースがありません。');
                 return;
             }
@@ -865,12 +919,16 @@ export function StandardPlanogramEditor() {
                 if (!m) continue;
                 const startX = pb.positionX;
                 const endX = startX + m.width;
+                const startY = pb.positionY;
+                const endY = startY + m.shelfCount;
                 const margin = 0.1;
                 for (const p of currentPlanogram.products) {
                     const prod = products.find(pr => pr.id === p.productId);
                     if (!prod) continue;
                     const pCenter = p.positionX + (prod.width * p.faceCount / 2);
-                    if (pCenter >= startX - margin && pCenter <= endX + margin) {
+                    // X範囲とY（段）の両方で判定
+                    if (pCenter >= startX - margin && pCenter <= endX + margin &&
+                        p.shelfIndex >= startY && p.shelfIndex < endY) {
                         allOldProducts.add(p.id);
                     }
                 }
@@ -901,22 +959,29 @@ export function StandardPlanogramEditor() {
             const block = active.data.current?.block as ShelfBlock | undefined;
             if (!block) return;
 
-            const newPosY = calculatePosY(event, currentPlanogram, block.shelfCount);
-            const newBlockShelfEnd = newPosY + block.shelfCount;
-            const insertX = findInsertX(currentPlanogram, block.width, newPosY, newBlockShelfEnd);
+            const initialPosY = calculatePosY(event, currentPlanogram, block.shelfCount);
 
-            if (insertX === -1) {
+            // 初期Yで配置不可の場合、近傍のY位置を自動探索（縦配置対応）
+            const placement = findBestPlacement(
+                currentPlanogram,
+                block.width,
+                block.shelfCount,
+                initialPosY
+            );
+
+            if (!placement) {
                 alert('スペースが足りません。先に既存のブロックを調整してください。');
                 return;
             }
 
-            const newProducts = expandBlockProducts(block, insertX, newPosY);
+            const { posY, insertX } = placement;
+            const newProducts = expandBlockProducts(block, insertX, posY);
 
             const newBlock: StandardPlanogramBlock = {
                 id: crypto.randomUUID(),
                 blockId: block.id,
                 positionX: insertX,
-                positionY: newPosY
+                positionY: posY
             };
 
             const updatedPlanogram = {
@@ -1252,9 +1317,19 @@ export function StandardPlanogramEditor() {
                                                 const draggedBlock = currentPlanogram.blocks.find(b => b.id === dragPreview.blockId);
                                                 if (!draggedBlock) return null;
 
+                                                // ドラッグ中の棚段ホバーからY位置を反映
+                                                const draggedMaster = blocks.find(b => b.id === draggedBlock.blockId);
+                                                const previewPosY = hoveredShelfRow != null && draggedMaster
+                                                    ? Math.max(0, Math.min(
+                                                        currentPlanogram.shelfCount - hoveredShelfRow - draggedMaster.shelfCount,
+                                                        Math.max(0, currentPlanogram.shelfCount - draggedMaster.shelfCount)
+                                                    ))
+                                                    : draggedBlock.positionY;
+                                                const draggedWithY = { ...draggedBlock, positionY: previewPosY };
+
                                                 const orderedBlocks = [
                                                     ...remaining.slice(0, dragPreview.insertIndex),
-                                                    draggedBlock,
+                                                    draggedWithY,
                                                     ...remaining.slice(dragPreview.insertIndex)
                                                 ];
 
