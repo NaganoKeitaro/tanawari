@@ -1,5 +1,5 @@
 // 棚割管理システム - FMT標準棚割管理
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     DndContext,
     DragOverlay,
@@ -42,8 +42,10 @@ import {
     findBestPlacement as findBestPlacementPure,
     expandBlockProducts as expandBlockProductsPure,
     calcPreviewPositions,
-    calcPosYFromVisualRow
+    calcPosYFromVisualRow,
+    swapBlock
 } from './standardPlanogramRearrange';
+import type { SwapDirection } from './standardPlanogramRearrange';
 
 const SCALE = 0.3; // 1mm = 0.3px
 
@@ -118,7 +120,28 @@ function DroppableShelfRow({ visualIndex, shelfHeight, canvasWidth }: {
     );
 }
 
-// 配置済みブロック（ドラッグ可能）
+// 矢印ボタンのスタイル
+const arrowBtnStyle: React.CSSProperties = {
+    position: 'absolute',
+    background: 'var(--color-primary)',
+    color: 'white',
+    border: 'none',
+    borderRadius: '50%',
+    width: '22px',
+    height: '22px',
+    fontSize: '0.7rem',
+    fontWeight: 700,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
+    padding: 0,
+    lineHeight: 1,
+};
+
+// 配置済みブロック（ドラッグ可能 + クリック選択で矢印移動）
 function DraggablePlacedBlock({
     planogramBlock,
     masterBlock,
@@ -130,7 +153,10 @@ function DraggablePlacedBlock({
     shelfHeight,
     canvasHeight,
     onDeleteBlock,
-    previewX
+    previewX,
+    isSelected,
+    onSelect,
+    onSwap
 }: {
     planogramBlock: StandardPlanogramBlock;
     masterBlock: ShelfBlock;
@@ -143,11 +169,19 @@ function DraggablePlacedBlock({
     canvasHeight: number;
     onDeleteBlock?: (blockId: string) => void;
     previewX?: number;
+    isSelected?: boolean;
+    onSelect?: (blockId: string) => void;
+    onSwap?: (blockId: string, direction: 'left' | 'right' | 'up' | 'down') => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `placed-block-${planogramBlock.id}`,
         data: { planogramBlock, masterBlock, type: 'placed-block' }
     });
+
+    const wasDraggingRef = useRef(false);
+    useEffect(() => {
+        if (isDragging) wasDraggingRef.current = true;
+    }, [isDragging]);
 
     const pb = planogramBlock;
     const master = masterBlock;
@@ -161,11 +195,22 @@ function DraggablePlacedBlock({
         ? calculateHeatmapColor(blockMetricValue, maxBlockMetric)
         : 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))';
 
+    const handleClick = (e: React.MouseEvent) => {
+        // ドラッグ後のクリック誤発火を防止
+        if (wasDraggingRef.current) {
+            wasDraggingRef.current = false;
+            return;
+        }
+        e.stopPropagation();
+        onSelect?.(pb.id);
+    };
+
     return (
         <div
             ref={setNodeRef}
             {...listeners}
             {...attributes}
+            onClick={handleClick}
             style={{
                 position: 'absolute',
                 left: `${(previewX !== undefined ? previewX : pb.positionX) * SCALE}px`,
@@ -173,14 +218,14 @@ function DraggablePlacedBlock({
                 width: `${blockW}px`,
                 height: `${blockH}px`,
                 background: blockColor,
-                border: '2px solid var(--border-color)',
+                border: isSelected ? '2px solid var(--color-primary)' : '2px solid var(--border-color)',
                 borderRadius: 'var(--radius-sm)',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                overflow: 'hidden',
-                zIndex: isDragging ? 100 : 1,
+                overflow: 'visible',
+                zIndex: isDragging ? 100 : isSelected ? 50 : 1,
                 boxSizing: 'border-box',
                 opacity: isDragging ? 0.3 : 1,
                 cursor: isDragging ? 'grabbing' : 'grab',
@@ -189,6 +234,44 @@ function DraggablePlacedBlock({
             }}
             title={`${master.name}\n${shakuLabel}尺 / ${master.shelfCount}段 / ${master.productPlacements.length}商品`}
         >
+            {/* 選択時の矢印ボタン */}
+            {isSelected && onSwap && !isDragging && (
+                <>
+                    {/* ← 左 */}
+                    <button
+                        style={{ ...arrowBtnStyle, left: '-12px', top: '50%', transform: 'translateY(-50%)' }}
+                        onClick={(e) => { e.stopPropagation(); onSwap(pb.id, 'left'); }}
+                        title="左に移動"
+                    >
+                        ←
+                    </button>
+                    {/* → 右 */}
+                    <button
+                        style={{ ...arrowBtnStyle, right: '-12px', top: '50%', transform: 'translateY(-50%)' }}
+                        onClick={(e) => { e.stopPropagation(); onSwap(pb.id, 'right'); }}
+                        title="右に移動"
+                    >
+                        →
+                    </button>
+                    {/* ↑ 上 */}
+                    <button
+                        style={{ ...arrowBtnStyle, top: '-12px', left: '50%', transform: 'translateX(-50%)' }}
+                        onClick={(e) => { e.stopPropagation(); onSwap(pb.id, 'up'); }}
+                        title="上に移動"
+                    >
+                        ↑
+                    </button>
+                    {/* ↓ 下 */}
+                    <button
+                        style={{ ...arrowBtnStyle, bottom: '-12px', left: '50%', transform: 'translateX(-50%)' }}
+                        onClick={(e) => { e.stopPropagation(); onSwap(pb.id, 'down'); }}
+                        title="下に移動"
+                    >
+                        ↓
+                    </button>
+                </>
+            )}
+
             {/* 上部バー：ブロック名 + 削除ボタン */}
             <div style={{
                 position: 'absolute',
@@ -199,7 +282,7 @@ function DraggablePlacedBlock({
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '3px 5px',
-                background: 'rgba(0,0,0,0.18)',
+                background: isSelected ? 'rgba(16,185,129,0.25)' : 'rgba(0,0,0,0.18)',
                 borderBottom: '1px solid var(--border-color)',
                 minHeight: '22px'
             }}>
@@ -266,7 +349,10 @@ function PlanogramCanvas({
     actualWidth,
     hoveredVisualRow,
     activeBlockShelfCount,
-    previewPositions
+    previewPositions,
+    selectedBlockId,
+    onSelectBlock,
+    onSwapBlock
 }: {
     planogram: StandardPlanogram;
     products: Product[];
@@ -278,6 +364,9 @@ function PlanogramCanvas({
     hoveredVisualRow?: number | null;
     activeBlockShelfCount?: number;
     previewPositions?: Record<string, number> | null;
+    selectedBlockId?: string | null;
+    onSelectBlock?: (blockId: string) => void;
+    onSwapBlock?: (blockId: string, direction: SwapDirection) => void;
 }) {
     const { setNodeRef, isOver } = useDroppable({
         id: 'planogram-canvas',
@@ -319,6 +408,7 @@ function PlanogramCanvas({
     return (
         <div
             ref={setNodeRef}
+            onClick={() => { if (selectedBlockId && onSelectBlock) onSelectBlock(selectedBlockId); }}
             style={{
                 background: 'var(--bg-primary)',
                 border: isOver ? '2px solid var(--color-primary)' : '2px solid var(--border-color)',
@@ -451,6 +541,9 @@ function PlanogramCanvas({
                             canvasHeight={canvasHeight}
                             onDeleteBlock={onDeleteBlock}
                             previewX={previewPositions?.[pb.id]}
+                            isSelected={selectedBlockId === pb.id}
+                            onSelect={onSelectBlock}
+                            onSwap={onSwapBlock}
                         />
                     );
                 })}
@@ -495,6 +588,9 @@ export function StandardPlanogramEditor() {
     // 分析モード
     const [analyticsMode, setAnalyticsMode] = useState(false);
     const [selectedMetric, setSelectedMetric] = useState<'sales' | 'grossProfit' | 'quantity' | 'traffic'>('sales');
+
+    // ブロック選択（矢印移動用）
+    const [selectedPlacedBlockId, setSelectedPlacedBlockId] = useState<string | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -644,6 +740,7 @@ export function StandardPlanogramEditor() {
             setActiveBlock(block || null);
         }
         setHoveredShelfRow(null);
+        setSelectedPlacedBlockId(null); // ドラッグ開始時は選択解除
     };
 
     // ドラッグ中（棚段ハイライト更新）
@@ -865,6 +962,70 @@ export function StandardPlanogramEditor() {
     };
 
     // ブロック削除
+    // ブロック選択（矢印移動用）
+    const handleSelectBlock = (blockId: string) => {
+        setSelectedPlacedBlockId(prev => prev === blockId ? null : blockId);
+    };
+
+    // 矢印ボタンによるブロック入れ替え
+    const handleSwapBlock = async (blockId: string, direction: SwapDirection) => {
+        if (!currentPlanogram) return;
+        const actualWidth = getActualWidth();
+        const productIdSet = new Set(products.map(p => p.id));
+
+        const packedBlocks = swapBlock(
+            currentPlanogram.blocks,
+            blockId,
+            direction,
+            blocks,
+            actualWidth,
+            currentPlanogram.shelfCount
+        );
+
+        if (!packedBlocks) return; // 移動不可（端に到達など）
+
+        // 全商品を除去して再展開
+        const allOldProducts = new Set<string>();
+        for (const pb of currentPlanogram.blocks) {
+            const m = blocks.find(b => b.id === pb.blockId);
+            if (!m) continue;
+            const startX = pb.positionX;
+            const endX = startX + m.width;
+            const startY = pb.positionY;
+            const endY = startY + m.shelfCount;
+            const margin = 0.1;
+            for (const p of currentPlanogram.products) {
+                const prod = products.find(pr => pr.id === p.productId);
+                if (!prod) continue;
+                const pCenter = p.positionX + (prod.width * p.faceCount / 2);
+                if (pCenter >= startX - margin && pCenter <= endX + margin &&
+                    p.shelfIndex >= startY && p.shelfIndex < endY) {
+                    allOldProducts.add(p.id);
+                }
+            }
+        }
+        const productsWithoutBlocks = currentPlanogram.products.filter(p => !allOldProducts.has(p.id));
+
+        const newProducts: StandardPlanogramProduct[] = [];
+        for (const pb of packedBlocks) {
+            const m = blocks.find(b => b.id === pb.blockId);
+            if (!m) continue;
+            const expanded = expandBlockProductsPure(m.productPlacements, productIdSet, pb.positionX, pb.positionY);
+            newProducts.push(...expanded.map(ep => ({ ...ep, id: crypto.randomUUID() })));
+        }
+
+        const updatedPlanogram = {
+            ...currentPlanogram,
+            blocks: packedBlocks,
+            products: [...productsWithoutBlocks, ...newProducts],
+            updatedAt: new Date().toISOString()
+        };
+
+        await standardPlanogramRepository.update(currentPlanogram.id, updatedPlanogram);
+        setCurrentPlanogram(updatedPlanogram);
+        setPlanograms(planograms.map(p => p.id === currentPlanogram.id ? updatedPlanogram : p));
+    };
+
     const handleDeleteBlock = async (planogramBlockId: string) => {
         if (!currentPlanogram) return;
         if (!confirm('このブロックを削除してもよろしいですか？')) return;
@@ -1192,6 +1353,9 @@ export function StandardPlanogramEditor() {
                                                     blocks
                                                 );
                                             })()}
+                                            selectedBlockId={selectedPlacedBlockId}
+                                            onSelectBlock={handleSelectBlock}
+                                            onSwapBlock={handleSwapBlock}
                                         />
                                     </div>
                                 </div>
