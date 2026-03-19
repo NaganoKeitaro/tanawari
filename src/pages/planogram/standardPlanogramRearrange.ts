@@ -363,3 +363,78 @@ export function calcPosYFromVisualRow(
     const maxPosY = Math.max(0, planogramShelfCount - blockShelfCount);
     return Math.max(0, Math.min(planogramShelfCount - visualRow - blockShelfCount, maxPosY));
 }
+
+// ---------------------------------------------------------------------------
+// 10. ブロック入れ替え（矢印ボタン用）
+// ---------------------------------------------------------------------------
+
+export type SwapDirection = 'left' | 'right' | 'up' | 'down';
+
+/**
+ * 指定ブロックを隣のブロックと入れ替え、左詰め再配置したブロック配列を返す。
+ * - left/right: 同一Y範囲で重なるブロックのうち左右隣と順序を入れ替え
+ * - up/down: ブロックのpositionYを1段移動
+ * 移動不可の場合は null を返す。
+ */
+export function swapBlock(
+    planogramBlocks: StandardPlanogramBlock[],
+    targetBlockId: string,
+    direction: SwapDirection,
+    blockMasters: BlockMasterMap,
+    actualWidth: number,
+    planogramShelfCount: number
+): StandardPlanogramBlock[] | null {
+    const target = planogramBlocks.find(b => b.id === targetBlockId);
+    if (!target) return null;
+
+    const targetMaster = blockMasters.find(b => b.id === target.blockId);
+    if (!targetMaster) return null;
+
+    if (direction === 'up' || direction === 'down') {
+        // Y位置を1段移動
+        const delta = direction === 'up' ? 1 : -1;
+        const newPosY = target.positionY + delta;
+        const maxPosY = Math.max(0, planogramShelfCount - targetMaster.shelfCount);
+        if (newPosY < 0 || newPosY > maxPosY) return null;
+
+        // Y変更後にパッキング（既存の並び順を維持）
+        const updatedBlocks = planogramBlocks.map(b =>
+            b.id === targetBlockId ? { ...b, positionY: newPosY } : b
+        );
+        // positionX順序を維持してパッキング
+        const sorted = [...updatedBlocks].sort((a, b) => a.positionX - b.positionX);
+        return packBlocksLeftAligned(sorted, blockMasters, actualWidth);
+    }
+
+    // left / right: 同一Y範囲で重なる隣接ブロックと順序を入れ替え
+    const targetYEnd = target.positionY + targetMaster.shelfCount;
+
+    // Y範囲が重なるブロックをpositionX順に取得
+    const overlapping = planogramBlocks
+        .filter(b => {
+            const m = blockMasters.find(bm => bm.id === b.blockId);
+            if (!m) return false;
+            const bEnd = b.positionY + m.shelfCount;
+            return b.positionY < targetYEnd && bEnd > target.positionY;
+        })
+        .sort((a, b) => a.positionX - b.positionX);
+
+    const targetIdx = overlapping.findIndex(b => b.id === targetBlockId);
+    if (targetIdx === -1) return null;
+
+    const swapIdx = direction === 'left' ? targetIdx - 1 : targetIdx + 1;
+    if (swapIdx < 0 || swapIdx >= overlapping.length) return null;
+
+    const swapTarget = overlapping[swapIdx];
+
+    // 全ブロックリストの positionX を入れ替えた値にして、順序を入れ替える
+    // positionX の値自体を入れ替える（後で left-pack するので仮の値でOK）
+    const updatedBlocks = planogramBlocks.map(b => {
+        if (b.id === targetBlockId) return { ...b, positionX: swapTarget.positionX };
+        if (b.id === swapTarget.id) return { ...b, positionX: target.positionX };
+        return b;
+    });
+
+    const sorted = [...updatedBlocks].sort((a, b) => a.positionX - b.positionX);
+    return packBlocksLeftAligned(sorted, blockMasters, actualWidth);
+}

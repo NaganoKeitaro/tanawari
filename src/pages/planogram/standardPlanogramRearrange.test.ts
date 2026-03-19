@@ -11,6 +11,7 @@ import {
     calcPreviewPositions,
     expandBlockProducts,
     calcPosYFromVisualRow,
+    swapBlock,
     type BlockMasterMap
 } from './standardPlanogramRearrange';
 
@@ -817,5 +818,164 @@ describe('棚ブロック管理画面の商品再配置と同じ挙動', () => {
         // actualWidth=800 → 3×300=900 → overflow
         const result = tryPackWithPosY(blocks, '1', 'A', 0, 500, masters, 800);
         expect(result).toBeNull();
+    });
+});
+
+// =========================================================================
+// 12. swapBlock — 矢印ボタンによるブロック入れ替え
+// =========================================================================
+
+describe('swapBlock', () => {
+    const masters: BlockMasterMap = [
+        master('A', 300, 3),
+        master('B', 300, 3),
+        master('C', 300, 3),
+    ];
+
+    describe('左右入れ替え', () => {
+        it('[A][B][C] → 左クリックで B を左に移動 → [B][A][C]', () => {
+            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 300, 0), pb('3', 'C', 600, 0)];
+            const result = swapBlock(blocks, '2', 'left', masters, 900, 5);
+            expect(result).not.toBeNull();
+            expect(result!.map(b => b.id)).toEqual(['2', '1', '3']);
+            expect(result![0].positionX).toBe(0);
+            expect(result![1].positionX).toBe(300);
+            expect(result![2].positionX).toBe(600);
+        });
+
+        it('[A][B][C] → 右クリックで B を右に移動 → [A][C][B]', () => {
+            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 300, 0), pb('3', 'C', 600, 0)];
+            const result = swapBlock(blocks, '2', 'right', masters, 900, 5);
+            expect(result).not.toBeNull();
+            expect(result!.map(b => b.id)).toEqual(['1', '3', '2']);
+            expect(result![0].positionX).toBe(0);
+            expect(result![1].positionX).toBe(300);
+            expect(result![2].positionX).toBe(600);
+        });
+
+        it('左端ブロックをさらに左 → null（移動不可）', () => {
+            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 300, 0)];
+            const result = swapBlock(blocks, '1', 'left', masters, 600, 5);
+            expect(result).toBeNull();
+        });
+
+        it('右端ブロックをさらに右 → null（移動不可）', () => {
+            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 300, 0)];
+            const result = swapBlock(blocks, '2', 'right', masters, 600, 5);
+            expect(result).toBeNull();
+        });
+
+        it('ブロック1つだけ → 左右どちらもnull', () => {
+            const blocks = [pb('1', 'A', 0, 0)];
+            expect(swapBlock(blocks, '1', 'left', masters, 900, 5)).toBeNull();
+            expect(swapBlock(blocks, '1', 'right', masters, 900, 5)).toBeNull();
+        });
+
+        it('Y範囲が重ならないブロックは入れ替え対象外', () => {
+            const mastersVary: BlockMasterMap = [
+                master('A', 300, 2), // Y=0..2
+                master('B', 300, 2), // Y=3..5
+            ];
+            // A(Y=0, X=0), B(Y=3, X=0) → Y重なりなし → 左右入れ替え不可
+            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 0, 3)];
+            expect(swapBlock(blocks, '1', 'right', mastersVary, 600, 5)).toBeNull();
+        });
+
+        it('幅が異なるブロックの入れ替え後も左詰めされる', () => {
+            const mastersVary: BlockMasterMap = [
+                master('A', 200, 3),
+                master('B', 400, 3),
+            ];
+            // [A(200)][B(400)] → B を左に → [B(0)][A(400)]
+            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 200, 0)];
+            const result = swapBlock(blocks, '2', 'left', mastersVary, 600, 5);
+            expect(result).not.toBeNull();
+            expect(result![0].id).toBe('2'); // B が先頭
+            expect(result![0].positionX).toBe(0);
+            expect(result![1].id).toBe('1'); // A が次
+            expect(result![1].positionX).toBe(400); // B(400幅)の右
+        });
+    });
+
+    describe('上下移動', () => {
+        it('ブロックを1段上に移動', () => {
+            const blocks = [pb('1', 'A', 0, 0)];
+            const result = swapBlock(blocks, '1', 'up', masters, 900, 5);
+            expect(result).not.toBeNull();
+            expect(result![0].positionY).toBe(1);
+        });
+
+        it('ブロックを1段下に移動', () => {
+            const blocks = [pb('1', 'A', 0, 2)];
+            const result = swapBlock(blocks, '1', 'down', masters, 900, 5);
+            expect(result).not.toBeNull();
+            expect(result![0].positionY).toBe(1);
+        });
+
+        it('最上段でさらに上 → null（移動不可）', () => {
+            // 5段棚に3段ブロック → maxPosY = 2。Y=2 が最上
+            const blocks = [pb('1', 'A', 0, 2)];
+            const result = swapBlock(blocks, '1', 'up', masters, 900, 5);
+            expect(result).toBeNull();
+        });
+
+        it('最下段でさらに下 → null（移動不可）', () => {
+            const blocks = [pb('1', 'A', 0, 0)];
+            const result = swapBlock(blocks, '1', 'down', masters, 900, 5);
+            expect(result).toBeNull();
+        });
+
+        it('上下移動後も左詰めパッキングされる', () => {
+            const mastersVary: BlockMasterMap = [
+                master('A', 300, 2),
+                master('B', 300, 2),
+            ];
+            // A(Y=0, X=0), B(Y=0, X=300) → A を up(Y=1) → A(Y=1..3), B(Y=0..2) → Y重なり → 左詰め
+            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 300, 0)];
+            const result = swapBlock(blocks, '1', 'up', mastersVary, 600, 4);
+            expect(result).not.toBeNull();
+            // A は Y=1 に移動、B は Y=0 のまま → Y 重なりあり → 横に並ぶ
+            const aBlock = result!.find(b => b.id === '1')!;
+            const bBlock = result!.find(b => b.id === '2')!;
+            expect(aBlock.positionY).toBe(1);
+            expect(bBlock.positionY).toBe(0);
+        });
+
+        it('上下移動でオーバーフローする場合はnull', () => {
+            const mastersVary: BlockMasterMap = [
+                master('A', 600, 2),
+                master('B', 600, 2),
+            ];
+            // A(Y=0, X=0), B(Y=2, X=0) → A を up(Y=1) → A(Y=1..3)とB(Y=2..4)が重なり→横並び→1200>600 overflow
+            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 0, 2)];
+            const result = swapBlock(blocks, '1', 'up', mastersVary, 600, 4);
+            expect(result).toBeNull();
+        });
+    });
+
+    describe('存在しないブロック', () => {
+        it('存在しないIDを指定 → null', () => {
+            const blocks = [pb('1', 'A', 0, 0)];
+            expect(swapBlock(blocks, 'nonexistent', 'left', masters, 900, 5)).toBeNull();
+        });
+    });
+
+    describe('連続入れ替え', () => {
+        it('[A][B][C] → Aを右に2回 → [B][C][A]', () => {
+            const blocks = [pb('1', 'A', 0, 0), pb('2', 'B', 300, 0), pb('3', 'C', 600, 0)];
+
+            // 1回目: A を右に → [B][A][C]
+            const step1 = swapBlock(blocks, '1', 'right', masters, 900, 5);
+            expect(step1).not.toBeNull();
+            expect(step1!.map(b => b.id)).toEqual(['2', '1', '3']);
+
+            // 2回目: A を右に → [B][C][A]
+            const step2 = swapBlock(step1!, '1', 'right', masters, 900, 5);
+            expect(step2).not.toBeNull();
+            expect(step2!.map(b => b.id)).toEqual(['2', '3', '1']);
+            expect(step2![0].positionX).toBe(0);
+            expect(step2![1].positionX).toBe(300);
+            expect(step2![2].positionX).toBe(600);
+        });
     });
 });
