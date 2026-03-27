@@ -289,8 +289,8 @@ describe('calcPreviewPositions', () => {
 describe('expandBlockProducts', () => {
     it('ブロック内商品を絶対座標に展開', () => {
         const placements: ProductPlacement[] = [
-            { productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 2 },
-            { productId: 'p2', shelfIndex: 1, positionX: 100, faceCount: 1 },
+            { id: 'pl-p1-0', productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 2 },
+            { id: 'pl-p2-1', productId: 'p2', shelfIndex: 1, positionX: 100, faceCount: 1 },
         ];
         const productIds = new Set(['p1', 'p2', 'p3']);
 
@@ -313,8 +313,8 @@ describe('expandBlockProducts', () => {
 
     it('存在しない商品IDはフィルタされる', () => {
         const placements: ProductPlacement[] = [
-            { productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 1 },
-            { productId: 'pX', shelfIndex: 0, positionX: 100, faceCount: 1 },
+            { id: 'pl-p1-0', productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 1 },
+            { id: 'pl-pX-0', productId: 'pX', shelfIndex: 0, positionX: 100, faceCount: 1 },
         ];
         const productIds = new Set(['p1']); // pXは含まない
 
@@ -584,14 +584,14 @@ describe('統合: 商品展開 + ブロック入れ替え後の商品位置', ()
 
         // ブロックBの商品を展開
         const placementsB: ProductPlacement[] = [
-            { productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 1 },
+            { id: 'pl-p1-0', productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 1 },
         ];
         const expandedB = expandBlockProducts(placementsB, new Set(['p1']), pb2.positionX, pb2.positionY);
         expect(expandedB[0].positionX).toBe(0); // Bは左端
 
         // ブロックAの商品を展開
         const placementsA: ProductPlacement[] = [
-            { productId: 'p2', shelfIndex: 0, positionX: 0, faceCount: 2 },
+            { id: 'pl-p2-0', productId: 'p2', shelfIndex: 0, positionX: 0, faceCount: 2 },
         ];
         const expandedA = expandBlockProducts(placementsA, new Set(['p2']), pb1.positionX, pb1.positionY);
         expect(expandedA[0].positionX).toBe(200); // AはBの右（B幅=200mm）

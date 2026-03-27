@@ -9,7 +9,6 @@ import type {
     StorePlanogramProduct,
 } from '../../data/types';
 import {
-    packBlocksLeftAligned,
     expandBlockProducts,
     swapBlock,
 } from './standardPlanogramRearrange';
@@ -20,7 +19,11 @@ import type { BlockMasterMap } from './standardPlanogramRearrange';
 // ================================================================
 
 function makeProduct(id: string, name: string, width: number, salesRank: number, dept: string): Product {
-    return { id, name, jan: `4900${id}`, width, height: 200, depth: 100, salesRank, departmentName: dept, createdAt: '', updatedAt: '' } as Product;
+    return { id, name, jan: `4900${id}`, width, height: 200, depth: 100, salesRank, category: '', imageUrl: '', departmentName: dept, createdAt: '', updatedAt: '' } as Product;
+}
+
+function pl(productId: string, shelfIndex: number, positionX: number, faceCount: number): ProductPlacement {
+    return { id: `pl-${productId}-${shelfIndex}`, productId, shelfIndex, positionX, faceCount };
 }
 
 function block(id: string, blockId: string, posX: number, posY: number): StandardPlanogramBlock {
@@ -171,14 +174,14 @@ function findBlockForProduct(
 
 describe('シナリオ1: 標準棚割にブロックを配置 → 商品が正しく展開される', () => {
     const beefProducts: ProductPlacement[] = [
-        { productId: 'beef1', shelfIndex: 0, positionX: 0, faceCount: 3 },
-        { productId: 'beef2', shelfIndex: 0, positionX: 390, faceCount: 3 },
-        { productId: 'beef1', shelfIndex: 1, positionX: 0, faceCount: 3 },
-        { productId: 'beef2', shelfIndex: 1, positionX: 390, faceCount: 3 },
+        pl('beef1', 0, 0, 3),
+        pl('beef2', 0, 390, 3),
+        pl('beef1', 1, 0, 3),
+        pl('beef2', 1, 390, 3),
     ];
     const porkProducts: ProductPlacement[] = [
-        { productId: 'pork1', shelfIndex: 0, positionX: 0, faceCount: 2 },
-        { productId: 'pork1', shelfIndex: 1, positionX: 0, faceCount: 2 },
+        pl('pork1', 0, 0, 2),
+        pl('pork1', 1, 0, 2),
     ];
 
     const beefBlock = { id: 'blk-beef', width: 750, shelfCount: 2, productPlacements: beefProducts };
@@ -223,15 +226,15 @@ describe('シナリオ2: ブロッククリック → 所属商品の強調表�
     const beefBlock = {
         id: 'blk-beef', width: 900, shelfCount: 5,
         productPlacements: [
-            { productId: 'beef1', shelfIndex: 0, positionX: 0, faceCount: 3 },
-            { productId: 'beef2', shelfIndex: 1, positionX: 0, faceCount: 2 },
+            pl('beef1', 0, 0, 3),
+            pl('beef2', 1, 0, 2),
         ],
     };
     const porkBlock = {
         id: 'blk-pork', width: 900, shelfCount: 5,
         productPlacements: [
-            { productId: 'pork1', shelfIndex: 0, positionX: 0, faceCount: 3 },
-            { productId: 'pork2', shelfIndex: 1, positionX: 0, faceCount: 2 },
+            pl('pork1', 0, 0, 3),
+            pl('pork2', 1, 0, 2),
         ],
     };
 
@@ -291,13 +294,13 @@ describe('シナリオ2: ブロッククリック → 所属商品の強調表�
         const wideBlock = {
             id: 'blk-wide', width: 1200, shelfCount: 5, // 幅1200だが商品は900mm分しかない
             productPlacements: [
-                { productId: 'w1', shelfIndex: 0, positionX: 0, faceCount: 1 },
+                pl('w1', 0, 0, 1),
             ],
         };
         const nextBlock = {
             id: 'blk-next', width: 600, shelfCount: 5,
             productPlacements: [
-                { productId: 'n1', shelfIndex: 0, positionX: 0, faceCount: 1 },
+                pl('n1', 0, 0, 1),
             ],
         };
 
@@ -362,10 +365,10 @@ describe('シナリオ3: ブロック入れ替え → 色区分が棚ブロッ�
         ];
 
         const beefPlacements: ProductPlacement[] = [
-            { productId: 'beef1', shelfIndex: 0, positionX: 0, faceCount: 3 },
+            pl('beef1', 0, 0, 3),
         ];
         const porkPlacements: ProductPlacement[] = [
-            { productId: 'pork1', shelfIndex: 0, positionX: 0, faceCount: 2 },
+            pl('pork1', 0, 0, 2),
         ];
 
         // 入れ替え
@@ -422,7 +425,7 @@ describe('シナリオ4: 標準棚割 → 個店棚割 自動展開', () => {
             posX += prod.width * 3;
         }
     }
-    const standardWidth = products.reduce((sum, p) => sum + p.width * 3, 0); // 1830mm per shelf
+    void products.reduce((sum, p) => sum + p.width * 3, 0); // 1830mm per shelf
 
     it('大型店舗(80尺): ルールBで全商品残り、上位商品が拡張', () => {
         const storeWidth = 24000; // 80尺
@@ -522,14 +525,14 @@ describe('シナリオ5: buildStandardPlanogramDataの整合性', () => {
             {
                 id: 'a', width: 600, shelfCount: 2,
                 productPlacements: [
-                    { productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 1 },
-                    { productId: 'p2', shelfIndex: 0, positionX: 100, faceCount: 1 },
+                    pl('p1', 0, 0, 1),
+                    pl('p2', 0, 100, 1),
                 ],
             },
             {
                 id: 'b', width: 400, shelfCount: 2,
                 productPlacements: [
-                    { productId: 'p3', shelfIndex: 0, positionX: 0, faceCount: 1 },
+                    pl('p3', 0, 0, 1),
                 ],
             },
         ];
@@ -548,11 +551,11 @@ describe('シナリオ5: buildStandardPlanogramDataの整合性', () => {
         const blocks = [
             {
                 id: 'a', width: 300, shelfCount: 1,
-                productPlacements: [{ productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 1 }],
+                productPlacements: [pl('p1', 0, 0, 1)],
             },
             {
                 id: 'b', width: 300, shelfCount: 1,
-                productPlacements: [{ productId: 'p2', shelfIndex: 0, positionX: 0, faceCount: 1 }],
+                productPlacements: [pl('p2', 0, 0, 1)],
             },
         ];
         const { blocks: stdBlocks, products } = buildStandardPlanogramData(blocks);
@@ -574,16 +577,16 @@ describe('シナリオ6: 縦積みブロック → 正しいブロック強調',
         const blockA = {
             id: 'blk-lower', width: 900, shelfCount: 2,
             productPlacements: [
-                { productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 1 },
-                { productId: 'p2', shelfIndex: 1, positionX: 0, faceCount: 1 },
+                pl('p1', 0, 0, 1),
+                pl('p2', 1, 0, 1),
             ],
         };
         const blockB = {
             id: 'blk-upper', width: 900, shelfCount: 3,
             productPlacements: [
-                { productId: 'p3', shelfIndex: 0, positionX: 0, faceCount: 1 },
-                { productId: 'p4', shelfIndex: 1, positionX: 0, faceCount: 1 },
-                { productId: 'p5', shelfIndex: 2, positionX: 0, faceCount: 1 },
+                pl('p3', 0, 0, 1),
+                pl('p4', 1, 0, 1),
+                pl('p5', 2, 0, 1),
             ],
         };
 
@@ -661,12 +664,7 @@ describe('シナリオ7: 標準棚割更新後の個店棚割同期', () => {
     ];
 
     it('標準棚割に商品追加後、同期で個店にも反映', () => {
-        // 元の標準棚割: p1, p2, p3
-        const originalStd: StandardPlanogramProduct[] = [
-            { id: 's1', productId: 'p1', shelfIndex: 0, positionX: 0, faceCount: 2 },
-            { id: 's2', productId: 'p2', shelfIndex: 0, positionX: 200, faceCount: 2 },
-            { id: 's3', productId: 'p3', shelfIndex: 0, positionX: 400, faceCount: 2 },
-        ];
+        // 元の標準棚割: p1, p2, p3 → 更新後にpNew追加
 
         // 更新後の標準棚割: p1, pNew, p2, p3（pNewが追加）
         const updatedStd: StandardPlanogramProduct[] = [

@@ -22,6 +22,8 @@ function makeProduct(id: string, name: string, width: number, salesRank: number)
         height: 200,
         depth: 100,
         salesRank,
+        category: '',
+        imageUrl: '',
         createdAt: '',
         updatedAt: '',
     } as Product;
@@ -385,7 +387,7 @@ describe('ルールB: 拡張処理', () => {
     it('2倍に拡張するスペースがない場合1.5倍を試みる', () => {
         // 1段に3商品、各1フェイス（幅100mm）= 300mm標準
         // ターゲット400mm → 2倍にするには200mm追加が必要だが100mmしかない
-        const stdProducts = [
+        void [
             makeStdProduct('s1', 'p1', 0, 0, 1),
             makeStdProduct('s2', 'p2', 0, 100, 1),
             makeStdProduct('s3', 'p3', 0, 200, 1),
@@ -537,7 +539,6 @@ describe('ルールA: エッジケース', () => {
         const result = applyRuleA(stdProducts, products, 350);
 
         const p1 = result.products.find(p => p.productId === 'p1');
-        const p2 = result.products.find(p => p.productId === 'p2');
         expect(p1?.faceCount).toBe(2); // ランク1はそのまま
         // p2はフェイス削減またはカットされて350mm以下に収まる
         const totalWidth = result.products.reduce((sum, sp) => {
