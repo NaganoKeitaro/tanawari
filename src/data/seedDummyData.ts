@@ -19,7 +19,6 @@ import {
     storeFixturePlacementRepository,
     shelfBlockRepository,
     standardPlanogramRepository,
-    storePlanogramRepository,
     clearAllData,
     setInitialized,
 } from './repositories/repositoryFactory';
@@ -287,41 +286,6 @@ function buildStandardPlanogramData(blocks: ShelfBlock[]) {
     }
 
     return { blocks: stdBlocks, products: stdProducts, totalWidth: posX };
-}
-
-/** 店舗に什器を配置（ブロックごとに什器を1つ作成） */
-async function createFixturesForStore(
-    storeId: string,
-    blocks: ShelfBlock[],
-    fixtureType: 'multi-tier' | 'flat-refrigerated',
-    startOrder: number,
-    layoutY: number,
-): Promise<number> {
-    let order = startOrder;
-    for (let i = 0; i < blocks.length; i++) {
-        const blk = blocks[i];
-        const shaku = Math.round(blk.width / SHAKU_TO_MM * 10) / 10;
-        const isMt = fixtureType === 'multi-tier';
-        const fixture = await fixtureRepository.create({
-            name: `${isMt ? '多段冷蔵棚' : '平台冷蔵'}（${shaku}尺）`,
-            width: blk.width,
-            height: isMt ? 1800 : 900,
-            depth: isMt ? undefined : 600,
-            shelfCount: blk.shelfCount,
-            fixtureType,
-        } as Omit<Fixture, 'id'>);
-        await storeFixturePlacementRepository.create({
-            storeId,
-            fixtureId: fixture.id,
-            positionX: i * 120,
-            positionY: layoutY,
-            order: order++,
-            direction: 0,
-            zone: (isMt ? '多段' : '平台冷蔵') as any,
-            label: `${isMt ? '多段' : '平台'}${i + 1}`,
-        } as Omit<StoreFixturePlacement, 'id'>);
-    }
-    return order;
 }
 
 // ========================================
