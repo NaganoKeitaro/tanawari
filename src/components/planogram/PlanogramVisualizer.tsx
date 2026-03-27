@@ -413,9 +413,10 @@ export function PlanogramVisualizer({
                                 const width = product.width * sp.faceCount * SCALE;
 
                                 // Visuals
-                                const productColor = getProductColor(product.category);
-                                let bgColor = productColor.bg;
-                                let textColor = productColor.text;
+                                const productColor = getProductColor(product.departmentName);
+                                let bgColor = 'white';
+                                let textColor = 'var(--text-primary)';
+                                void productColor; // 部門色は凡例で使用
                                 let showBadge = false;
                                 let badgeValue = '';
 

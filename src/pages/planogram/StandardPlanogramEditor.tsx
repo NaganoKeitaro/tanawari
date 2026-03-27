@@ -1,5 +1,5 @@
 // 棚割管理システム - FMT標準棚割管理
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     DndContext,
     DragOverlay,
@@ -33,8 +33,10 @@ import {
     storeFixturePlacementRepository
 } from '../../data/repositories/repositoryFactory';
 import { Modal } from '../../components/common/Modal';
+import { PlanogramExcelHeader, BLOCK_BAND_COLORS } from '../../components/planogram/PlanogramExcelHeader';
+import type { BlockInfo } from '../../components/planogram/PlanogramExcelHeader';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
-import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
+import { calculateHeatmapColor } from '../../utils/heatmapUtils';
 import { StoreLayoutVisualizer } from '../../components/layout/StoreLayoutVisualizer';
 import {
     calcBlockInsertIndex,
@@ -120,225 +122,7 @@ function DroppableShelfRow({ visualIndex, shelfHeight, canvasWidth }: {
     );
 }
 
-// 矢印ボタンのスタイル
-const arrowBtnStyle: React.CSSProperties = {
-    position: 'absolute',
-    background: 'var(--color-primary)',
-    color: 'white',
-    border: 'none',
-    borderRadius: '50%',
-    width: '22px',
-    height: '22px',
-    fontSize: '0.7rem',
-    fontWeight: 700,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-    boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
-    padding: 0,
-    lineHeight: 1,
-};
-
-// 配置済みブロック（ドラッグ可能 + クリック選択で矢印移動）
-function DraggablePlacedBlock({
-    planogramBlock,
-    masterBlock,
-    planogram,
-    analyticsMode,
-    selectedMetric,
-    blockMetricValue,
-    maxBlockMetric,
-    shelfHeight,
-    canvasHeight,
-    onDeleteBlock,
-    previewX,
-    isSelected,
-    onSelect,
-    onSwap
-}: {
-    planogramBlock: StandardPlanogramBlock;
-    masterBlock: ShelfBlock;
-    planogram: StandardPlanogram;
-    analyticsMode?: boolean;
-    selectedMetric?: 'sales' | 'grossProfit' | 'quantity' | 'traffic';
-    blockMetricValue: number;
-    maxBlockMetric: number;
-    shelfHeight: number;
-    canvasHeight: number;
-    onDeleteBlock?: (blockId: string) => void;
-    previewX?: number;
-    isSelected?: boolean;
-    onSelect?: (blockId: string) => void;
-    onSwap?: (blockId: string, direction: 'left' | 'right' | 'up' | 'down') => void;
-}) {
-    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-        id: `placed-block-${planogramBlock.id}`,
-        data: { planogramBlock, masterBlock, type: 'placed-block' }
-    });
-
-    const wasDraggingRef = useRef(false);
-    useEffect(() => {
-        if (isDragging) wasDraggingRef.current = true;
-    }, [isDragging]);
-
-    const pb = planogramBlock;
-    const master = masterBlock;
-    const blockW = master.width * SCALE;
-    const blockShelfSpan = Math.min(master.shelfCount, planogram.shelfCount - pb.positionY);
-    const blockH = blockShelfSpan * shelfHeight;
-    const blockTop = canvasHeight - (pb.positionY + blockShelfSpan) * shelfHeight;
-    const shakuLabel = Math.round(master.width / 300 * 10) / 10;
-
-    const blockColor = analyticsMode && selectedMetric
-        ? calculateHeatmapColor(blockMetricValue, maxBlockMetric)
-        : 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))';
-
-    const handleClick = (e: React.MouseEvent) => {
-        // ドラッグ後のクリック誤発火を防止
-        if (wasDraggingRef.current) {
-            wasDraggingRef.current = false;
-            return;
-        }
-        e.stopPropagation();
-        onSelect?.(pb.id);
-    };
-
-    return (
-        <div
-            ref={setNodeRef}
-            {...listeners}
-            {...attributes}
-            onClick={handleClick}
-            style={{
-                position: 'absolute',
-                left: `${(previewX !== undefined ? previewX : pb.positionX) * SCALE}px`,
-                top: `${blockTop}px`,
-                width: `${blockW}px`,
-                height: `${blockH}px`,
-                background: blockColor,
-                border: isSelected ? '2px solid var(--color-primary)' : '2px solid var(--border-color)',
-                borderRadius: 'var(--radius-sm)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'visible',
-                zIndex: isDragging ? 100 : isSelected ? 50 : 1,
-                boxSizing: 'border-box',
-                opacity: isDragging ? 0.3 : 1,
-                cursor: isDragging ? 'grabbing' : 'grab',
-                transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-                transition: !isDragging ? 'left 0.15s ease, top 0.15s ease' : undefined,
-            }}
-            title={`${master.name}\n${shakuLabel}尺 / ${master.shelfCount}段 / ${master.productPlacements.length}商品`}
-        >
-            {/* 選択時の矢印ボタン */}
-            {isSelected && onSwap && !isDragging && (
-                <>
-                    {/* ← 左 */}
-                    <button
-                        style={{ ...arrowBtnStyle, left: '-12px', top: '50%', transform: 'translateY(-50%)' }}
-                        onClick={(e) => { e.stopPropagation(); onSwap(pb.id, 'left'); }}
-                        title="左に移動"
-                    >
-                        ←
-                    </button>
-                    {/* → 右 */}
-                    <button
-                        style={{ ...arrowBtnStyle, right: '-12px', top: '50%', transform: 'translateY(-50%)' }}
-                        onClick={(e) => { e.stopPropagation(); onSwap(pb.id, 'right'); }}
-                        title="右に移動"
-                    >
-                        →
-                    </button>
-                    {/* ↑ 上 */}
-                    <button
-                        style={{ ...arrowBtnStyle, top: '-12px', left: '50%', transform: 'translateX(-50%)' }}
-                        onClick={(e) => { e.stopPropagation(); onSwap(pb.id, 'up'); }}
-                        title="上に移動"
-                    >
-                        ↑
-                    </button>
-                    {/* ↓ 下 */}
-                    <button
-                        style={{ ...arrowBtnStyle, bottom: '-12px', left: '50%', transform: 'translateX(-50%)' }}
-                        onClick={(e) => { e.stopPropagation(); onSwap(pb.id, 'down'); }}
-                        title="下に移動"
-                    >
-                        ↓
-                    </button>
-                </>
-            )}
-
-            {/* 上部バー：ブロック名 + 削除ボタン */}
-            <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '3px 5px',
-                background: isSelected ? 'rgba(16,185,129,0.25)' : 'rgba(0,0,0,0.18)',
-                borderBottom: '1px solid var(--border-color)',
-                minHeight: '22px'
-            }}>
-                <span style={{
-                    fontSize: '0.68rem',
-                    fontWeight: 700,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    flex: 1
-                }}>
-                    {master.name}
-                </span>
-                {onDeleteBlock && (
-                    <button
-                        onClick={(e) => { e.stopPropagation(); onDeleteBlock(pb.id); }}
-                        style={{
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: '#ef4444',
-                            padding: '0 2px',
-                            fontSize: '0.9rem',
-                            lineHeight: 1,
-                            flexShrink: 0,
-                            marginLeft: '2px'
-                        }}
-                        title="このブロックを削除"
-                    >
-                        ×
-                    </button>
-                )}
-            </div>
-
-            {/* 中央情報 */}
-            <div style={{
-                fontSize: '0.68rem',
-                color: 'var(--text-muted)',
-                textAlign: 'center',
-                lineHeight: 1.6,
-                marginTop: '22px'
-            }}>
-                <div>{shakuLabel}尺</div>
-                <div>{master.shelfCount}段</div>
-                <div>{master.productPlacements.length}商品</div>
-                {analyticsMode && selectedMetric && (
-                    <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginTop: '2px' }}>
-                        {formatMetricValue(blockMetricValue)}
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-}
-
-// 標準棚割キャンバス（ブロック単位で固定表示）
+// 標準棚割キャンバス（Excelライク商品グリッド表示）
 function PlanogramCanvas({
     planogram,
     products,
@@ -373,59 +157,112 @@ function PlanogramCanvas({
         data: { type: 'canvas' }
     });
 
-    const canvasWidth = (actualWidth || planogram.width) * SCALE;
-    const shelfHeight = Math.max(80, (planogram.height / planogram.shelfCount) * SCALE);
+    const totalWidthMm = actualWidth || planogram.width;
+    const canvasWidth = totalWidthMm * SCALE;
+    const shelfHeight = Math.max(60, (planogram.height / planogram.shelfCount) * SCALE);
     const canvasHeight = shelfHeight * planogram.shelfCount;
 
     // 位置順にソート済みブロック
     const sortedBlocks = [...planogram.blocks].sort((a, b) => a.positionX - b.positionX);
 
-    // ブロックが使用している最大X（空きスペース計算用）
+    // ブロックが使用している最大X
     const usedWidth = sortedBlocks.reduce((max, pb) => {
         const master = blockMasters.find(b => b.id === pb.blockId);
         return Math.max(max, pb.positionX + (master?.width || 0));
     }, 0);
 
-    // 分析モード用：各ブロックの商品メトリクス合計
-    const blockMetrics = analyticsMode && selectedMetric
-        ? planogram.blocks.reduce((acc, pb) => {
-            const blockProds = planogram.products.filter(sp => {
-                const master = blockMasters.find(b => b.id === pb.blockId);
-                if (!master) return false;
-                return sp.positionX >= pb.positionX - 0.1 &&
-                    sp.positionX < pb.positionX + master.width + 0.1;
-            });
-            acc[pb.id] = blockProds.reduce((sum, sp) => {
-                const p = products.find(pr => pr.id === sp.productId);
-                return sum + (p?.[selectedMetric!] || 0);
-            }, 0);
-            return acc;
-        }, {} as Record<string, number>)
-        : {};
+    // 棚ブロックマスタIDから安定した色を割り当て（位置やソート順に依存しない）
+    // planogram.blocks の ID をソートして、追加・入れ替えに関係なく同じ色を保つ
+    const blockColorMap = new Map<string, number>();
+    const uniqueBlockIds = [...new Set(planogram.blocks.map(pb => pb.blockId))].sort();
+    uniqueBlockIds.forEach((blockId, i) => {
+        blockColorMap.set(blockId, i);
+    });
 
-    const maxBlockMetric = Math.max(...Object.values(blockMetrics), 1);
+    // Excelライクヘッダー用ブロック情報
+    const blockInfos: BlockInfo[] = sortedBlocks
+        .map(pb => {
+            const master = blockMasters.find(b => b.id === pb.blockId);
+            if (!master) return null;
+            const posX = previewPositions?.[pb.id] !== undefined ? previewPositions[pb.id] : pb.positionX;
+            return {
+                id: pb.id,
+                name: master.name,
+                widthMm: master.width,
+                positionXMm: posX,
+                positionY: pb.positionY,
+                shelfCount: master.shelfCount,
+                colorIndex: blockColorMap.get(pb.blockId) ?? 0
+            };
+        })
+        .filter((b): b is BlockInfo => b !== null);
+
+    // 商品のブロック所属を特定（placedBlockId優先、なければ位置ベース）
+    const findBlockForProduct = (sp: StandardPlanogramProduct) => {
+        // placedBlockId がある場合はそれで直接マッチ
+        if (sp.placedBlockId) {
+            const pb = sortedBlocks.find(b => b.id === sp.placedBlockId);
+            if (pb) {
+                const master = blockMasters.find(b => b.id === pb.blockId);
+                if (master) {
+                    const posX = previewPositions?.[pb.id] !== undefined ? previewPositions[pb.id] : pb.positionX;
+                    return { pb, master, blockPosX: posX, colorIndex: blockColorMap.get(pb.blockId) ?? 0 };
+                }
+            }
+        }
+        // フォールバック: 位置ベースでマッチ
+        for (const pb of sortedBlocks) {
+            const master = blockMasters.find(b => b.id === pb.blockId);
+            if (!master) continue;
+            const posX = previewPositions?.[pb.id] !== undefined ? previewPositions[pb.id] : pb.positionX;
+            const inXRange = sp.positionX >= posX - 0.1 && sp.positionX < posX + master.width + 0.1;
+            const inYRange = sp.shelfIndex >= pb.positionY && sp.shelfIndex < pb.positionY + master.shelfCount;
+            if (inXRange && inYRange) {
+                return { pb, master, blockPosX: posX, colorIndex: blockColorMap.get(pb.blockId) ?? 0 };
+            }
+        }
+        return null;
+    };
+
+    // 分析モード用最大メトリクス
+    const maxMetricValue = analyticsMode && selectedMetric
+        ? Math.max(...products.map(p => p[selectedMetric!] || 0), 1)
+        : 1;
 
     return (
         <div
             ref={setNodeRef}
-            onClick={() => { if (selectedBlockId && onSelectBlock) onSelectBlock(selectedBlockId); }}
+            onClick={(e) => {
+                // クリックでブロック選択解除
+                if (e.target === e.currentTarget && selectedBlockId && onSelectBlock) {
+                    onSelectBlock(selectedBlockId);
+                }
+            }}
             style={{
                 background: 'var(--bg-primary)',
                 border: isOver ? '2px solid var(--color-primary)' : '2px solid var(--border-color)',
                 borderRadius: 'var(--radius-md)',
                 padding: '1rem',
+                paddingLeft: '50px',
                 minHeight: '200px',
                 overflow: 'auto',
                 position: 'relative'
             }}
         >
-            <div
-                style={{
-                    width: `${canvasWidth}px`,
-                    height: `${canvasHeight}px`,
-                    position: 'relative'
-                }}
-            >
+            {/* Excelライクヘッダー（ブロック名帯 + 尺 + 5cmグリッド + ブロック操作） */}
+            {blockInfos.length > 0 && (
+                <PlanogramExcelHeader
+                    blocks={blockInfos}
+                    totalWidthMm={totalWidthMm}
+                    selectedBlockId={selectedBlockId}
+                    onSelectBlock={onSelectBlock}
+                    onDeleteBlock={onDeleteBlock}
+                    onSwapBlock={onSwapBlock}
+                />
+            )}
+
+            {/* 棚グリッド */}
+            <div style={{ width: `${canvasWidth}px`, position: 'relative' }}>
                 {/* 棚段ごとのドロップゾーン */}
                 {Array.from({ length: planogram.shelfCount }).map((_, i) => (
                     <DroppableShelfRow
@@ -469,47 +306,141 @@ function PlanogramCanvas({
                     </div>
                 )}
 
-                {/* 棚段の区切り線・段番号 */}
-                {Array.from({ length: planogram.shelfCount }).map((_, i) => {
-                    const shelfNum = planogram.shelfCount - i;
+                {/* 段ごとの行 + 商品セル */}
+                {Array.from({ length: planogram.shelfCount }).map((_, visualIdx) => {
+                    const shelfIndex = planogram.shelfCount - 1 - visualIdx;
+                    const shelfProducts = planogram.products
+                        .filter(sp => sp.shelfIndex === shelfIndex)
+                        .sort((a, b) => a.positionX - b.positionX);
+
                     return (
-                        <div key={i}>
-                            {/* 段番号ラベル */}
+                        <div
+                            key={visualIdx}
+                            style={{
+                                position: 'relative',
+                                height: `${shelfHeight}px`,
+                                borderBottom: '1px solid var(--border-color)',
+                                boxSizing: 'border-box'
+                            }}
+                        >
+                            {/* 段ラベル（横スクロール時に固定） */}
                             <div style={{
-                                position: 'absolute',
-                                left: '-35px',
-                                top: `${i * shelfHeight + shelfHeight / 2}px`,
-                                transform: 'translateY(-50%)',
+                                position: 'sticky',
+                                left: '-50px',
+                                width: '46px',
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
                                 fontSize: '0.7rem',
+                                fontWeight: 600,
                                 color: 'var(--text-muted)',
-                                whiteSpace: 'nowrap'
+                                background: 'var(--bg-primary)',
+                                zIndex: 5,
+                                marginLeft: '-50px',
+                                float: 'left',
+                                borderRight: '1px solid var(--border-color)'
                             }}>
-                                {shelfNum}段
+                                {shelfIndex + 1}段
                             </div>
-                            {/* 棚板区切り線（最下段を除く） */}
-                            {i < planogram.shelfCount - 1 && (
-                                <div style={{
-                                    position: 'absolute',
-                                    left: 0,
-                                    right: 0,
-                                    top: `${(i + 1) * shelfHeight}px`,
-                                    height: '1px',
-                                    background: 'var(--border-color)',
-                                    zIndex: 0,
-                                    pointerEvents: 'none'
-                                }} />
-                            )}
+                            {/* 商品セル */}
+                            {shelfProducts.map(sp => {
+                                const product = products.find(p => p.id === sp.productId);
+                                if (!product) return null;
+                                const blockInfo = findBlockForProduct(sp);
+
+                                const cellBg = analyticsMode && selectedMetric
+                                    ? calculateHeatmapColor(product[selectedMetric!] || 0, maxMetricValue)
+                                    : 'white';
+
+                                const width = product.width * sp.faceCount * SCALE;
+
+                                // ブロック移動プレビュー時の位置調整
+                                let displayX = sp.positionX;
+                                if (blockInfo && previewPositions?.[blockInfo.pb.id] !== undefined) {
+                                    const offset = previewPositions[blockInfo.pb.id] - blockInfo.pb.positionX;
+                                    displayX = sp.positionX + offset;
+                                }
+
+                                // ブロック選択時: 所属商品は通常、それ以外は薄く
+                                const belongsToSelected = selectedBlockId && blockInfo?.pb.id === selectedBlockId;
+                                const isDimmed = selectedBlockId && !belongsToSelected;
+
+                                return (
+                                    <div
+                                        key={sp.id}
+                                        onClick={() => {
+                                            if (blockInfo && onSelectBlock) {
+                                                onSelectBlock(blockInfo.pb.id);
+                                            }
+                                        }}
+                                        style={{
+                                            position: 'absolute',
+                                            left: `${displayX * SCALE}px`,
+                                            top: '1px',
+                                            bottom: '1px',
+                                            width: `${width}px`,
+                                            background: cellBg,
+                                            border: '1px solid var(--border-color)',
+                                            color: 'var(--text-primary)',
+                                            borderRadius: '1px',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            padding: '2px',
+                                            fontSize: '0.75rem',
+                                            overflow: 'hidden',
+                                            cursor: 'pointer',
+                                            zIndex: 3,
+                                            boxSizing: 'border-box',
+                                            opacity: isDimmed ? 0.25 : 1,
+                                            transition: previewPositions ? 'left 0.15s ease, opacity 0.2s ease' : 'opacity 0.2s ease',
+                                        }}
+                                        title={`${product.name}\n${product.jan || '-'}\n${product.departmentName || ''}\n${sp.faceCount}フェース`}
+                                    >
+                                        <div style={{
+                                            fontWeight: 600,
+                                            whiteSpace: 'nowrap',
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            maxWidth: '100%',
+                                            fontSize: '0.75rem'
+                                        }}>
+                                            {product.name}
+                                        </div>
+                                        {width > 30 && (
+                                            <div style={{
+                                                opacity: 0.5,
+                                                fontSize: '0.6rem',
+                                                fontFamily: 'monospace',
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                maxWidth: '100%'
+                                            }}>
+                                                {product.jan || '-'}
+                                            </div>
+                                        )}
+                                        {sp.faceCount > 1 && width > 20 && (
+                                            <div style={{ fontSize: '0.6rem', opacity: 0.5 }}>
+                                                x{sp.faceCount}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
                         </div>
                     );
                 })}
 
-                {/* 空きスペース */}
-                {usedWidth < (actualWidth || planogram.width) && (
+                {/* 空きスペース表示 */}
+                {usedWidth < totalWidthMm && (
                     <div style={{
                         position: 'absolute',
                         left: `${usedWidth * SCALE}px`,
                         top: 0,
-                        width: `${((actualWidth || planogram.width) - usedWidth) * SCALE}px`,
+                        width: `${(totalWidthMm - usedWidth) * SCALE}px`,
                         height: `${canvasHeight}px`,
                         background: 'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(100,100,100,0.05) 6px, rgba(100,100,100,0.05) 12px)',
                         border: '1px dashed var(--border-color)',
@@ -517,41 +448,17 @@ function PlanogramCanvas({
                         alignItems: 'center',
                         justifyContent: 'center',
                         zIndex: 0,
-                        boxSizing: 'border-box'
+                        boxSizing: 'border-box',
+                        pointerEvents: 'none'
                     }}>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>空き</span>
                     </div>
                 )}
-
-                {/* 配置済みブロック（ドラッグで移動可能） */}
-                {sortedBlocks.map(pb => {
-                    const master = blockMasters.find(b => b.id === pb.blockId);
-                    if (!master) return null;
-                    return (
-                        <DraggablePlacedBlock
-                            key={pb.id}
-                            planogramBlock={pb}
-                            masterBlock={master}
-                            planogram={planogram}
-                            analyticsMode={analyticsMode}
-                            selectedMetric={selectedMetric}
-                            blockMetricValue={blockMetrics[pb.id] || 0}
-                            maxBlockMetric={maxBlockMetric}
-                            shelfHeight={shelfHeight}
-                            canvasHeight={canvasHeight}
-                            onDeleteBlock={onDeleteBlock}
-                            previewX={previewPositions?.[pb.id]}
-                            isSelected={selectedBlockId === pb.id}
-                            onSelect={onSelectBlock}
-                            onSwap={onSwapBlock}
-                        />
-                    );
-                })}
             </div>
 
             {planogram.blocks.length === 0 && (
                 <div className="text-center text-muted" style={{ padding: '3rem' }}>
-                    左のブロックをドラッグして配置（配置済みブロックもドラッグで移動可能）
+                    左のブロックをドラッグして配置
                 </div>
             )}
         </div>
@@ -900,7 +807,7 @@ export function StandardPlanogramEditor() {
                 const m = blocks.find(b => b.id === pb.blockId);
                 if (!m) continue;
                 const expanded = expandBlockProductsPure(m.productPlacements, productIdSet, pb.positionX, pb.positionY);
-                newProducts.push(...expanded.map(ep => ({ ...ep, id: crypto.randomUUID() })));
+                newProducts.push(...expanded.map(ep => ({ ...ep, id: crypto.randomUUID(), placedBlockId: pb.id })));
             }
 
             const updatedPlanogram = {
@@ -939,7 +846,6 @@ export function StandardPlanogramEditor() {
 
             const { posY, insertX } = placement;
             const expanded = expandBlockProductsPure(block.productPlacements, productIdSet, insertX, posY);
-            const newProducts: StandardPlanogramProduct[] = expanded.map(ep => ({ ...ep, id: crypto.randomUUID() }));
 
             const newBlock: StandardPlanogramBlock = {
                 id: crypto.randomUUID(),
@@ -947,6 +853,8 @@ export function StandardPlanogramEditor() {
                 positionX: insertX,
                 positionY: posY
             };
+
+            const newProducts: StandardPlanogramProduct[] = expanded.map(ep => ({ ...ep, id: crypto.randomUUID(), placedBlockId: newBlock.id }));
 
             const updatedPlanogram = {
                 ...currentPlanogram,
@@ -1011,7 +919,7 @@ export function StandardPlanogramEditor() {
             const m = blocks.find(b => b.id === pb.blockId);
             if (!m) continue;
             const expanded = expandBlockProductsPure(m.productPlacements, productIdSet, pb.positionX, pb.positionY);
-            newProducts.push(...expanded.map(ep => ({ ...ep, id: crypto.randomUUID() })));
+            newProducts.push(...expanded.map(ep => ({ ...ep, id: crypto.randomUUID(), placedBlockId: pb.id })));
         }
 
         const updatedPlanogram = {
@@ -1385,7 +1293,7 @@ export function StandardPlanogramEditor() {
                     </DndContext>
 
                     {/* 売り場レイアウト表示 */}
-                    {selectedStoreId && (
+                    {selectedStoreId && stores.find(s => s.id === selectedStoreId) && (
                         <div className="mt-lg">
                             <StoreLayoutVisualizer
                                 store={stores.find(s => s.id === selectedStoreId)!}

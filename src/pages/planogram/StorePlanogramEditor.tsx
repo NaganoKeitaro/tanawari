@@ -33,7 +33,9 @@ import {
 import { syncStorePlanogram, generateStorePlanogram } from '../../services/automationService';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor, formatMetricValue } from '../../utils/heatmapUtils';
-import { getProductColor, initProductColorMap } from '../../utils/productColorUtils';
+import { initProductColorMap } from '../../utils/productColorUtils';
+import { PlanogramExcelHeader } from '../../components/planogram/PlanogramExcelHeader';
+import type { BlockInfo } from '../../components/planogram/PlanogramExcelHeader';
 import { ProductTooltip } from '../../components/common/ProductTooltip';
 import type { Fixture, StoreFixturePlacement } from '../../data/types';
 
@@ -131,7 +133,8 @@ function DraggablePlacedProduct({
     maxMetricValue,
     onFaceCountChange,
     onRemove,
-    previewX
+    previewX,
+    dimmed
 }: {
     placement: StorePlanogramProduct;
     product: Product;
@@ -142,6 +145,7 @@ function DraggablePlacedProduct({
     onFaceCountChange: (id: string, count: number) => void;
     onRemove: (id: string) => void;
     previewX?: number;
+    dimmed?: boolean;
 }) {
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: `placed-store-product-${placement.id}`,
@@ -164,32 +168,28 @@ function DraggablePlacedProduct({
                     width: `${width}px`,
                     background: analyticsMode && selectedMetric
                         ? calculateHeatmapColor(product[selectedMetric] || 0, maxMetricValue)
-                        : getProductColor(product.category).bg,
-                    border: analyticsMode && selectedMetric
-                        ? '1px solid var(--border-color)'
-                        : `1px solid ${getProductColor(product.category).border}`,
-                    color: analyticsMode && selectedMetric
-                        ? 'var(--text-primary)'
-                        : getProductColor(product.category).text,
-                    borderRadius: 'var(--radius-sm)',
+                        : 'white',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-primary)',
+                    borderRadius: '1px',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: '4px',
-                    fontSize: '0.65rem',
+                    fontSize: '0.75rem',
                     overflow: 'hidden',
                     cursor: isDragging ? 'grabbing' : 'grab',
-                    opacity: isDragging ? 0.3 : 1,
+                    opacity: isDragging ? 0.3 : dimmed ? 0.25 : 1,
                     transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
                     zIndex: isDragging ? 100 : undefined,
-                    transition: !isDragging && previewX !== undefined ? 'left 0.15s ease' : undefined,
+                    transition: !isDragging && previewX !== undefined ? 'left 0.15s ease, opacity 0.2s ease' : 'opacity 0.2s ease',
                 }}
             >
-                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
+                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.75rem' }}>
                     {product.name}
                 </div>
-                <div style={{ opacity: 0.8, fontSize: '0.5rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                <div style={{ opacity: 0.5, fontSize: '0.6rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
                     {product.jan || '-'}
                 </div>
                 <div className="flex gap-sm items-center mt-sm">
@@ -311,6 +311,11 @@ function SinglePlanogramView({
 }) {
     const [loading, setLoading] = useState(false);
     const [selectedStdId, setSelectedStdId] = useState<string>(standardPlanogram?.id || '');
+    const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
+
+    const handleSelectBlock = (blockId: string) => {
+        setSelectedBlockId(prev => prev === blockId ? null : blockId);
+    };
 
     // フェイス数変更
     const handleFaceCountChange = async (productPlacementId: string, newFaceCount: number) => {
@@ -545,11 +550,33 @@ function SinglePlanogramView({
                     overflow: 'auto'
                 }}
             >
+                {/* Excelライクヘッダー（ブロック名帯 + 尺 + 5cmグリッド） */}
+                {standardPlanogram && (() => {
+                    const blockInfos: BlockInfo[] = standardPlanogram.blocks
+                        .map((b) => {
+                            const master = blocks.find(m => m.id === b.blockId);
+                            if (!master) return null;
+                            const uniqueIds = [...new Set(standardPlanogram.blocks.map(pb => pb.blockId))].sort();
+                            return {
+                                id: b.id,
+                                name: master.name,
+                                widthMm: master.width,
+                                positionXMm: b.positionX,
+                                positionY: b.positionY,
+                                shelfCount: master.shelfCount,
+                                colorIndex: uniqueIds.indexOf(b.blockId)
+                            };
+                        })
+                        .filter((b): b is BlockInfo => b !== null);
+                    return <PlanogramExcelHeader blocks={blockInfos} totalWidthMm={planogram.width} selectedBlockId={selectedBlockId} onSelectBlock={handleSelectBlock} />;
+                })()}
+
                 <div
                     className="shelf-grid"
                     style={{ width: `${planogram.width * SCALE}px`, position: 'relative' }}
+                    onClick={(e) => { if (e.target === e.currentTarget && selectedBlockId) setSelectedBlockId(null); }}
                 >
-                    {/* 背景ブロック */}
+                    {/* 背景ブロック境界線 */}
                     {standardPlanogram && standardPlanogram.blocks.map(block => {
                         const masterBlock = blocks.find(b => b.id === block.blockId);
                         if (!masterBlock) return null;
@@ -562,32 +589,29 @@ function SinglePlanogramView({
                                     top: 0,
                                     bottom: 0,
                                     width: `${masterBlock.width * SCALE}px`,
-                                    border: '2px dashed rgba(203, 213, 225, 0.5)',
-                                    borderTop: 'none',
-                                    borderBottom: 'none',
+                                    borderLeft: '1px dashed rgba(203, 213, 225, 0.5)',
+                                    borderRight: '1px dashed rgba(203, 213, 225, 0.5)',
                                     pointerEvents: 'none',
                                     zIndex: 0,
-                                    display: 'flex',
-                                    justifyContent: 'center'
                                 }}
-                            >
-                                <div style={{
-                                    marginTop: '-20px',
-                                    background: 'rgba(255, 255, 255, 0.8)',
-                                    padding: '2px 8px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.7rem',
-                                    color: 'var(--text-muted)',
-                                    whiteSpace: 'nowrap',
-                                    border: '1px solid var(--border-color)'
-                                }}>
-                                    {masterBlock.name}
-                                </div>
-                            </div>
+                            />
                         );
                     })}
 
                     {(() => {
+                        // ブロック所属判定（ハイライト用）
+                        const findBlockForProduct = (sp: StorePlanogramProduct): string | null => {
+                            if (!standardPlanogram) return null;
+                            for (const pb of standardPlanogram.blocks) {
+                                const master = blocks.find(b => b.id === pb.blockId);
+                                if (!master) continue;
+                                const inX = sp.positionX >= pb.positionX - 0.1 && sp.positionX < pb.positionX + master.width + 0.1;
+                                const inY = sp.shelfIndex >= pb.positionY && sp.shelfIndex < pb.positionY + master.shelfCount;
+                                if (inX && inY) return pb.id;
+                            }
+                            return null;
+                        };
+
                         // プレビュー位置の計算
                         const previewPositions: Record<string, number> | null = (() => {
                             if (!dragPreview || dragPreview.planogramId !== planogram.id) return null;
@@ -628,6 +652,8 @@ function SinglePlanogramView({
                                 {shelfProducts.map(sp => {
                                     const product = products.find(p => p.id === sp.productId);
                                     if (!product) return null;
+                                    const belongsToBlock = findBlockForProduct(sp);
+                                    const isDimmed = !!selectedBlockId && belongsToBlock !== selectedBlockId;
                                     return (
                                         <DraggablePlacedProduct
                                             key={sp.id}
@@ -640,6 +666,7 @@ function SinglePlanogramView({
                                             onFaceCountChange={handleFaceCountChange}
                                             onRemove={handleRemoveProduct}
                                             previewX={previewPositions?.[sp.id]}
+                                            dimmed={isDimmed}
                                         />
                                     );
                                 })}
@@ -986,7 +1013,7 @@ export function StorePlanogramEditor() {
         setStore(storeData);
         setAllStorePlanograms(planogramsData);
         setProducts(productsData);
-        initProductColorMap(productsData.map(p => p.category));
+        initProductColorMap(productsData.map(p => p.departmentName || ''));
         setAllStandardPlanograms(standardsData);
         setBlocks(blocksData);
         setFixtures(fixturesData);

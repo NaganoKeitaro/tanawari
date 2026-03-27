@@ -172,9 +172,9 @@ function PlanogramVisual({
                                                 style={{
                                                     position: 'absolute', left: `${sp.positionX * SCALE}px`,
                                                     top: 0, bottom: 0, width: `${width}px`,
-                                                    background: getProductColor(product.category).bg,
-                                                    border: `1px solid ${getProductColor(product.category).border}`,
-                                                    color: getProductColor(product.category).text,
+                                                    background: 'white',
+                                                    border: '1px solid var(--border-color)',
+                                                    color: 'var(--text-primary)',
                                                     borderRadius: 'var(--radius-sm)',
                                                     display: 'flex', flexDirection: 'column',
                                                     alignItems: 'center', justifyContent: 'center',
@@ -342,7 +342,7 @@ export function InstructionSheet() {
             ]);
             setStores(storesData);
             setProducts(productsData);
-            initProductColorMap(productsData.map(p => p.category));
+            initProductColorMap(productsData.map(p => p.departmentName || ''));
             setBlocks(blocksData);
             setFixtures(fixturesData);
             setStandardPlanograms(standardsData);
