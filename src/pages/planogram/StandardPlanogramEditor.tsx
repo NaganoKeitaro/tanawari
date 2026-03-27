@@ -33,7 +33,7 @@ import {
     storeFixturePlacementRepository
 } from '../../data/repositories/repositoryFactory';
 import { Modal } from '../../components/common/Modal';
-import { PlanogramExcelHeader, BLOCK_BAND_COLORS } from '../../components/planogram/PlanogramExcelHeader';
+import { PlanogramExcelHeader } from '../../components/planogram/PlanogramExcelHeader';
 import type { BlockInfo } from '../../components/planogram/PlanogramExcelHeader';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
 import { calculateHeatmapColor } from '../../utils/heatmapUtils';

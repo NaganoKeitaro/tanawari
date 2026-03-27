@@ -19,7 +19,7 @@ import {
 import { Modal } from '../../components/common/Modal';
 import { UnitInput } from '../../components/common/UnitInput';
 import { UnitDisplay } from '../../components/common/UnitDisplay';
-import { getProductColor, initProductColorMap } from '../../utils/productColorUtils';
+import { initProductColorMap } from '../../utils/productColorUtils';
 import { ProductTooltip } from '../../components/common/ProductTooltip';
 
 // 1mm = 0.3px表示

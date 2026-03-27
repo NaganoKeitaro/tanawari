@@ -20,7 +20,7 @@ import {
     shelfBlockRepository
 } from '../data/repositories/repositoryFactory';
 import { UnitDisplay } from '../components/common/UnitDisplay';
-import { getProductColor, initProductColorMap } from '../utils/productColorUtils';
+import { initProductColorMap } from '../utils/productColorUtils';
 import { ProductTooltip } from '../components/common/ProductTooltip';
 
 // ===== 定数 =====
