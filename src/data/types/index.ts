@@ -162,6 +162,7 @@ export interface StandardPlanogramProduct {
   shelfIndex: number;
   positionX: number;
   faceCount: number;
+  placedBlockId?: string;  // 配置元の StandardPlanogramBlock.id
 }
 
 export interface StandardPlanogram {

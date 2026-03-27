@@ -11,6 +11,7 @@ import {
     isInitialized
 } from '../data/repositories/repositoryFactory';
 import { seedStoreData } from '../data/seedData';
+import { seedDummyData } from '../data/seedDummyData';
 
 interface Stats {
     products: number;
@@ -53,6 +54,20 @@ export function HomePage() {
     useEffect(() => {
         loadStats();
     }, [loadStats]);
+
+    const handleSeedDummyData = async () => {
+        if (!confirm('既存データを全削除してダミーデータを投入しますか？\n（商品・店舗・什器・棚ブロック・標準棚割・個店棚割が生成されます）')) return;
+        setSeeding(true);
+        try {
+            const result = await seedDummyData();
+            alert(`ダミーデータ投入完了！\n- 商品: ${result.products}件\n- 店舗: ${result.stores}店（大中小パターン）\n- 標準棚割: ${result.standardPlanograms}件\n- 個店棚割: ${result.storePlanograms}件`);
+            await loadStats();
+        } catch (error) {
+            alert('ダミーデータ投入中にエラーが発生しました');
+            console.error(error);
+        }
+        setSeeding(false);
+    };
 
     const handleSeedStoreData = async () => {
         if (!confirm('店舗マスタデータを生成しますか？')) {
@@ -117,6 +132,32 @@ export function HomePage() {
                     </div>
                 </div>
             )}
+
+            {/* ダミーデータ投入（ローカル環境用） */}
+            <div
+                className="card mb-lg"
+                style={{
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15))',
+                    borderColor: 'var(--color-secondary)'
+                }}
+            >
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 style={{ marginBottom: '0.5rem' }}>テストデータ投入（ローカル専用）</h3>
+                        <p className="text-sm text-muted">
+                            既存データを全削除した上で、商品90件・店舗6店（大中小パターン）・棚ブロック・標準棚割・個店棚割を一括生成します。<br />
+                            localStorageに保存されるため本番環境には影響しません。
+                        </p>
+                    </div>
+                    <button
+                        className="btn btn-secondary btn-lg"
+                        onClick={handleSeedDummyData}
+                        disabled={seeding}
+                    >
+                        {seeding ? '生成中...' : 'ダミーデータ投入'}
+                    </button>
+                </div>
+            </div>
 
             {/* 統計カード */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>

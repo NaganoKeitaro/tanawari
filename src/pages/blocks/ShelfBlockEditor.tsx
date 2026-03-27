@@ -143,8 +143,8 @@ function DraggablePlacedProduct({
                     top: 0,
                     bottom: 0,
                     width: `${productWidth}px`,
-                    background: getProductColor(product.category).bg,
-                    border: `1px solid ${getProductColor(product.category).border}`,
+                    background: 'white',
+                    border: '1px solid var(--border-color)',
                     borderRadius: 'var(--radius-sm)',
                     display: 'flex',
                     flexDirection: 'column',
@@ -154,7 +154,7 @@ function DraggablePlacedProduct({
                     fontSize: '0.6rem',
                     overflow: 'hidden',
                     cursor: isDragging ? 'grabbing' : 'grab',
-                    color: getProductColor(product.category).text,
+                    color: 'var(--text-primary)',
                     opacity: isDragging ? 0.3 : 1,
                     transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
                     zIndex: isDragging ? 100 : undefined,
@@ -465,7 +465,7 @@ export function ShelfBlockEditor() {
         productsData.sort((a, b) => a.salesRank - b.salesRank);
         setBlocks(blocksData);
         setProducts(productsData);
-        initProductColorMap(productsData.map(p => p.category));
+        initProductColorMap(productsData.map(p => p.departmentName || ''));
         setLoading(false);
     }, []);
 
