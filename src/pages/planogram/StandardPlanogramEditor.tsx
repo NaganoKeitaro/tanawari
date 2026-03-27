@@ -3,7 +3,6 @@ import { useState, useEffect, useCallback } from 'react';
 import {
     DndContext,
     DragOverlay,
-    useDraggable,
     useDroppable,
     pointerWithin,
     PointerSensor,
@@ -59,26 +58,22 @@ const PLANOGRAM_TYPES: { id: FixtureType; label: string }[] = [
     { id: 'end-cap-frozen', label: '平台冷凍エンド' },
 ];
 
-// ドラッグ可能な棚ブロック
-function DraggableBlock({ block }: { block: ShelfBlock }) {
-    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-        id: `block-${block.id}`,
-        data: { block, type: 'block' }
-    });
-
-    const style = {
-        transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
-        opacity: isDragging ? 0.5 : 1,
-        cursor: 'grab'
-    };
-
+// 選択可能な棚ブロック（クリックで選択→キャンバスクリックで配置）
+function SelectableBlock({ block, isSelected, onSelect }: {
+    block: ShelfBlock;
+    isSelected: boolean;
+    onSelect: (block: ShelfBlock) => void;
+}) {
     return (
         <div
-            ref={setNodeRef}
-            style={style}
-            {...listeners}
-            {...attributes}
+            onClick={() => onSelect(block)}
             className="card"
+            style={{
+                cursor: 'pointer',
+                border: isSelected ? '2px solid var(--color-primary)' : undefined,
+                background: isSelected ? 'rgba(16, 185, 129, 0.08)' : undefined,
+                transition: 'border-color 0.15s, background 0.15s',
+            }}
         >
             <div style={{ fontWeight: 500 }}>{block.name}</div>
             <div className="text-xs text-muted">
@@ -458,7 +453,7 @@ function PlanogramCanvas({
 
             {planogram.blocks.length === 0 && (
                 <div className="text-center text-muted" style={{ padding: '3rem' }}>
-                    左のブロックをドラッグして配置
+                    左のブロックを選択して配置
                 </div>
             )}
         </div>
@@ -498,6 +493,8 @@ export function StandardPlanogramEditor() {
 
     // ブロック選択（矢印移動用）
     const [selectedPlacedBlockId, setSelectedPlacedBlockId] = useState<string | null>(null);
+    // パレットから選択中のブロック（クリックで配置）
+    const [selectedPaletteBlockId, setSelectedPaletteBlockId] = useState<string | null>(null);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -869,6 +866,62 @@ export function StandardPlanogramEditor() {
         }
     };
 
+    // パレットからブロック選択
+    const handleSelectPaletteBlock = (block: ShelfBlock) => {
+        setSelectedPaletteBlockId(prev => prev === block.id ? null : block.id);
+    };
+
+    // キャンバスクリックで選択中ブロックを配置
+    const handleCanvasClickToPlace = async (e: React.MouseEvent<HTMLDivElement>) => {
+        if (!selectedPaletteBlockId || !currentPlanogram) return;
+        const block = blocks.find(b => b.id === selectedPaletteBlockId);
+        if (!block) return;
+
+        const actualWidth = getActualWidth();
+        const productIdSet = new Set(products.map(p => p.id));
+
+        // クリック位置からY段を推定
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clickY = e.clientY - rect.top;
+        const shelfHeight = Math.max(80, (currentPlanogram.height / currentPlanogram.shelfCount) * SCALE);
+        const visualRow = Math.floor(clickY / shelfHeight);
+        const posY = calcPosYFromVisualRow(visualRow, currentPlanogram.shelfCount, block.shelfCount);
+
+        const placement = findBestPlacementPure(
+            currentPlanogram.blocks, blocks, block.width, block.shelfCount,
+            posY, actualWidth, currentPlanogram.shelfCount
+        );
+
+        if (!placement) {
+            alert('スペースが足りません。先に既存のブロックを調整してください。');
+            return;
+        }
+
+        const { posY: finalPosY, insertX } = placement;
+        const expanded = expandBlockProductsPure(block.productPlacements, productIdSet, insertX, finalPosY);
+
+        const newBlock: StandardPlanogramBlock = {
+            id: crypto.randomUUID(),
+            blockId: block.id,
+            positionX: insertX,
+            positionY: finalPosY
+        };
+
+        const newProducts: StandardPlanogramProduct[] = expanded.map(ep => ({ ...ep, id: crypto.randomUUID(), placedBlockId: newBlock.id }));
+
+        const updatedPlanogram = {
+            ...currentPlanogram,
+            blocks: [...currentPlanogram.blocks, newBlock],
+            products: [...currentPlanogram.products, ...newProducts],
+            updatedAt: new Date().toISOString()
+        };
+
+        await standardPlanogramRepository.update(currentPlanogram.id, updatedPlanogram);
+        setCurrentPlanogram(updatedPlanogram);
+        setPlanograms(planograms.map(p => p.id === currentPlanogram.id ? updatedPlanogram : p));
+        setSelectedPaletteBlockId(null);
+    };
+
     // ブロック削除
     // ブロック選択（矢印移動用）
     const handleSelectBlock = (blockId: string) => {
@@ -1158,15 +1211,28 @@ export function StandardPlanogramEditor() {
                                 <div className="card">
                                     <h3 className="card-title mb-md">棚ブロック</h3>
                                     <div className="text-sm text-muted mb-md">
-                                        ブロックをドラッグして配置
+                                        {selectedPaletteBlockId
+                                            ? 'キャンバスをクリックして配置'
+                                            : 'ブロックを選択して配置'}
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <div style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: '0.35rem',
+                                        maxHeight: '500px',
+                                        overflowY: 'auto',
+                                    }}>
                                         {blocks.filter(b => {
                                             const isFlat = b.blockType === 'flat';
                                             const isMultiTierFixture = selectedFixtureType === 'multi-tier' || selectedFixtureType === 'gondola';
                                             return isMultiTierFixture ? !isFlat : isFlat;
                                         }).map(block => (
-                                            <DraggableBlock key={block.id} block={block} />
+                                            <SelectableBlock
+                                                key={block.id}
+                                                block={block}
+                                                isSelected={selectedPaletteBlockId === block.id}
+                                                onSelect={handleSelectPaletteBlock}
+                                            />
                                         ))}
                                     </div>
                                     {blocks.filter(b => {
@@ -1230,7 +1296,13 @@ export function StandardPlanogramEditor() {
                                         </div>
                                     </div>
 
-                                    <div style={{ paddingLeft: '40px' }}>
+                                    <div
+                                        onClick={handleCanvasClickToPlace}
+                                        style={{
+                                            paddingLeft: '40px',
+                                            cursor: selectedPaletteBlockId ? 'crosshair' : undefined,
+                                        }}
+                                    >
                                         <PlanogramCanvas
                                             planogram={currentPlanogram}
                                             products={products}
