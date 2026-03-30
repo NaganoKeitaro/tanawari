@@ -4,6 +4,7 @@ import type { HierarchyEntry } from '../../data/types/productHierarchy';
 import { HIERARCHY_HEADERS, HIERARCHY_KEYS } from '../../data/types/productHierarchy';
 import { HierarchyImportModal } from '../../components/masters/HierarchyImportModal';
 import { Modal } from '../../components/common/Modal';
+import { INITIAL_HIERARCHY_DATA } from '../../data/initialHierarchyData';
 
 // フィルター用の階層レベル定義
 const FILTER_LEVELS = [
@@ -28,6 +29,7 @@ export const ProductHierarchyMaster: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [showFilters, setShowFilters] = useState(false);
+    const [isInitializing, setIsInitializing] = useState(false);
 
     // 各階層レベルのフィルター値
     const [filters, setFilters] = useState<Record<string, string>>({});
@@ -152,6 +154,26 @@ export const ProductHierarchyMaster: React.FC = () => {
         setIsEditModalOpen(true);
     };
 
+    const handleInitialize = async () => {
+        if (!confirm(`初期データ（${INITIAL_HIERARCHY_DATA.length}件）を投入します。既存データは全て置き換えられます。よろしいですか？`)) return;
+        setIsInitializing(true);
+        try {
+            const now = new Date().toISOString();
+            const entries = INITIAL_HIERARCHY_DATA.map(entry => ({
+                ...entry,
+                id: crypto.randomUUID(),
+                createdAt: now,
+                updatedAt: now,
+            }));
+            await productHierarchyRepository.saveAll(entries);
+            await loadHierarchies();
+        } catch (err) {
+            alert('初期データ投入に失敗しました: ' + (err as Error).message);
+        } finally {
+            setIsInitializing(false);
+        }
+    };
+
     // アクティブフィルター数
     const activeFilterCount = Object.keys(filters).filter(k => filters[k]).length + (searchTerm ? 1 : 0);
 
@@ -187,6 +209,13 @@ export const ProductHierarchyMaster: React.FC = () => {
                         )}
                     </div>
                     <div className="flex gap-sm">
+                        <button
+                            className="btn btn-secondary"
+                            onClick={handleInitialize}
+                            disabled={isInitializing}
+                        >
+                            {isInitializing ? '投入中...' : '初期データ投入'}
+                        </button>
                         <button
                             className="btn btn-secondary"
                             onClick={() => setIsImportModalOpen(true)}
