@@ -523,7 +523,18 @@ class ProductHierarchySupabaseRepository {
     }
 
     async deleteAll(): Promise<void> {
-        await supabase.from('product_hierarchy').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        // Supabaseのdelete/selectはデフォルト1000行制限があるため、ループで全件削除
+        let deleted = 0;
+        do {
+            const { data } = await supabase
+                .from('product_hierarchy')
+                .select('id')
+                .limit(1000);
+            if (!data || data.length === 0) break;
+            deleted = data.length;
+            const ids = data.map((d: { id: string }) => d.id);
+            await supabase.from('product_hierarchy').delete().in('id', ids);
+        } while (deleted > 0);
     }
 }
 
