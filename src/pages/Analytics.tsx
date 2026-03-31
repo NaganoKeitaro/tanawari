@@ -80,6 +80,7 @@ export function Analytics() {
                 positionX: pp.positionX,
                 faceCount: pp.faceCount
             })),
+            hierarchyPlacements: (block.hierarchyPlacements || []).map(hp => ({ ...hp })),
             createdAt: block.createdAt,
             updatedAt: block.updatedAt
         };
