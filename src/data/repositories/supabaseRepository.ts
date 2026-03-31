@@ -484,16 +484,29 @@ export const storePlanogramRepository = new StorePlanogramRepository();
 
 class ProductHierarchySupabaseRepository {
     async getAll(): Promise<HierarchyEntry[]> {
-        const { data, error } = await supabase.from('product_hierarchy').select('*');
-        if (error) return [];
-        return toCamel(data) as HierarchyEntry[];
+        // Supabase PostgRESTはデフォルト1000行制限のためページネーションで全件取得
+        const allData: any[] = [];
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        while (true) {
+            const { data, error } = await supabase
+                .from('product_hierarchy')
+                .select('*')
+                .range(offset, offset + PAGE_SIZE - 1);
+            if (error || !data || data.length === 0) break;
+            allData.push(...data);
+            if (data.length < PAGE_SIZE) break;
+            offset += PAGE_SIZE;
+        }
+        return toCamel(allData) as HierarchyEntry[];
     }
 
     async saveAll(entries: HierarchyEntry[]): Promise<void> {
-        // Clear all first, then insert in chunks (Supabase has a ~1000 row limit per insert)
+        // 1. 全件削除（1000行制限を回避するためループ）
         await this.deleteAll();
         if (entries.length === 0) return;
 
+        // 2. チャンク分割でinsert
         const payload = entries.map(e => toSnake({ ...e, id: e.id || crypto.randomUUID() }));
         const CHUNK_SIZE = 500;
         for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
@@ -523,8 +536,18 @@ class ProductHierarchySupabaseRepository {
     }
 
     async deleteAll(): Promise<void> {
-        // gt('id', '') は全UUIDにマッチするため全件削除できる（neqの1000行制限を回避）
-        await supabase.from('product_hierarchy').delete().gt('id', '00000000-0000-0000-0000-000000000000');
+        // Supabaseのdelete/selectもデフォルト1000行制限のためループで全件削除
+        while (true) {
+            const { data } = await supabase
+                .from('product_hierarchy')
+                .select('id')
+                .limit(500);
+            if (!data || data.length === 0) break;
+            // 少数のIDでin句を構築（URL長制限回避）
+            const ids = data.map((d: { id: string }) => d.id);
+            const { error } = await supabase.from('product_hierarchy').delete().in('id', ids);
+            if (error) throw error;
+        }
     }
 }
 
