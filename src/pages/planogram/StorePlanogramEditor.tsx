@@ -649,6 +649,45 @@ function SinglePlanogramView({
                                 shelfIndex={shelfIndex}
                                 heightPx={Math.max(90, (planogram.height / planogram.shelfCount) * SCALE)}
                             >
+                                {/* 配置済み階層アイテム */}
+                                {(planogram.hierarchyPlacements || [])
+                                    .filter(hp => hp.shelfIndex === shelfIndex)
+                                    .map(hp => (
+                                        <div
+                                            key={hp.id}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${hp.positionX * SCALE}px`,
+                                                top: 0,
+                                                bottom: 0,
+                                                width: `${hp.width * hp.faceCount * SCALE}px`,
+                                                background: 'rgba(99, 102, 241, 0.15)',
+                                                border: '2px solid rgba(99, 102, 241, 0.5)',
+                                                borderRadius: 'var(--radius-sm)',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '2px',
+                                                fontSize: '0.6rem',
+                                                overflow: 'hidden',
+                                                zIndex: 2,
+                                            }}
+                                            title={`${hp.hierarchyName} (${hp.hierarchyCode})`}
+                                        >
+                                            <div style={{ fontSize: '0.55rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 600 }}>
+                                                {hp.hierarchyLevel}
+                                            </div>
+                                            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
+                                                {hp.hierarchyName}
+                                            </div>
+                                            {hp.faceCount > 1 && (
+                                                <div style={{ fontSize: '0.55rem' }}>x{hp.faceCount}</div>
+                                            )}
+                                        </div>
+                                    ))
+                                }
+
                                 {shelfProducts.map(sp => {
                                     const product = products.find(p => p.id === sp.productId);
                                     if (!product) return null;

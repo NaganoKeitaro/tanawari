@@ -129,33 +129,40 @@ class SupabaseSimpleRepository<T extends { id: string }> implements IRepository<
 // --- Specialized Repositories ---
 
 class ShelfBlockRepository implements IRepository<ShelfBlock> {
+    private mapBlock(d: Record<string, unknown>): ShelfBlock {
+        const block = toCamel(d);
+        block.productPlacements = block.shelfBlockProducts || [];
+        block.hierarchyPlacements = block.shelfBlockHierarchyPlacements || [];
+        delete block.shelfBlockProducts;
+        delete block.shelfBlockHierarchyPlacements;
+        return block as ShelfBlock;
+    }
+
     async getAll(): Promise<ShelfBlock[]> {
         const { data, error } = await supabase.from('shelf_blocks').select(`
             *,
-            shelf_block_products (*)
+            shelf_block_products (*),
+            shelf_block_hierarchy_placements (*)
         `);
         if (error) return [];
-        return data.map((d: Record<string, unknown>) => {
-            const block = toCamel(d);
-            block.productPlacements = block.shelfBlockProducts || [];
-            delete block.shelfBlockProducts;
-            return block as ShelfBlock;
-        });
+        return data.map((d: Record<string, unknown>) => this.mapBlock(d));
     }
 
     async getById(id: string): Promise<ShelfBlock | null> {
-        const { data, error } = await supabase.from('shelf_blocks').select(`*, shelf_block_products (*)`).eq('id', id).single();
+        const { data, error } = await supabase.from('shelf_blocks').select(`
+            *,
+            shelf_block_products (*),
+            shelf_block_hierarchy_placements (*)
+        `).eq('id', id).single();
         if (error || !data) return null;
-        const block = toCamel(data);
-        block.productPlacements = block.shelfBlockProducts || [];
-        delete block.shelfBlockProducts;
-        return block as ShelfBlock;
+        return this.mapBlock(data);
     }
 
     async create(item: Omit<ShelfBlock, 'id'>): Promise<ShelfBlock> {
         const id = crypto.randomUUID();
         const blockPayload = toSnake({ ...item, id });
         delete blockPayload.product_placements;
+        delete blockPayload.hierarchy_placements;
 
         const { error: blockErr } = await supabase.from('shelf_blocks').insert(blockPayload);
         if (blockErr) throw blockErr;
@@ -169,12 +176,23 @@ class ShelfBlockRepository implements IRepository<ShelfBlock> {
             const { error: prodErr } = await supabase.from('shelf_block_products').insert(prodPayloads);
             if (prodErr) throw prodErr;
         }
+
+        if (item.hierarchyPlacements && item.hierarchyPlacements.length > 0) {
+            const hPayloads = item.hierarchyPlacements.map(h => toSnake({
+                ...h,
+                id: crypto.randomUUID(),
+                blockId: id
+            }));
+            const { error: hErr } = await supabase.from('shelf_block_hierarchy_placements').insert(hPayloads);
+            if (hErr) throw hErr;
+        }
         return this.getById(id) as Promise<ShelfBlock>;
     }
 
     async update(id: string, item: Partial<ShelfBlock>): Promise<ShelfBlock | null> {
         const blockPayload = toSnake(item);
         delete blockPayload.product_placements;
+        delete blockPayload.hierarchy_placements;
         delete blockPayload.id;
 
         if (Object.keys(blockPayload).length > 0) {
@@ -193,6 +211,21 @@ class ShelfBlockRepository implements IRepository<ShelfBlock> {
                     blockId: id
                 }));
                 const { error: insertErr } = await supabase.from('shelf_block_products').insert(prodPayloads);
+                if (insertErr) throw insertErr;
+            }
+        }
+
+        if (item.hierarchyPlacements) {
+            const { error: deleteErr } = await supabase.from('shelf_block_hierarchy_placements').delete().eq('block_id', id);
+            if (deleteErr) throw deleteErr;
+
+            if (item.hierarchyPlacements.length > 0) {
+                const hPayloads = item.hierarchyPlacements.map(h => toSnake({
+                    ...h,
+                    id: crypto.randomUUID(),
+                    blockId: id
+                }));
+                const { error: insertErr } = await supabase.from('shelf_block_hierarchy_placements').insert(hPayloads);
                 if (insertErr) throw insertErr;
             }
         }
@@ -215,36 +248,37 @@ class ShelfBlockRepository implements IRepository<ShelfBlock> {
 }
 
 class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
+    private mapPlanogram(d: Record<string, unknown>): StandardPlanogram {
+        const plan = toCamel(d);
+        plan.blocks = plan.standardPlanogramBlocks || [];
+        plan.products = plan.standardPlanogramProducts || [];
+        plan.hierarchyPlacements = plan.standardPlanogramHierarchyPlacements || [];
+        delete plan.standardPlanogramBlocks;
+        delete plan.standardPlanogramProducts;
+        delete plan.standardPlanogramHierarchyPlacements;
+        return plan as StandardPlanogram;
+    }
+
     async getAll(): Promise<StandardPlanogram[]> {
         const { data, error } = await supabase.from('standard_planograms').select(`
             *,
             standard_planogram_blocks (*),
-            standard_planogram_products (*)
+            standard_planogram_products (*),
+            standard_planogram_hierarchy_placements (*)
         `);
         if (error) return [];
-        return data.map((d: Record<string, unknown>) => {
-            const plan = toCamel(d);
-            plan.blocks = plan.standardPlanogramBlocks || [];
-            plan.products = plan.standardPlanogramProducts || [];
-            delete plan.standardPlanogramBlocks;
-            delete plan.standardPlanogramProducts;
-            return plan as StandardPlanogram;
-        });
+        return data.map((d: Record<string, unknown>) => this.mapPlanogram(d));
     }
 
     async getById(id: string): Promise<StandardPlanogram | null> {
         const { data, error } = await supabase.from('standard_planograms').select(`
             *,
             standard_planogram_blocks (*),
-            standard_planogram_products (*)
+            standard_planogram_products (*),
+            standard_planogram_hierarchy_placements (*)
         `).eq('id', id).single();
         if (error || !data) return null;
-        const plan = toCamel(data);
-        plan.blocks = plan.standardPlanogramBlocks || [];
-        plan.products = plan.standardPlanogramProducts || [];
-        delete plan.standardPlanogramBlocks;
-        delete plan.standardPlanogramProducts;
-        return plan as StandardPlanogram;
+        return this.mapPlanogram(data);
     }
 
     async create(item: Omit<StandardPlanogram, 'id'>): Promise<StandardPlanogram> {
@@ -252,6 +286,7 @@ class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
         const payload = toSnake({ ...item, id });
         delete payload.blocks;
         delete payload.products;
+        delete payload.hierarchy_placements;
 
         const { error } = await supabase.from('standard_planograms').insert(payload);
         if (error) throw error;
@@ -266,6 +301,11 @@ class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
                 item.products.map(p => toSnake({ ...p, id: crypto.randomUUID(), standardPlanogramId: id }))
             );
         }
+        if (item.hierarchyPlacements && item.hierarchyPlacements.length > 0) {
+            await supabase.from('standard_planogram_hierarchy_placements').insert(
+                item.hierarchyPlacements.map(h => toSnake({ ...h, id: crypto.randomUUID(), standardPlanogramId: id }))
+            );
+        }
         return this.getById(id) as Promise<StandardPlanogram>;
     }
 
@@ -273,6 +313,7 @@ class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
         const payload = toSnake(item);
         delete payload.blocks;
         delete payload.products;
+        delete payload.hierarchy_placements;
         delete payload.id;
 
         if (Object.keys(payload).length > 0) {
@@ -296,6 +337,15 @@ class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
                 );
             }
         }
+
+        if (item.hierarchyPlacements) {
+            await supabase.from('standard_planogram_hierarchy_placements').delete().eq('standard_planogram_id', id);
+            if (item.hierarchyPlacements.length > 0) {
+                await supabase.from('standard_planogram_hierarchy_placements').insert(
+                    item.hierarchyPlacements.map(h => toSnake({ ...h, id: crypto.randomUUID(), standardPlanogramId: id }))
+                );
+            }
+        }
         return this.getById(id);
     }
 
@@ -315,36 +365,40 @@ class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
 }
 
 class StorePlanogramRepository implements IRepository<StorePlanogram> {
+    private mapPlanogram(d: Record<string, unknown>): StorePlanogram {
+        const plan = toCamel(d);
+        plan.products = plan.storePlanogramProducts || [];
+        plan.hierarchyPlacements = plan.storePlanogramHierarchyPlacements || [];
+        delete plan.storePlanogramProducts;
+        delete plan.storePlanogramHierarchyPlacements;
+        return plan as StorePlanogram;
+    }
+
     async getAll(): Promise<StorePlanogram[]> {
         const { data, error } = await supabase.from('store_planograms').select(`
             *,
-            store_planogram_products (*)
+            store_planogram_products (*),
+            store_planogram_hierarchy_placements (*)
         `);
         if (error) return [];
-        return data.map((d: Record<string, unknown>) => {
-            const plan = toCamel(d);
-            plan.products = plan.storePlanogramProducts || [];
-            delete plan.storePlanogramProducts;
-            return plan as StorePlanogram;
-        });
+        return data.map((d: Record<string, unknown>) => this.mapPlanogram(d));
     }
 
     async getById(id: string): Promise<StorePlanogram | null> {
         const { data, error } = await supabase.from('store_planograms').select(`
             *,
-            store_planogram_products (*)
+            store_planogram_products (*),
+            store_planogram_hierarchy_placements (*)
         `).eq('id', id).single();
         if (error || !data) return null;
-        const plan = toCamel(data);
-        plan.products = plan.storePlanogramProducts || [];
-        delete plan.storePlanogramProducts;
-        return plan as StorePlanogram;
+        return this.mapPlanogram(data);
     }
 
     async create(item: Omit<StorePlanogram, 'id'>): Promise<StorePlanogram> {
         const id = crypto.randomUUID();
         const payload = toSnake({ ...item, id });
         delete payload.products;
+        delete payload.hierarchy_placements;
 
         const { error } = await supabase.from('store_planograms').insert(payload);
         if (error) throw error;
@@ -354,12 +408,18 @@ class StorePlanogramRepository implements IRepository<StorePlanogram> {
                 item.products.map(p => toSnake({ ...p, id: crypto.randomUUID(), storePlanogramId: id }))
             );
         }
+        if (item.hierarchyPlacements && item.hierarchyPlacements.length > 0) {
+            await supabase.from('store_planogram_hierarchy_placements').insert(
+                item.hierarchyPlacements.map(h => toSnake({ ...h, id: crypto.randomUUID(), storePlanogramId: id }))
+            );
+        }
         return this.getById(id) as Promise<StorePlanogram>;
     }
 
     async update(id: string, item: Partial<StorePlanogram>): Promise<StorePlanogram | null> {
         const payload = toSnake(item);
         delete payload.products;
+        delete payload.hierarchy_placements;
         delete payload.id;
 
         if (Object.keys(payload).length > 0) {
@@ -371,6 +431,15 @@ class StorePlanogramRepository implements IRepository<StorePlanogram> {
             if (item.products.length > 0) {
                 await supabase.from('store_planogram_products').insert(
                     item.products.map(p => toSnake({ ...p, id: crypto.randomUUID(), storePlanogramId: id }))
+                );
+            }
+        }
+
+        if (item.hierarchyPlacements) {
+            await supabase.from('store_planogram_hierarchy_placements').delete().eq('store_planogram_id', id);
+            if (item.hierarchyPlacements.length > 0) {
+                await supabase.from('store_planogram_hierarchy_placements').insert(
+                    item.hierarchyPlacements.map(h => toSnake({ ...h, id: crypto.randomUUID(), storePlanogramId: id }))
                 );
             }
         }

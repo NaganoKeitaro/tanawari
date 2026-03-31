@@ -2,7 +2,9 @@
 import type {
     StandardPlanogramBlock,
     StandardPlanogramProduct,
-    ProductPlacement
+    StandardPlanogramHierarchyPlacement,
+    ProductPlacement,
+    HierarchyPlacement
 } from '../../data/types';
 
 /** ブロックマスタ参照用の最小型 */
@@ -343,6 +345,25 @@ export function expandBlockProducts(
             positionX: positionX + pl.positionX,
             faceCount: pl.faceCount
         }));
+}
+
+/**
+ * ブロック内の階層配置を絶対座標に展開する。
+ */
+export function expandBlockHierarchyPlacements(
+    hierarchyPlacements: HierarchyPlacement[],
+    positionX: number,
+    positionY: number
+): Omit<StandardPlanogramHierarchyPlacement, 'id'>[] {
+    return hierarchyPlacements.map(hp => ({
+        hierarchyLevel: hp.hierarchyLevel,
+        hierarchyCode: hp.hierarchyCode,
+        hierarchyName: hp.hierarchyName,
+        shelfIndex: positionY + hp.shelfIndex,
+        positionX: positionX + hp.positionX,
+        width: hp.width,
+        faceCount: hp.faceCount,
+    }));
 }
 
 // ---------------------------------------------------------------------------
