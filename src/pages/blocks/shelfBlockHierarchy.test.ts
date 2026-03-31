@@ -5,7 +5,6 @@ import type {
     ProductPlacement,
     HierarchyPlacement,
     ShelfBlock,
-    StandardPlanogramHierarchyPlacement,
 } from '../../data/types';
 import { expandBlockHierarchyPlacements } from '../planogram/standardPlanogramRearrange';
 

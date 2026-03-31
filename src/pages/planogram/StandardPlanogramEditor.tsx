@@ -613,6 +613,7 @@ export function StandardPlanogramEditor() {
             description: newDescription || undefined,
             blocks: initialBlocks,
             products: initialProducts,
+            hierarchyPlacements: copySource ? (copySource.hierarchyPlacements || []).map(h => ({ ...h, id: crypto.randomUUID() })) : [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         });

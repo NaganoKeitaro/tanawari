@@ -568,26 +568,6 @@ function BlockCard({
     );
 }
 
-// ドラッグ中の挿入インデックスを計算するヘルパー（商品のみ版 — 後方互換）
-function calcInsertIndex(
-    targetShelfPlacements: ProductPlacement[],
-    targetXmm: number,
-    products: Product[]
-): number {
-    let insertIdx = targetShelfPlacements.length;
-    for (let i = 0; i < targetShelfPlacements.length; i++) {
-        const p = targetShelfPlacements[i];
-        const prod = products.find(pr => pr.id === p.productId);
-        if (!prod) continue;
-        const centerX = p.positionX + (prod.width * p.faceCount) / 2;
-        if (targetXmm < centerX) {
-            insertIdx = i;
-            break;
-        }
-    }
-    return insertIdx;
-}
-
 // 統合アイテム型（商品+階層）での挿入インデックス計算
 type UnifiedShelfItem = { id: string; positionX: number; totalWidth: number };
 

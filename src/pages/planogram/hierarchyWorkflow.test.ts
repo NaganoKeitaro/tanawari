@@ -3,12 +3,9 @@ import { describe, it, expect } from 'vitest';
 import type {
     ShelfBlock,
     HierarchyPlacement,
-    StandardPlanogram,
     StandardPlanogramBlock,
     StandardPlanogramHierarchyPlacement,
-    StorePlanogram,
     StorePlanogramHierarchyPlacement,
-    StorePlanogramProduct,
 } from '../../data/types';
 import { expandBlockHierarchyPlacements } from './standardPlanogramRearrange';
 
@@ -303,7 +300,7 @@ describe('E2E: 商品階層のみの棚ブロック → 標準棚割 → 個店�
     });
 
     describe('Step4: 全体の整合性検証', () => {
-        const { stdBlocks, hierarchyPlacements: stdHierarchies, totalWidth } = buildStandardPlanogramWithHierarchy([beefBlock, porkBlock]);
+        const { hierarchyPlacements: stdHierarchies, totalWidth } = buildStandardPlanogramWithHierarchy([beefBlock, porkBlock]);
         const storeHierarchies = generateStorePlanogramHierarchy(stdHierarchies, totalWidth);
 
         it('棚ブロック → 標準棚割 → 個店棚割で階層数が一貫する', () => {
