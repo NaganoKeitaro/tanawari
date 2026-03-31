@@ -42,6 +42,7 @@ import {
     tryPackWithNearbyY,
     findBestPlacement as findBestPlacementPure,
     expandBlockProducts as expandBlockProductsPure,
+    expandBlockHierarchyPlacements,
     calcPreviewPositions,
     calcPosYFromVisualRow,
     swapBlock
@@ -798,19 +799,23 @@ export function StandardPlanogramEditor() {
             }
             const productsWithoutBlocks = currentPlanogram.products.filter(p => !allOldProducts.has(p.id));
 
-            // 再配置後のブロックから商品を展開
+            // 再配置後のブロックから商品・階層を展開
             const newProducts: StandardPlanogramProduct[] = [];
+            const newHierarchyPlacements: typeof currentPlanogram.hierarchyPlacements = [];
             for (const pb of packedBlocks) {
                 const m = blocks.find(b => b.id === pb.blockId);
                 if (!m) continue;
                 const expanded = expandBlockProductsPure(m.productPlacements, productIdSet, pb.positionX, pb.positionY);
                 newProducts.push(...expanded.map(ep => ({ ...ep, id: crypto.randomUUID(), placedBlockId: pb.id })));
+                const expandedH = expandBlockHierarchyPlacements(m.hierarchyPlacements || [], pb.positionX, pb.positionY);
+                newHierarchyPlacements.push(...expandedH.map(eh => ({ ...eh, id: crypto.randomUUID(), placedBlockId: pb.id })));
             }
 
             const updatedPlanogram = {
                 ...currentPlanogram,
                 blocks: packedBlocks,
                 products: [...productsWithoutBlocks, ...newProducts],
+                hierarchyPlacements: newHierarchyPlacements,
                 updatedAt: new Date().toISOString()
             };
 
@@ -843,6 +848,7 @@ export function StandardPlanogramEditor() {
 
             const { posY, insertX } = placement;
             const expanded = expandBlockProductsPure(block.productPlacements, productIdSet, insertX, posY);
+            const expandedH = expandBlockHierarchyPlacements(block.hierarchyPlacements || [], insertX, posY);
 
             const newBlock: StandardPlanogramBlock = {
                 id: crypto.randomUUID(),
@@ -852,11 +858,13 @@ export function StandardPlanogramEditor() {
             };
 
             const newProducts: StandardPlanogramProduct[] = expanded.map(ep => ({ ...ep, id: crypto.randomUUID(), placedBlockId: newBlock.id }));
+            const newHier = expandedH.map(eh => ({ ...eh, id: crypto.randomUUID(), placedBlockId: newBlock.id }));
 
             const updatedPlanogram = {
                 ...currentPlanogram,
                 blocks: [...currentPlanogram.blocks, newBlock],
                 products: [...currentPlanogram.products, ...newProducts],
+                hierarchyPlacements: [...(currentPlanogram.hierarchyPlacements || []), ...newHier],
                 updatedAt: new Date().toISOString()
             };
 
@@ -899,6 +907,7 @@ export function StandardPlanogramEditor() {
 
         const { posY: finalPosY, insertX } = placement;
         const expanded = expandBlockProductsPure(block.productPlacements, productIdSet, insertX, finalPosY);
+        const expandedH = expandBlockHierarchyPlacements(block.hierarchyPlacements || [], insertX, finalPosY);
 
         const newBlock: StandardPlanogramBlock = {
             id: crypto.randomUUID(),
@@ -908,11 +917,13 @@ export function StandardPlanogramEditor() {
         };
 
         const newProducts: StandardPlanogramProduct[] = expanded.map(ep => ({ ...ep, id: crypto.randomUUID(), placedBlockId: newBlock.id }));
+        const newHier = expandedH.map(eh => ({ ...eh, id: crypto.randomUUID(), placedBlockId: newBlock.id }));
 
         const updatedPlanogram = {
             ...currentPlanogram,
             blocks: [...currentPlanogram.blocks, newBlock],
             products: [...currentPlanogram.products, ...newProducts],
+            hierarchyPlacements: [...(currentPlanogram.hierarchyPlacements || []), ...newHier],
             updatedAt: new Date().toISOString()
         };
 
@@ -968,17 +979,21 @@ export function StandardPlanogramEditor() {
         const productsWithoutBlocks = currentPlanogram.products.filter(p => !allOldProducts.has(p.id));
 
         const newProducts: StandardPlanogramProduct[] = [];
+        const newHierarchyPlacements: typeof currentPlanogram.hierarchyPlacements = [];
         for (const pb of packedBlocks) {
             const m = blocks.find(b => b.id === pb.blockId);
             if (!m) continue;
             const expanded = expandBlockProductsPure(m.productPlacements, productIdSet, pb.positionX, pb.positionY);
             newProducts.push(...expanded.map(ep => ({ ...ep, id: crypto.randomUUID(), placedBlockId: pb.id })));
+            const expandedH = expandBlockHierarchyPlacements(m.hierarchyPlacements || [], pb.positionX, pb.positionY);
+            newHierarchyPlacements.push(...expandedH.map(eh => ({ ...eh, id: crypto.randomUUID(), placedBlockId: pb.id })));
         }
 
         const updatedPlanogram = {
             ...currentPlanogram,
             blocks: packedBlocks,
             products: [...productsWithoutBlocks, ...newProducts],
+            hierarchyPlacements: newHierarchyPlacements,
             updatedAt: new Date().toISOString()
         };
 
@@ -1020,10 +1035,17 @@ export function StandardPlanogramEditor() {
         // 削除後に位置を詰める機能は実装しない（要望になかったため）
         // そのまま隙間があく仕様（「間違えた際に...」とあるので、即座に修正する用途と思われる）
 
+        // 階層アイテムもブロック範囲内のものを削除
+        const updatedHierarchyPlacements = (currentPlanogram.hierarchyPlacements || []).filter(h => {
+            const hCenter = h.positionX + (h.width * h.faceCount / 2);
+            return !(hCenter >= startX - margin && hCenter <= endX + margin);
+        });
+
         const updatedPlanogram = {
             ...currentPlanogram,
             blocks: updatedBlocks,
             products: updatedProducts,
+            hierarchyPlacements: updatedHierarchyPlacements,
             updatedAt: new Date().toISOString()
         };
 
@@ -1041,6 +1063,7 @@ export function StandardPlanogramEditor() {
             ...currentPlanogram,
             blocks: [],
             products: [],
+            hierarchyPlacements: [],
             updatedAt: new Date().toISOString()
         };
 

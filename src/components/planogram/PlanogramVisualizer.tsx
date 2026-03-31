@@ -347,6 +347,9 @@ export function PlanogramVisualizer({
                     // Render Hierarchy Overlay for this shelf (if applied)
                     const shelfHierarchyBlocks = hierarchyLayouts.filter(l => l.shelfIndex === shelfIndex);
 
+                    // 明示的に配置された階層アイテム
+                    const shelfHierarchyPlacements = (planogram.hierarchyPlacements || []).filter(h => h.shelfIndex === shelfIndex);
+
                     return (
                         <div
                             key={shelfIndex}
@@ -392,6 +395,41 @@ export function PlanogramVisualizer({
                                             {totalMetric > 0 ? (block.score / totalMetric * 100).toFixed(1) + '%' : '-'}
                                         </div>
                                     </div>
+                                </div>
+                            ))}
+
+                            {/* 明示的に配置された階層アイテム */}
+                            {shelfHierarchyPlacements.map(hp => (
+                                <div
+                                    key={hp.id}
+                                    style={{
+                                        position: 'absolute',
+                                        left: `${hp.positionX * SCALE}px`,
+                                        top: 0,
+                                        bottom: 0,
+                                        width: `${hp.width * hp.faceCount * SCALE}px`,
+                                        background: 'rgba(99, 102, 241, 0.15)',
+                                        border: '2px solid rgba(99, 102, 241, 0.5)',
+                                        borderRadius: 'var(--radius-sm)',
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        zIndex: 4,
+                                        padding: '2px',
+                                        overflow: 'hidden',
+                                    }}
+                                    title={`${hp.hierarchyName} (${hp.hierarchyCode})`}
+                                >
+                                    <div style={{ fontSize: '0.55rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 600 }}>
+                                        {hp.hierarchyLevel}
+                                    </div>
+                                    <div style={{ fontSize: '0.65rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                        {hp.hierarchyName}
+                                    </div>
+                                    {hp.faceCount > 1 && (
+                                        <div style={{ fontSize: '0.55rem' }}>x{hp.faceCount}</div>
+                                    )}
                                 </div>
                             ))}
 

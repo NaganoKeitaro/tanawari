@@ -13,7 +13,8 @@ const DEPARTMENT_COLOR_MAP: Record<string, ProductColor> = {
     '豚肉':     { bg: '#fb923c', border: '#f97316', text: '#7c2d12' },  // 橙
     '鶏肉':     { bg: '#fde047', border: '#facc15', text: '#713f12' },  // 黄
     '加工':     { bg: '#60a5fa', border: '#3b82f6', text: '#1e3a8a' },  // 青
-    'MS':       { bg: '#4ade80', border: '#22c55e', text: '#14532d' },  // 緑
+    'MS':       { bg: '#4ade80', border: '#22c55e', text: '#14532d' },  // 緑（旧名称互換）
+    'MS(ミールソリューション)': { bg: '#4ade80', border: '#22c55e', text: '#14532d' },  // 緑（マスタ正式名称）
     '焼肉/他':  { bg: '#d1d5db', border: '#9ca3af', text: '#374151' },  // 灰
 };
 

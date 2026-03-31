@@ -11,10 +11,12 @@ import {
     useSensors
 } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent, DragMoveEvent } from '@dnd-kit/core';
-import type { ShelfBlock, Product, ProductPlacement } from '../../data/types';
+import type { ShelfBlock, Product, ProductPlacement, HierarchyPlacement } from '../../data/types';
+import type { HierarchyEntry, HierarchyLevel } from '../../data/types/productHierarchy';
 import {
     shelfBlockRepository,
-    productRepository
+    productRepository,
+    productHierarchyRepository
 } from '../../data/repositories/repositoryFactory';
 import { Modal } from '../../components/common/Modal';
 import { UnitInput } from '../../components/common/UnitInput';
@@ -25,12 +27,100 @@ import { ProductTooltip } from '../../components/common/ProductTooltip';
 // 1mm = 0.3px表示
 const SCALE = 0.3; // 1mm = 0.3px表示
 
+const HIERARCHY_DEFAULT_WIDTH = 300; // mm（1尺）
+
+const HIERARCHY_LEVEL_LABELS: Record<HierarchyLevel, string> = {
+    division: '事業部',
+    divisionSub: 'ディビジョン',
+    line: 'ライン',
+    department: '部門',
+    category: 'カテゴリ',
+    subCategory: 'サブカテゴリ',
+    segment: 'セグメント',
+    subSegment: 'サブセグメント',
+};
+
+const HIERARCHY_LEVELS: HierarchyLevel[] = [
+    'division', 'divisionSub', 'line', 'department',
+    'category', 'subCategory', 'segment', 'subSegment'
+];
+
+// 階層レベルに対応するコード/名前キーのマッピング
+function getHierarchyCodeKey(level: HierarchyLevel): keyof HierarchyEntry {
+    return `${level}Code` as keyof HierarchyEntry;
+}
+function getHierarchyNameKey(level: HierarchyLevel): keyof HierarchyEntry {
+    return `${level}Name` as keyof HierarchyEntry;
+}
+
+// 部門以下の階層パス文字列を構築
+function buildHierarchyPath(
+    entries: HierarchyEntry[],
+    level: HierarchyLevel,
+    code: string,
+    filters: Partial<Record<HierarchyLevel, string>>
+): string {
+    // department以降のレベルだけパスに含める
+    const pathLevels: HierarchyLevel[] = ['department', 'category', 'subCategory', 'segment', 'subSegment'];
+    const startIdx = pathLevels.indexOf('department');
+    const endIdx = pathLevels.indexOf(level);
+    if (endIdx < startIdx) {
+        // department より上位の場合はそのレベル名だけ返す
+        const nameKey = getHierarchyNameKey(level);
+        const entry = entries.find(e => (e[getHierarchyCodeKey(level)] as string) === code);
+        return entry ? (entry[nameKey] as string) : code;
+    }
+
+    // フィルターとcodeからエントリを特定
+    let filtered = entries;
+    for (const [lvl, filterCode] of Object.entries(filters)) {
+        const key = getHierarchyCodeKey(lvl as HierarchyLevel);
+        filtered = filtered.filter(e => e[key] === filterCode);
+    }
+    const codeKey = getHierarchyCodeKey(level);
+    const entry = filtered.find(e => (e[codeKey] as string) === code);
+    if (!entry) return code;
+
+    const parts: string[] = [];
+    for (let i = startIdx; i <= endIdx; i++) {
+        const nameKey = getHierarchyNameKey(pathLevels[i]);
+        const val = entry[nameKey] as string;
+        if (val) parts.push(val);
+    }
+    return parts.join(' > ');
+}
+
+// 階層エントリから指定レベルのユニークな選択肢を抽出
+function getUniqueHierarchyOptions(
+    entries: HierarchyEntry[],
+    level: HierarchyLevel,
+    filters: Partial<Record<HierarchyLevel, string>>
+): { code: string; name: string }[] {
+    let filtered = entries;
+    for (const [lvl, code] of Object.entries(filters)) {
+        const key = getHierarchyCodeKey(lvl as HierarchyLevel);
+        filtered = filtered.filter(e => e[key] === code);
+    }
+    const codeKey = getHierarchyCodeKey(level);
+    const nameKey = getHierarchyNameKey(level);
+    const seen = new Set<string>();
+    const result: { code: string; name: string }[] = [];
+    for (const e of filtered) {
+        const code = e[codeKey] as string;
+        if (code && !seen.has(code)) {
+            seen.add(code);
+            result.push({ code, name: e[nameKey] as string });
+        }
+    }
+    return result.sort((a, b) => a.code.localeCompare(b.code));
+}
+
 // ドラッグプレビュー状態の型
 type DragPreviewState = {
     placementId: string;
     targetShelfIndex: number;
     insertIndex: number;
-    productWidthMm: number;
+    itemWidthMm: number;
 };
 
 // ドラッグ可能な商品
@@ -174,21 +264,156 @@ function DraggablePlacedProduct({
     );
 }
 
+// 5cm刻み定数
+const HIERARCHY_RESIZE_STEP = 50; // 50mm = 5cm
+
+// 配置済み階層アイテム（DnD移動 + 5cm刻みリサイズ）
+function DraggablePlacedHierarchy({
+    placement,
+    onRemove,
+    onResize,
+    previewX,
+}: {
+    placement: HierarchyPlacement;
+    onRemove: (placementId: string) => void;
+    onResize: (placementId: string, newWidth: number) => void;
+    previewX?: number;
+}) {
+    const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+        id: `placed-hierarchy-${placement.id}`,
+        data: { placement, type: 'placed-hierarchy' }
+    });
+
+    const wasDraggingRef = useRef(false);
+    useEffect(() => {
+        if (isDragging) {
+            wasDraggingRef.current = true;
+        }
+    }, [isDragging]);
+
+    const handleClick = () => {
+        if (wasDraggingRef.current) {
+            wasDraggingRef.current = false;
+            return;
+        }
+        onRemove(placement.id);
+    };
+
+    const totalWidth = placement.width * placement.faceCount;
+    const displayWidth = totalWidth * SCALE;
+    const displayX = previewX !== undefined ? previewX : placement.positionX;
+
+    const handleShrink = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const newWidth = Math.max(HIERARCHY_RESIZE_STEP, placement.width - HIERARCHY_RESIZE_STEP);
+        onResize(placement.id, newWidth);
+    };
+
+    const handleExpand = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onResize(placement.id, placement.width + HIERARCHY_RESIZE_STEP);
+    };
+
+    return (
+        <div
+            ref={setNodeRef}
+            {...listeners}
+            {...attributes}
+            style={{
+                position: 'absolute',
+                left: `${displayX * SCALE}px`,
+                top: 0,
+                bottom: 0,
+                width: `${displayWidth}px`,
+                background: 'rgba(99, 102, 241, 0.15)',
+                border: '2px solid rgba(99, 102, 241, 0.6)',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '2px',
+                fontSize: '0.6rem',
+                overflow: 'hidden',
+                cursor: isDragging ? 'grabbing' : 'grab',
+                color: 'var(--text-primary)',
+                opacity: isDragging ? 0.3 : 1,
+                transform: transform ? `translate(${transform.x}px, ${transform.y}px)` : undefined,
+                zIndex: isDragging ? 100 : undefined,
+                transition: !isDragging && previewX !== undefined ? 'left 0.15s ease' : undefined,
+            }}
+            onClick={handleClick}
+            title={`${placement.hierarchyName}\nクリックでフェイス減少/削除`}
+        >
+            {/* 階層パス表示 */}
+            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.6rem', lineHeight: 1.3 }}>
+                {placement.hierarchyName}
+            </div>
+            {/* 幅mm表示 */}
+            <div style={{ fontSize: '0.55rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 500 }}>
+                {Math.round(totalWidth)}mm
+            </div>
+            <div style={{ opacity: 0.85, fontSize: '0.55rem' }}>×{placement.faceCount}</div>
+            {/* 5cm刻みリサイズボタン */}
+            <div style={{ display: 'flex', gap: '2px', marginTop: '2px' }} onClick={(e) => e.stopPropagation()}>
+                <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={handleShrink}
+                    style={{
+                        border: '1px solid rgba(99, 102, 241, 0.5)',
+                        background: 'rgba(99, 102, 241, 0.1)',
+                        borderRadius: '3px',
+                        padding: '0 4px',
+                        fontSize: '0.6rem',
+                        cursor: 'pointer',
+                        lineHeight: '1.4',
+                        color: 'var(--text-primary)',
+                    }}
+                >
+                    -5cm
+                </button>
+                <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={handleExpand}
+                    style={{
+                        border: '1px solid rgba(99, 102, 241, 0.5)',
+                        background: 'rgba(99, 102, 241, 0.1)',
+                        borderRadius: '3px',
+                        padding: '0 4px',
+                        fontSize: '0.6rem',
+                        cursor: 'pointer',
+                        lineHeight: '1.4',
+                        color: 'var(--text-primary)',
+                    }}
+                >
+                    +5cm
+                </button>
+            </div>
+        </div>
+    );
+}
+
 // 棚段ドロップエリア
 function ShelfRow({
     shelfIndex,
     width,
     placements,
+    hierarchyPlacements,
     products,
     onRemove,
+    onRemoveHierarchy,
+    onResizeHierarchy,
     previewPositions,
     draggedPlacementId
 }: {
     shelfIndex: number;
     width: number;
     placements: ProductPlacement[];
+    hierarchyPlacements: HierarchyPlacement[];
     products: Product[];
     onRemove: (placementId: string) => void;
+    onRemoveHierarchy: (placementId: string) => void;
+    onResizeHierarchy: (placementId: string, newWidth: number) => void;
     previewPositions: Record<string, number> | null;
     draggedPlacementId: string | null;
 }) {
@@ -199,12 +424,15 @@ function ShelfRow({
 
     const FIXED_ROW_HEIGHT = 170; // 固定高さ: テキスト視認性優先（JAN表示対応）
     const rowPlacements = placements.filter(p => p.shelfIndex === shelfIndex);
+    const rowHierarchyPlacements = hierarchyPlacements.filter(p => p.shelfIndex === shelfIndex);
 
-    // 空きスペース計算
-    const usedWidth = rowPlacements.reduce((sum, p) => {
+    // 空きスペース計算（商品 + 階層アイテム）
+    const usedWidthProducts = rowPlacements.reduce((sum, p) => {
         const product = products.find(pr => pr.id === p.productId);
         return sum + (product ? product.width * p.faceCount : 0);
     }, 0);
+    const usedWidthHierarchy = rowHierarchyPlacements.reduce((sum, h) => sum + h.width * h.faceCount, 0);
+    const usedWidth = usedWidthProducts + usedWidthHierarchy;
     const emptyWidth = width - usedWidth;
 
     return (
@@ -234,6 +462,17 @@ function ShelfRow({
                     />
                 );
             })}
+
+            {/* 配置済み階層アイテム（DnD移動可能） */}
+            {rowHierarchyPlacements.map(hp => (
+                <DraggablePlacedHierarchy
+                    key={hp.id}
+                    placement={hp}
+                    onRemove={onRemoveHierarchy}
+                    onResize={onResizeHierarchy}
+                    previewX={previewPositions?.[hp.id]}
+                />
+            ))}
 
             {/* 空白スペース表示 */}
             {!draggedPlacementId && emptyWidth > 0 && (
@@ -323,13 +562,13 @@ function BlockCard({
                 <UnitDisplay valueMm={block.width} />{isFlat ? '' : ` / ${block.shelfCount}段`}
             </div>
             <div style={{ fontSize: '0.65rem', color: selected ? 'rgba(255,255,255,0.75)' : 'var(--text-muted)' }}>
-                {block.productPlacements.length}商品
+                {block.productPlacements.length}商品{block.hierarchyPlacements?.length > 0 ? ` / ${block.hierarchyPlacements.length}階層` : ''}
             </div>
         </div>
     );
 }
 
-// ドラッグ中の挿入インデックスを計算するヘルパー
+// ドラッグ中の挿入インデックスを計算するヘルパー（商品のみ版 — 後方互換）
 function calcInsertIndex(
     targetShelfPlacements: ProductPlacement[],
     targetXmm: number,
@@ -349,6 +588,44 @@ function calcInsertIndex(
     return insertIdx;
 }
 
+// 統合アイテム型（商品+階層）での挿入インデックス計算
+type UnifiedShelfItem = { id: string; positionX: number; totalWidth: number };
+
+function calcUnifiedInsertIndex(
+    items: UnifiedShelfItem[],
+    targetXmm: number
+): number {
+    let insertIdx = items.length;
+    for (let i = 0; i < items.length; i++) {
+        const centerX = items[i].positionX + items[i].totalWidth / 2;
+        if (targetXmm < centerX) {
+            insertIdx = i;
+            break;
+        }
+    }
+    return insertIdx;
+}
+
+// 指定段の全アイテム（商品+階層）を統合リストとして取得
+function getUnifiedShelfItems(
+    productPlacements: ProductPlacement[],
+    hierarchyPlacements: HierarchyPlacement[],
+    shelfIndex: number,
+    productsList: Product[],
+    excludeId?: string
+): UnifiedShelfItem[] {
+    const prodItems: UnifiedShelfItem[] = productPlacements
+        .filter(p => p.shelfIndex === shelfIndex && p.id !== excludeId)
+        .map(p => {
+            const prod = productsList.find(pr => pr.id === p.productId);
+            return { id: p.id, positionX: p.positionX, totalWidth: prod ? prod.width * p.faceCount : 0 };
+        });
+    const hierItems: UnifiedShelfItem[] = hierarchyPlacements
+        .filter(h => h.shelfIndex === shelfIndex && h.id !== excludeId)
+        .map(h => ({ id: h.id, positionX: h.positionX, totalWidth: h.width * h.faceCount }));
+    return [...prodItems, ...hierItems].sort((a, b) => a.positionX - b.positionX);
+}
+
 export function ShelfBlockEditor() {
     const [blocks, setBlocks] = useState<ShelfBlock[]>([]);
     const [products, setProducts] = useState<Product[]>([]);
@@ -358,6 +635,12 @@ export function ShelfBlockEditor() {
     const [activeProduct, setActiveProduct] = useState<Product | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [activeTab, setActiveTab] = useState<'multi-tier' | 'flat'>('multi-tier');
+    const [panelMode, setPanelMode] = useState<'products' | 'hierarchy'>('products');
+
+    // 商品階層データ
+    const [hierarchyEntries, setHierarchyEntries] = useState<HierarchyEntry[]>([]);
+    const [selectedHierarchyLevel, setSelectedHierarchyLevel] = useState<HierarchyLevel>('division');
+    const [hierarchyFilters, setHierarchyFilters] = useState<Partial<Record<HierarchyLevel, string>>>({});
 
     // 保存状態管理
     const [isDirty, setIsDirty] = useState(false);
@@ -430,24 +713,21 @@ export function ShelfBlockEditor() {
         const positions: Record<string, number> = {};
 
         for (let si = 0; si < selectedBlock.shelfCount; si++) {
-            const shelfProducts = selectedBlock.productPlacements
-                .filter(p => p.id !== dragPreview.placementId && p.shelfIndex === si)
-                .sort((a, b) => a.positionX - b.positionX);
+            // 統合アイテムリスト（ドラッグ中のアイテムは除外）
+            const unifiedItems = getUnifiedShelfItems(
+                selectedBlock.productPlacements, selectedBlock.hierarchyPlacements || [],
+                si, products, dragPreview.placementId
+            );
 
             let currentX = 0;
 
-            for (let i = 0; i < shelfProducts.length; i++) {
+            for (let i = 0; i < unifiedItems.length; i++) {
                 // 移動先の棚で、挿入位置にギャップを入れる
                 if (si === dragPreview.targetShelfIndex && i === dragPreview.insertIndex) {
-                    currentX += dragPreview.productWidthMm;
+                    currentX += dragPreview.itemWidthMm;
                 }
-                positions[shelfProducts[i].id] = currentX;
-                const prod = products.find(p => p.id === shelfProducts[i].productId);
-                currentX += prod ? prod.width * shelfProducts[i].faceCount : 0;
-            }
-            // 末尾に挿入する場合
-            if (si === dragPreview.targetShelfIndex && dragPreview.insertIndex >= shelfProducts.length) {
-                // ギャップは末尾なのでシフト不要
+                positions[unifiedItems[i].id] = currentX;
+                currentX += unifiedItems[i].totalWidth;
             }
         }
 
@@ -457,14 +737,16 @@ export function ShelfBlockEditor() {
     // データ読み込み
     const loadData = useCallback(async () => {
         setLoading(true);
-        const [blocksData, productsData] = await Promise.all([
+        const [blocksData, productsData, hierarchyData] = await Promise.all([
             shelfBlockRepository.getAll(),
-            productRepository.getAll()
+            productRepository.getAll(),
+            productHierarchyRepository.getAll()
         ]);
         // 売上ランク順にソート
         productsData.sort((a, b) => a.salesRank - b.salesRank);
         setBlocks(blocksData);
         setProducts(productsData);
+        setHierarchyEntries(hierarchyData);
         initProductColorMap(productsData.map(p => p.departmentName || ''));
         setLoading(false);
     }, []);
@@ -472,6 +754,17 @@ export function ShelfBlockEditor() {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    // リサイズ操作後のデバウンス自動保存
+    useEffect(() => {
+        if (!isDirty || !selectedBlock) return;
+        const timer = setTimeout(() => {
+            if (isDirty && selectedBlock) {
+                saveBlock(selectedBlock);
+            }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [isDirty, selectedBlock]);
 
     // ブロック作成
     const handleCreateBlock = async () => {
@@ -488,6 +781,7 @@ export function ShelfBlockEditor() {
             height: newBlock.height,
             shelfCount: newBlock.blockType === 'flat' ? 1 : newBlock.shelfCount,
             productPlacements: [],
+            hierarchyPlacements: [],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         });
@@ -535,27 +829,59 @@ export function ShelfBlockEditor() {
         }
     };
 
-    // 位置再計算（左詰め）ヘルパー
-    const recalculatePositions = (placements: ProductPlacement[], block: ShelfBlock): ProductPlacement[] => {
-        const result: ProductPlacement[] = [];
+    // 位置再計算（左詰め）ヘルパー — 商品と階層を統合して再計算
+    type UnifiedItem =
+        | { kind: 'product'; data: ProductPlacement }
+        | { kind: 'hierarchy'; data: HierarchyPlacement };
+
+    const recalculateAllPositions = (
+        prodPlacements: ProductPlacement[],
+        hierPlacements: HierarchyPlacement[],
+        block: ShelfBlock
+    ): { products: ProductPlacement[]; hierarchies: HierarchyPlacement[] } => {
+        const resultProducts: ProductPlacement[] = [];
+        const resultHierarchies: HierarchyPlacement[] = [];
+
         for (let si = 0; si < block.shelfCount; si++) {
-            const shelfPlacements = placements
-                .filter(p => p.shelfIndex === si)
-                .sort((a, b) => a.positionX - b.positionX);
+            const items: UnifiedItem[] = [
+                ...prodPlacements.filter(p => p.shelfIndex === si).map(p => ({ kind: 'product' as const, data: p })),
+                ...hierPlacements.filter(h => h.shelfIndex === si).map(h => ({ kind: 'hierarchy' as const, data: h })),
+            ].sort((a, b) => a.data.positionX - b.data.positionX);
+
             let currentX = 0;
-            for (const placement of shelfPlacements) {
-                const prod = products.find(p => p.id === placement.productId);
-                result.push({ ...placement, positionX: currentX });
-                currentX += prod ? prod.width * placement.faceCount : 0;
+            for (const item of items) {
+                if (item.kind === 'product') {
+                    const prod = products.find(p => p.id === item.data.productId);
+                    resultProducts.push({ ...item.data, positionX: currentX });
+                    currentX += prod ? prod.width * item.data.faceCount : 0;
+                } else {
+                    resultHierarchies.push({ ...item.data, positionX: currentX });
+                    currentX += item.data.width * item.data.faceCount;
+                }
             }
         }
+        return { products: resultProducts, hierarchies: resultHierarchies };
+    };
+
+    // 後方互換: 商品のみ再計算（既存ロジックで使用）
+    const recalculatePositions = (placements: ProductPlacement[], block: ShelfBlock): ProductPlacement[] => {
+        const { products: result } = recalculateAllPositions(placements, block.hierarchyPlacements || [], block);
         return result;
     };
 
     // ドラッグ開始
+    // ドラッグ中の階層アイテム
+    const [activeHierarchy, setActiveHierarchy] = useState<HierarchyPlacement | null>(null);
+
     const handleDragStart = (event: DragStartEvent) => {
-        const product = event.active.data.current?.product as Product | undefined;
-        setActiveProduct(product || null);
+        const type = event.active.data.current?.type as string;
+        if (type === 'placed-hierarchy') {
+            setActiveHierarchy(event.active.data.current?.placement as HierarchyPlacement);
+            setActiveProduct(null);
+        } else {
+            setActiveProduct(event.active.data.current?.product as Product || null);
+            setActiveHierarchy(null);
+        }
         setDragPreview(null);
     };
 
@@ -565,36 +891,50 @@ export function ShelfBlockEditor() {
         const { active, over } = event;
 
         const type = active.data.current?.type as string;
-        if (type !== 'placed-product') { setDragPreview(null); return; }
+        if (type !== 'placed-product' && type !== 'placed-hierarchy') { setDragPreview(null); return; }
         if (!over) { setDragPreview(null); return; }
 
         const overId = over.id as string;
         if (!overId.startsWith('shelf-')) { setDragPreview(null); return; }
 
         const targetShelfIndex = parseInt(overId.replace('shelf-', ''));
-        const placement = active.data.current?.placement as ProductPlacement;
-        const product = active.data.current?.product as Product;
 
-        const targetXmm = placement.positionX + event.delta.x / SCALE;
-
-        // 移動元を除いた移動先棚の商品
-        const remainingOnTarget = selectedBlock.productPlacements
-            .filter(p => p.id !== placement.id && p.shelfIndex === targetShelfIndex)
-            .sort((a, b) => a.positionX - b.positionX);
-
-        const insertIdx = calcInsertIndex(remainingOnTarget, targetXmm, products);
-
-        setDragPreview({
-            placementId: placement.id,
-            targetShelfIndex,
-            insertIndex: insertIdx,
-            productWidthMm: product.width * placement.faceCount
-        });
+        if (type === 'placed-product') {
+            const placement = active.data.current?.placement as ProductPlacement;
+            const product = active.data.current?.product as Product;
+            const targetXmm = placement.positionX + event.delta.x / SCALE;
+            const remaining = getUnifiedShelfItems(
+                selectedBlock.productPlacements, selectedBlock.hierarchyPlacements || [],
+                targetShelfIndex, products, placement.id
+            );
+            const insertIdx = calcUnifiedInsertIndex(remaining, targetXmm);
+            setDragPreview({
+                placementId: placement.id,
+                targetShelfIndex,
+                insertIndex: insertIdx,
+                itemWidthMm: product.width * placement.faceCount
+            });
+        } else {
+            const placement = active.data.current?.placement as HierarchyPlacement;
+            const targetXmm = placement.positionX + event.delta.x / SCALE;
+            const remaining = getUnifiedShelfItems(
+                selectedBlock.productPlacements, selectedBlock.hierarchyPlacements || [],
+                targetShelfIndex, products, placement.id
+            );
+            const insertIdx = calcUnifiedInsertIndex(remaining, targetXmm);
+            setDragPreview({
+                placementId: placement.id,
+                targetShelfIndex,
+                insertIndex: insertIdx,
+                itemWidthMm: placement.width * placement.faceCount
+            });
+        }
     };
 
-    // ドラッグ終了（商品配置 / 移動）
+    // ドラッグ終了（商品配置 / 階層移動）
     const handleDragEnd = async (event: DragEndEvent) => {
         setActiveProduct(null);
+        setActiveHierarchy(null);
         setDragPreview(null);
         if (!selectedBlock) return;
 
@@ -613,48 +953,68 @@ export function ShelfBlockEditor() {
             const placement = active.data.current?.placement as ProductPlacement;
             const product = active.data.current?.product as Product;
 
-            // 元の位置から除外した配置リスト
-            const remainingPlacements = selectedBlock.productPlacements.filter(p => p.id !== placement.id);
+            const targetXmm = placement.positionX + event.delta.x / SCALE;
 
-            // 移動先の段の既存商品（移動元を除く）
-            const targetShelfPlacements = remainingPlacements
-                .filter(p => p.shelfIndex === targetShelfIndex)
-                .sort((a, b) => a.positionX - b.positionX);
-
-            const usedWidth = targetShelfPlacements.reduce((sum, p) => {
-                const prod = products.find(pr => pr.id === p.productId);
-                return sum + (prod ? prod.width * p.faceCount : 0);
-            }, 0);
+            // 移動元を除いた全アイテムで挿入位置を計算
+            const remainingItems = getUnifiedShelfItems(
+                selectedBlock.productPlacements, selectedBlock.hierarchyPlacements || [],
+                targetShelfIndex, products, placement.id
+            );
+            const usedWidth = remainingItems.reduce((sum, item) => sum + item.totalWidth, 0);
 
             if (usedWidth + product.width * placement.faceCount > selectedBlock.width) {
                 alert('移動先の段にはスペースがありません');
                 return;
             }
 
-            // ドロップ位置のX座標（mm）を計算
-            const targetXmm = placement.positionX + event.delta.x / SCALE;
+            // 移動先商品プレースメントの挿入位置を計算
+            const movedPlacement = { ...placement, shelfIndex: targetShelfIndex, positionX: targetXmm };
+            const remainingProd = selectedBlock.productPlacements.filter(p => p.id !== placement.id);
+            const updatedProd = [...remainingProd, movedPlacement];
 
-            // ドロップX位置を基に挿入インデックスを決定
-            const insertIdx = calcInsertIndex(targetShelfPlacements, targetXmm, products);
-
-            // 新しい並び順で配置リストを構築（positionXを連番にして順序を保持）
-            const movedPlacement = { ...placement, shelfIndex: targetShelfIndex };
-            const reorderedShelf = [
-                ...targetShelfPlacements.slice(0, insertIdx),
-                movedPlacement,
-                ...targetShelfPlacements.slice(insertIdx)
-            ].map((p, idx) => ({ ...p, positionX: idx }));
-
-            // 他の段のプレースメントと結合
-            const otherPlacements = remainingPlacements.filter(p => p.shelfIndex !== targetShelfIndex);
-            const updatedPlacements = [...otherPlacements, ...reorderedShelf];
-
-            // 全位置再計算（左詰め）
-            const recalculated = recalculatePositions(updatedPlacements, selectedBlock);
+            // 全位置再計算（左詰め — 統合）
+            const { products: recalcProducts, hierarchies: recalcHier } =
+                recalculateAllPositions(updatedProd, selectedBlock.hierarchyPlacements || [], selectedBlock);
 
             const updatedBlock = {
                 ...selectedBlock,
-                productPlacements: recalculated,
+                productPlacements: recalcProducts,
+                hierarchyPlacements: recalcHier,
+                updatedAt: new Date().toISOString()
+            };
+
+            setSelectedBlock(updatedBlock);
+            setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
+            setIsDirty(true);
+            await saveBlock(updatedBlock);
+        } else if (type === 'placed-hierarchy') {
+            // === 配置済み階層アイテムの移動 ===
+            const placement = active.data.current?.placement as HierarchyPlacement;
+
+            const targetXmm = placement.positionX + event.delta.x / SCALE;
+
+            const remainingItems = getUnifiedShelfItems(
+                selectedBlock.productPlacements, selectedBlock.hierarchyPlacements || [],
+                targetShelfIndex, products, placement.id
+            );
+            const usedWidth = remainingItems.reduce((sum, item) => sum + item.totalWidth, 0);
+
+            if (usedWidth + placement.width * placement.faceCount > selectedBlock.width) {
+                alert('移動先の段にはスペースがありません');
+                return;
+            }
+
+            const movedPlacement = { ...placement, shelfIndex: targetShelfIndex, positionX: targetXmm };
+            const remainingHier = (selectedBlock.hierarchyPlacements || []).filter(h => h.id !== placement.id);
+            const updatedHier = [...remainingHier, movedPlacement];
+
+            const { products: recalcProducts, hierarchies: recalcHier } =
+                recalculateAllPositions(selectedBlock.productPlacements, updatedHier, selectedBlock);
+
+            const updatedBlock = {
+                ...selectedBlock,
+                productPlacements: recalcProducts,
+                hierarchyPlacements: recalcHier,
                 updatedAt: new Date().toISOString()
             };
 
@@ -671,10 +1031,14 @@ export function ShelfBlockEditor() {
                 .filter(p => p.shelfIndex === targetShelfIndex)
                 .sort((a, b) => a.positionX - b.positionX);
 
-            const usedWidth = existingPlacements.reduce((sum, p) => {
+            const usedWidthProd = existingPlacements.reduce((sum, p) => {
                 const prod = products.find(pr => pr.id === p.productId);
                 return sum + (prod ? prod.width * p.faceCount : 0);
             }, 0);
+            const usedWidthHier = (selectedBlock.hierarchyPlacements || [])
+                .filter(h => h.shelfIndex === targetShelfIndex)
+                .reduce((sum, h) => sum + h.width * h.faceCount, 0);
+            const usedWidth = usedWidthProd + usedWidthHier;
 
             if (usedWidth + product.width > selectedBlock.width) {
                 alert('この段にはスペースがありません');
@@ -749,6 +1113,108 @@ export function ShelfBlockEditor() {
         await saveBlock(updatedBlock);
     };
 
+    // 階層アイテムを棚に追加
+    const handleAddHierarchy = async (level: HierarchyLevel, code: string, _name: string, shelfIndex: number) => {
+        if (!selectedBlock) return;
+
+        const hierPlacements = selectedBlock.hierarchyPlacements || [];
+
+        // 段内の使用幅を計算
+        const shelfProductPlacements = selectedBlock.productPlacements.filter(p => p.shelfIndex === shelfIndex);
+        const shelfHierPlacements = hierPlacements.filter(h => h.shelfIndex === shelfIndex);
+
+        const usedWidth = shelfProductPlacements.reduce((sum, p) => {
+            const prod = products.find(pr => pr.id === p.productId);
+            return sum + (prod ? prod.width * p.faceCount : 0);
+        }, 0) + shelfHierPlacements.reduce((sum, h) => sum + h.width * h.faceCount, 0);
+
+        if (usedWidth + HIERARCHY_DEFAULT_WIDTH > selectedBlock.width) {
+            alert('この段にはスペースがありません');
+            return;
+        }
+
+        const hierarchyPath = buildHierarchyPath(hierarchyEntries, level, code, hierarchyFilters);
+
+        const newPlacement: HierarchyPlacement = {
+            id: crypto.randomUUID(),
+            hierarchyLevel: level,
+            hierarchyCode: code,
+            hierarchyName: hierarchyPath,
+            shelfIndex,
+            positionX: usedWidth,
+            width: HIERARCHY_DEFAULT_WIDTH,
+            faceCount: 1,
+        };
+
+        const updatedBlock = {
+            ...selectedBlock,
+            hierarchyPlacements: [...hierPlacements, newPlacement],
+            updatedAt: new Date().toISOString(),
+        };
+
+        setSelectedBlock(updatedBlock);
+        setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
+        setIsDirty(true);
+        await saveBlock(updatedBlock);
+    };
+
+    // 階層アイテム削除（フェース減少）
+    const handleRemoveHierarchy = async (placementId: string) => {
+        if (!selectedBlock) return;
+        const hierPlacements = selectedBlock.hierarchyPlacements || [];
+        const target = hierPlacements.find(h => h.id === placementId);
+        if (!target) return;
+
+        let updatedHier: HierarchyPlacement[];
+        if (target.faceCount > 1) {
+            updatedHier = hierPlacements.map(h =>
+                h.id === placementId ? { ...h, faceCount: h.faceCount - 1 } : h
+            );
+        } else {
+            updatedHier = hierPlacements.filter(h => h.id !== placementId);
+        }
+
+        const { products: recalcProducts, hierarchies: recalcHier } =
+            recalculateAllPositions(selectedBlock.productPlacements, updatedHier, selectedBlock);
+
+        const updatedBlock = {
+            ...selectedBlock,
+            productPlacements: recalcProducts,
+            hierarchyPlacements: recalcHier,
+            updatedAt: new Date().toISOString(),
+        };
+
+        setSelectedBlock(updatedBlock);
+        setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
+        setIsDirty(true);
+        await saveBlock(updatedBlock);
+    };
+
+    // 階層アイテムのリサイズ（隣接アイテムを右に押し出す）
+    const handleResizeHierarchy = async (placementId: string, newWidth: number) => {
+        if (!selectedBlock) return;
+        const hierPlacements = selectedBlock.hierarchyPlacements || [];
+        const updatedHier = hierPlacements.map(h =>
+            h.id === placementId ? { ...h, width: Math.round(newWidth * 10) / 10 } : h
+        );
+
+        // 統合再計算で隣接アイテムを押し出す
+        const { products: recalcProducts, hierarchies: recalcHier } =
+            recalculateAllPositions(selectedBlock.productPlacements, updatedHier, selectedBlock);
+
+        const updatedBlock = {
+            ...selectedBlock,
+            productPlacements: recalcProducts,
+            hierarchyPlacements: recalcHier,
+            updatedAt: new Date().toISOString(),
+        };
+
+        setSelectedBlock(updatedBlock);
+        setBlocks(blocks.map(b => b.id === selectedBlock.id ? updatedBlock : b));
+        setIsDirty(true);
+        // リサイズ中は頻繁に呼ばれるので保存はしない（mouseup時にdirtyで保存）
+    };
+
     // フィルター済み商品
     const lowerSearch = searchTerm.toLowerCase();
     const filteredProducts = products.filter(p =>
@@ -780,7 +1246,7 @@ export function ShelfBlockEditor() {
                 onDragStart={handleDragStart}
                 onDragMove={handleDragMove}
                 onDragEnd={handleDragEnd}
-                onDragCancel={() => { setActiveProduct(null); setDragPreview(null); }}
+                onDragCancel={() => { setActiveProduct(null); setActiveHierarchy(null); setDragPreview(null); }}
             >
                 {/* ブロック選択エリア（横並びスクロール） */}
                 <div className="card mb-lg">
@@ -911,8 +1377,11 @@ export function ShelfBlockEditor() {
                                                 shelfIndex={i}
                                                 width={selectedBlock.width}
                                                 placements={selectedBlock.productPlacements}
+                                                hierarchyPlacements={selectedBlock.hierarchyPlacements || []}
                                                 products={products}
                                                 onRemove={handleRemovePlacement}
+                                                onRemoveHierarchy={handleRemoveHierarchy}
+                                                onResizeHierarchy={handleResizeHierarchy}
                                                 previewPositions={previewPositions}
                                                 draggedPlacementId={dragPreview?.placementId || null}
                                             />
@@ -955,33 +1424,185 @@ export function ShelfBlockEditor() {
                         }} />
                     </div>
 
-                    {/* 商品一覧（残り幅すべて） */}
+                    {/* 商品一覧 / 商品階層パネル（残り幅すべて） */}
                     <div style={{ flex: 1, minWidth: '200px' }}>
                         <div className="card">
-                            <h3 className="card-title mb-md">商品一覧</h3>
-                            <input
-                                type="text"
-                                className="form-input mb-md"
-                                placeholder="商品名で検索..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                            <div
-                                style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '0.35rem',
-                                    maxHeight: '500px',
-                                    overflowY: 'auto'
-                                }}
-                            >
-                                {filteredProducts.slice(0, 30).map(product => (
-                                    <DraggableProduct key={product.id} product={product} />
-                                ))}
+                            {/* タブ切替 */}
+                            <div className="flex border-b border-border mb-md">
+                                <button
+                                    className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${panelMode === 'products'
+                                        ? 'border-primary text-primary'
+                                        : 'border-transparent text-muted hover:text-foreground'
+                                    }`}
+                                    onClick={() => setPanelMode('products')}
+                                >
+                                    商品
+                                </button>
+                                <button
+                                    className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${panelMode === 'hierarchy'
+                                        ? 'border-primary text-primary'
+                                        : 'border-transparent text-muted hover:text-foreground'
+                                    }`}
+                                    onClick={() => setPanelMode('hierarchy')}
+                                >
+                                    商品階層
+                                </button>
                             </div>
-                            <div className="text-xs text-muted mt-sm">
-                                {filteredProducts.length}件中 上位30件表示
-                            </div>
+
+                            {panelMode === 'products' ? (
+                                <>
+                                    <input
+                                        type="text"
+                                        className="form-input mb-md"
+                                        placeholder="商品名で検索..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                    />
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '0.35rem',
+                                            maxHeight: '500px',
+                                            overflowY: 'auto'
+                                        }}
+                                    >
+                                        {filteredProducts.slice(0, 30).map(product => (
+                                            <DraggableProduct key={product.id} product={product} />
+                                        ))}
+                                    </div>
+                                    <div className="text-xs text-muted mt-sm">
+                                        {filteredProducts.length}件中 上位30件表示
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    {/* 階層レベル選択 */}
+                                    <div className="mb-md">
+                                        <label className="form-label" style={{ fontSize: '0.75rem' }}>階層レベル</label>
+                                        <select
+                                            className="form-input"
+                                            value={selectedHierarchyLevel}
+                                            onChange={(e) => {
+                                                const newLevel = e.target.value as HierarchyLevel;
+                                                setSelectedHierarchyLevel(newLevel);
+                                                // 下位フィルターをクリア
+                                                const idx = HIERARCHY_LEVELS.indexOf(newLevel);
+                                                const newFilters = { ...hierarchyFilters };
+                                                for (let i = idx; i < HIERARCHY_LEVELS.length; i++) {
+                                                    delete newFilters[HIERARCHY_LEVELS[i]];
+                                                }
+                                                setHierarchyFilters(newFilters);
+                                            }}
+                                        >
+                                            {HIERARCHY_LEVELS.map(level => (
+                                                <option key={level} value={level}>{HIERARCHY_LEVEL_LABELS[level]}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* 上位階層フィルター */}
+                                    {HIERARCHY_LEVELS.slice(0, HIERARCHY_LEVELS.indexOf(selectedHierarchyLevel)).map(filterLevel => {
+                                        const parentFilters: Partial<Record<HierarchyLevel, string>> = {};
+                                        for (const l of HIERARCHY_LEVELS) {
+                                            if (l === filterLevel) break;
+                                            if (hierarchyFilters[l]) parentFilters[l] = hierarchyFilters[l];
+                                        }
+                                        const options = getUniqueHierarchyOptions(hierarchyEntries, filterLevel, parentFilters);
+                                        return (
+                                            <div key={filterLevel} className="mb-sm">
+                                                <label className="form-label" style={{ fontSize: '0.7rem' }}>{HIERARCHY_LEVEL_LABELS[filterLevel]}</label>
+                                                <select
+                                                    className="form-input"
+                                                    style={{ fontSize: '0.8rem' }}
+                                                    value={hierarchyFilters[filterLevel] || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        const newFilters = { ...hierarchyFilters };
+                                                        if (val) {
+                                                            newFilters[filterLevel] = val;
+                                                        } else {
+                                                            delete newFilters[filterLevel];
+                                                        }
+                                                        // 下位フィルターをクリア
+                                                        const idx = HIERARCHY_LEVELS.indexOf(filterLevel);
+                                                        for (let i = idx + 1; i < HIERARCHY_LEVELS.indexOf(selectedHierarchyLevel); i++) {
+                                                            delete newFilters[HIERARCHY_LEVELS[i]];
+                                                        }
+                                                        setHierarchyFilters(newFilters);
+                                                    }}
+                                                >
+                                                    <option value="">すべて</option>
+                                                    {options.map(o => (
+                                                        <option key={o.code} value={o.code}>{o.name} ({o.code})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* 選択可能な階層アイテム一覧 */}
+                                    <div className="mt-md" style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                        {HIERARCHY_LEVEL_LABELS[selectedHierarchyLevel]}一覧
+                                    </div>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '0.35rem',
+                                            maxHeight: '400px',
+                                            overflowY: 'auto'
+                                        }}
+                                    >
+                                        {(() => {
+                                            const options = getUniqueHierarchyOptions(hierarchyEntries, selectedHierarchyLevel, hierarchyFilters);
+                                            if (options.length === 0) {
+                                                return <div className="text-muted text-sm">該当なし</div>;
+                                            }
+                                            return options.map(opt => (
+                                                <div
+                                                    key={opt.code}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        padding: '0.4rem 0.5rem',
+                                                        background: 'var(--bg-secondary)',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        fontSize: '0.75rem',
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <div style={{ fontWeight: 500 }}>{opt.name}</div>
+                                                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{opt.code}</div>
+                                                    </div>
+                                                    {selectedBlock && (
+                                                        <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
+                                                            {Array.from({ length: selectedBlock.shelfCount }).map((_, si) => (
+                                                                <button
+                                                                    key={si}
+                                                                    className="btn btn-sm"
+                                                                    style={{ padding: '1px 6px', fontSize: '0.6rem', lineHeight: '1.4' }}
+                                                                    onClick={() => handleAddHierarchy(selectedHierarchyLevel, opt.code, opt.name, si)}
+                                                                    title={`${si + 1}段目に配置`}
+                                                                >
+                                                                    {si + 1}段
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ));
+                                        })()}
+                                    </div>
+                                    {hierarchyEntries.length === 0 && (
+                                        <div className="text-muted text-sm mt-md">
+                                            商品階層マスタが未登録です。マスタ管理画面から初期データを投入してください。
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1004,6 +1625,24 @@ export function ShelfBlockEditor() {
                         }}>
                             <div style={{ fontSize: '0.75rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                 {activeProduct.name}
+                            </div>
+                        </div>
+                    ) : activeHierarchy ? (
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.4rem 0.6rem',
+                            background: 'rgba(99, 102, 241, 0.9)',
+                            color: 'white',
+                            borderRadius: 'var(--radius-sm)',
+                            opacity: 0.9,
+                            cursor: 'grabbing',
+                            width: '200px',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.3)'
+                        }}>
+                            <div style={{ fontSize: '0.7rem', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {activeHierarchy.hierarchyName}
                             </div>
                         </div>
                     ) : null}

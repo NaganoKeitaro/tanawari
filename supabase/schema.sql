@@ -190,6 +190,47 @@ CREATE TABLE public.product_hierarchy (
   updated_at timestamp with time zone default now() not null
 );
 
+-- 13. shelf_block_hierarchy_placements
+CREATE TABLE public.shelf_block_hierarchy_placements (
+  id uuid primary key default gen_random_uuid(),
+  block_id uuid references public.shelf_blocks(id) on delete cascade not null,
+  hierarchy_level varchar(20) not null,
+  hierarchy_code varchar(50) not null,
+  hierarchy_name varchar(100) not null,
+  shelf_index int not null,
+  position_x decimal(8,2) not null,
+  width decimal(8,2) not null default 300,
+  face_count int not null default 1
+);
+
+-- 14. standard_planogram_hierarchy_placements
+CREATE TABLE public.standard_planogram_hierarchy_placements (
+  id uuid primary key default gen_random_uuid(),
+  standard_planogram_id uuid references public.standard_planograms(id) on delete cascade not null,
+  hierarchy_level varchar(20) not null,
+  hierarchy_code varchar(50) not null,
+  hierarchy_name varchar(100) not null,
+  shelf_index int not null,
+  position_x decimal(8,2) not null,
+  width decimal(8,2) not null default 300,
+  face_count int not null default 1,
+  placed_block_id uuid
+);
+
+-- 15. store_planogram_hierarchy_placements
+CREATE TABLE public.store_planogram_hierarchy_placements (
+  id uuid primary key default gen_random_uuid(),
+  store_planogram_id uuid references public.store_planograms(id) on delete cascade not null,
+  hierarchy_level varchar(20) not null,
+  hierarchy_code varchar(50) not null,
+  hierarchy_name varchar(100) not null,
+  shelf_index int not null,
+  position_x decimal(8,2) not null,
+  width decimal(8,2) not null default 300,
+  face_count int not null default 1,
+  is_auto_generated boolean default false
+);
+
 -- ===== ENABLE ROW LEVEL SECURITY =====
 alter table public.products enable row level security;
 alter table public.stores enable row level security;
@@ -218,3 +259,9 @@ create policy "Allow all operations for anon - standard_planogram_products" on p
 create policy "Allow all operations for anon - store_planograms" on public.store_planograms for all using (true) with check (true);
 create policy "Allow all operations for anon - store_planogram_products" on public.store_planogram_products for all using (true) with check (true);
 create policy "Allow all operations for anon - product_hierarchy" on public.product_hierarchy for all using (true) with check (true);
+alter table public.shelf_block_hierarchy_placements enable row level security;
+alter table public.standard_planogram_hierarchy_placements enable row level security;
+alter table public.store_planogram_hierarchy_placements enable row level security;
+create policy "Allow all - shelf_block_hierarchy_placements" on public.shelf_block_hierarchy_placements for all using (true) with check (true);
+create policy "Allow all - standard_planogram_hierarchy_placements" on public.standard_planogram_hierarchy_placements for all using (true) with check (true);
+create policy "Allow all - store_planogram_hierarchy_placements" on public.store_planogram_hierarchy_placements for all using (true) with check (true);

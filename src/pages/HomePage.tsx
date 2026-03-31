@@ -12,6 +12,7 @@ import {
 } from '../data/repositories/repositoryFactory';
 import { seedStoreData } from '../data/seedData';
 import { seedDummyData } from '../data/seedDummyData';
+import { seedHierarchyDummyData } from '../data/seedHierarchyDummyData';
 
 interface Stats {
     products: number;
@@ -149,13 +150,35 @@ export function HomePage() {
                             localStorageに保存されるため本番環境には影響しません。
                         </p>
                     </div>
-                    <button
-                        className="btn btn-secondary btn-lg"
-                        onClick={handleSeedDummyData}
-                        disabled={seeding}
-                    >
-                        {seeding ? '生成中...' : 'ダミーデータ投入'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
+                        <button
+                            className="btn btn-secondary btn-lg"
+                            onClick={handleSeedDummyData}
+                            disabled={seeding}
+                        >
+                            {seeding ? '生成中...' : 'ダミーデータ投入（JAN版）'}
+                        </button>
+                        <button
+                            className="btn btn-secondary"
+                            style={{ background: 'rgba(99, 102, 241, 0.15)', borderColor: 'rgba(99, 102, 241, 0.5)' }}
+                            onClick={async () => {
+                                if (!confirm('商品階層のみの棚割ダミーデータを追加投入しますか？\n（既存データは削除しません）')) return;
+                                setSeeding(true);
+                                try {
+                                    const result = await seedHierarchyDummyData();
+                                    alert(`階層ダミーデータ投入完了！\n- 棚ブロック: ${result.shelfBlocks}件\n- 標準棚割: ${result.standardPlanograms}件\n- 店舗: ${result.stores}店\n- 個店棚割: ${result.storePlanograms}件`);
+                                    await loadStats();
+                                } catch (error) {
+                                    alert('投入中にエラーが発生しました');
+                                    console.error(error);
+                                }
+                                setSeeding(false);
+                            }}
+                            disabled={seeding}
+                        >
+                            {seeding ? '生成中...' : '階層のみダミーデータ投入'}
+                        </button>
+                    </div>
                 </div>
             </div>
 
