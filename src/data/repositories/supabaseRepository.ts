@@ -490,12 +490,17 @@ class ProductHierarchySupabaseRepository {
     }
 
     async saveAll(entries: HierarchyEntry[]): Promise<void> {
-        // Clear all first, then insert all (for bulk syncing master data)
+        // Clear all first, then insert in chunks (Supabase has a ~1000 row limit per insert)
         await this.deleteAll();
         if (entries.length === 0) return;
 
         const payload = entries.map(e => toSnake({ ...e, id: e.id || crypto.randomUUID() }));
-        await supabase.from('product_hierarchy').insert(payload);
+        const CHUNK_SIZE = 500;
+        for (let i = 0; i < payload.length; i += CHUNK_SIZE) {
+            const chunk = payload.slice(i, i + CHUNK_SIZE);
+            const { error } = await supabase.from('product_hierarchy').insert(chunk);
+            if (error) throw error;
+        }
     }
 
     async add(entry: Omit<HierarchyEntry, 'id' | 'createdAt' | 'updatedAt'>): Promise<HierarchyEntry> {
