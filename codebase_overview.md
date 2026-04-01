@@ -1,7 +1,7 @@
 # コードベース概要ドキュメント
 
 > 作成日: 2026-03-09
-> 最終更新日: 2026-03-13
+> 最終更新日: 2026-04-02
 > 対象プロジェクト: 棚割管理システム（tanawari）
 
 ---
@@ -65,8 +65,8 @@ tanawari/
 ├── eslint.config.js                    # ESLint設定
 ├── vercel.json                         # Vercelデプロイ設定（SPA用リライト）
 ├── supabase/
-│   ├── schema.sql                      # メインスキーマ（12テーブル）
-│   ├── schema_hierarchy.sql            # 商品階層スキーマ
+│   ├── schema.sql                      # メインスキーマ（15テーブル）
+│   ├── schema_hierarchy.sql            # 商品階層・棚割スキーマ
 │   └── migrations/
 │       ├── 20260227_cm_to_mm.sql       # 単位変換マイグレーション
 │       ├── 20260309_add_missing_columns.sql  # カラム追加
@@ -164,7 +164,7 @@ tanawari/
 - 全パスを `index.html` にリライト（SPAルーティング対応）
 
 ### Supabaseスキーマ
-- `supabase/schema.sql`: メインテーブル定義（12テーブル）
+- `supabase/schema.sql`: メインテーブル定義（マスタ・構成・棚割テーブル）
 - `supabase/schema_hierarchy.sql`: 商品階層テーブル
 - `supabase/migrations/`: 3つのマイグレーションファイル
 

@@ -1,6 +1,6 @@
 # デプロイガイド (Deployment Guide)
 
-**最終更新日**: 2026-03-13
+**最終更新日**: 2026-04-02
 
 本プロジェクトは [Vercel](https://vercel.com) でホスティングされます。
 
@@ -70,7 +70,7 @@ Supabaseをバックエンドとして使用する場合:
 
 1. [Supabase](https://supabase.com) でプロジェクトを作成
 2. SQLエディタで以下のスキーマを順に実行:
-   - `supabase/schema.sql`（メインテーブル12個）
+   - `supabase/schema.sql`（メインテーブル15個）
    - `supabase/schema_hierarchy.sql`（商品階層テーブル）
    - `supabase/migrations/20260227_cm_to_mm.sql`（単位変換）
    - `supabase/migrations/20260309_add_missing_columns.sql`（カラム追加）
