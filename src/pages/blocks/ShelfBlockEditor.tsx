@@ -120,7 +120,8 @@ function searchHierarchyAcrossLevels(
     entries: HierarchyEntry[],
     term: string
 ): { level: HierarchyLevel; code: string; name: string; path: string }[] {
-    const lower = term.toLowerCase();
+    const tokens = term.toLowerCase().split(/\s+/).filter(Boolean);
+    if (tokens.length === 0) return [];
     const seen = new Set<string>();
     const result: { level: HierarchyLevel; code: string; name: string; path: string }[] = [];
     const pathLevels: HierarchyLevel[] = ['department', 'category', 'subCategory', 'segment', 'subSegment'];
@@ -134,10 +135,13 @@ function searchHierarchyAcrossLevels(
             if (!code) continue;
             const uniqueKey = `${level}:${code}`;
             if (seen.has(uniqueKey)) continue;
-            if (
-                (name && name.toLowerCase().includes(lower)) ||
-                code.toLowerCase().includes(lower)
-            ) {
+            // 全トークンがname or codeに含まれるか、パス全体に含まれるかチェック
+            const searchTarget = [
+                name || '',
+                code,
+                ...pathLevels.map(l => (e[getHierarchyNameKey(l)] as string) || ''),
+            ].join(' ').toLowerCase();
+            if (tokens.every(t => searchTarget.includes(t))) {
                 seen.add(uniqueKey);
                 // パス構築
                 const levelIdx = pathLevels.indexOf(level);
