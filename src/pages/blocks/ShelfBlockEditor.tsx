@@ -155,11 +155,17 @@ function searchHierarchyAcrossLevels(
                     }
                     path = parts.join(' > ');
                 }
-                result.push({ level, code, name, path });
+                // 関連度スコア: 名前自体にマッチするトークンが多いほど高い
+                const nameLower = (name || '').toLowerCase();
+                const nameMatchCount = tokens.filter(t => nameLower.includes(t)).length;
+                // 全トークンが名前に含まれる = 最高、一部だけ = 中間、パス経由のみ = 低い
+                // 名前が短いほどピンポイント一致とみなしボーナス
+                const score = nameMatchCount * 100 + (nameMatchCount === tokens.length ? 1000 : 0) - (name || '').length;
+                result.push({ level, code, name, path, score });
             }
         }
     }
-    return result;
+    return result.sort((a, b) => b.score - a.score);
 }
 
 // ドラッグプレビュー状態の型
