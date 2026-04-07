@@ -119,11 +119,11 @@ function getUniqueHierarchyOptions(
 function searchHierarchyAcrossLevels(
     entries: HierarchyEntry[],
     term: string
-): { level: HierarchyLevel; code: string; name: string; path: string }[] {
+): { level: HierarchyLevel; code: string; name: string; path: string; score: number }[] {
     const tokens = term.toLowerCase().split(/\s+/).filter(Boolean);
     if (tokens.length === 0) return [];
     const seen = new Set<string>();
-    const result: { level: HierarchyLevel; code: string; name: string; path: string }[] = [];
+    const result: { level: HierarchyLevel; code: string; name: string; path: string; score: number }[] = [];
     const pathLevels: HierarchyLevel[] = ['department', 'category', 'subCategory', 'segment', 'subSegment'];
 
     for (const level of HIERARCHY_LEVELS) {
