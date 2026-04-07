@@ -676,6 +676,10 @@ export function ShelfBlockEditor() {
     const [hierarchyFilters, setHierarchyFilters] = useState<Partial<Record<HierarchyLevel, string>>>({});
     const [hierarchySearchTerm, setHierarchySearchTerm] = useState('');
 
+    // 商品パネル用の階層フィルター
+    const [productHierarchyLevel, setProductHierarchyLevel] = useState<HierarchyLevel | ''>('');
+    const [productHierarchyFilters, setProductHierarchyFilters] = useState<Partial<Record<HierarchyLevel, string>>>({});
+
     // 保存状態管理
     const [isDirty, setIsDirty] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -1253,12 +1257,20 @@ export function ShelfBlockEditor() {
         // リサイズ中は頻繁に呼ばれるので保存はしない（mouseup時にdirtyで保存）
     };
 
-    // フィルター済み商品
+    // フィルター済み商品（階層フィルター + テキスト検索）
     const lowerSearch = searchTerm.toLowerCase();
-    const filteredProducts = products.filter(p =>
-        p.name.toLowerCase().includes(lowerSearch) ||
-        (p.category ?? '').toLowerCase().includes(lowerSearch)
-    );
+    const filteredProducts = products.filter(p => {
+        // 階層フィルターによる絞り込み
+        for (const [lvl, code] of Object.entries(productHierarchyFilters)) {
+            const productCode = p[`${lvl}Code` as keyof Product] as string | undefined;
+            if (productCode !== code) return false;
+        }
+        // テキスト検索
+        if (!lowerSearch) return true;
+        return p.name.toLowerCase().includes(lowerSearch) ||
+            (p.category ?? '').toLowerCase().includes(lowerSearch) ||
+            (p.jan ?? '').toLowerCase().includes(lowerSearch);
+    });
 
     if (loading) {
         return (
@@ -1492,10 +1504,88 @@ export function ShelfBlockEditor() {
                                     <input
                                         type="text"
                                         className="form-input mb-md"
-                                        placeholder="商品名で検索..."
+                                        placeholder="商品名・JANで検索..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                     />
+
+                                    {/* 階層レベル選択 */}
+                                    <div className="mb-md">
+                                        <label className="form-label" style={{ fontSize: '0.75rem' }}>階層で絞り込み</label>
+                                        <select
+                                            className="form-input"
+                                            value={productHierarchyLevel}
+                                            onChange={(e) => {
+                                                const newLevel = e.target.value as HierarchyLevel | '';
+                                                setProductHierarchyLevel(newLevel);
+                                                setProductHierarchyFilters({});
+                                            }}
+                                        >
+                                            <option value="">なし</option>
+                                            {HIERARCHY_LEVELS.map(level => (
+                                                <option key={level} value={level}>{HIERARCHY_LEVEL_LABELS[level]}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* 階層フィルター */}
+                                    {productHierarchyLevel && HIERARCHY_LEVELS.slice(0, HIERARCHY_LEVELS.indexOf(productHierarchyLevel) + 1).map(filterLevel => {
+                                        const parentFilters: Partial<Record<HierarchyLevel, string>> = {};
+                                        for (const l of HIERARCHY_LEVELS) {
+                                            if (l === filterLevel) break;
+                                            if (productHierarchyFilters[l]) parentFilters[l] = productHierarchyFilters[l];
+                                        }
+                                        // 商品データから階層選択肢を構築
+                                        const codeKey = `${filterLevel}Code` as keyof Product;
+                                        const nameKey = `${filterLevel}Name` as keyof Product;
+                                        const seen = new Set<string>();
+                                        const options: { code: string; name: string }[] = [];
+                                        for (const p of products) {
+                                            // 親フィルターに合致する商品のみ
+                                            let match = true;
+                                            for (const [lvl, code] of Object.entries(parentFilters)) {
+                                                if ((p[`${lvl}Code` as keyof Product] as string | undefined) !== code) { match = false; break; }
+                                            }
+                                            if (!match) continue;
+                                            const code = p[codeKey] as string | undefined;
+                                            if (code && !seen.has(code)) {
+                                                seen.add(code);
+                                                options.push({ code, name: (p[nameKey] as string | undefined) || code });
+                                            }
+                                        }
+                                        options.sort((a, b) => a.code.localeCompare(b.code));
+                                        return (
+                                            <div key={filterLevel} className="mb-sm">
+                                                <label className="form-label" style={{ fontSize: '0.7rem' }}>{HIERARCHY_LEVEL_LABELS[filterLevel]}</label>
+                                                <select
+                                                    className="form-input"
+                                                    style={{ fontSize: '0.8rem' }}
+                                                    value={productHierarchyFilters[filterLevel] || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        const newFilters = { ...productHierarchyFilters };
+                                                        if (val) {
+                                                            newFilters[filterLevel] = val;
+                                                        } else {
+                                                            delete newFilters[filterLevel];
+                                                        }
+                                                        // 下位フィルターをクリア
+                                                        const idx = HIERARCHY_LEVELS.indexOf(filterLevel);
+                                                        for (let i = idx + 1; i <= HIERARCHY_LEVELS.indexOf(productHierarchyLevel as HierarchyLevel); i++) {
+                                                            delete newFilters[HIERARCHY_LEVELS[i]];
+                                                        }
+                                                        setProductHierarchyFilters(newFilters);
+                                                    }}
+                                                >
+                                                    <option value="">すべて</option>
+                                                    {options.map(o => (
+                                                        <option key={o.code} value={o.code}>{o.name} ({o.code})</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        );
+                                    })}
+
                                     <div
                                         style={{
                                             display: 'flex',
