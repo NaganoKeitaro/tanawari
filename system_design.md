@@ -1,7 +1,7 @@
 # システムアーキテクチャ設計書 (System Architecture Design)
 
 **作成日**: 2026-01-08
-**最終更新日**: 2026-03-13
+**最終更新日**: 2026-04-02
 **プロジェクト**: 棚割管理システム (Planogram System)
 
 ## 1. はじめに
@@ -84,7 +84,7 @@ interface IRepository<T> {
 
 ### 3.4 Supabaseスキーマ
 PostgreSQLデータベースのスキーマは以下の3ファイルで管理:
-*   `supabase/schema.sql`: メインテーブル定義（12テーブル）
+*   `supabase/schema.sql`: メインテーブル定義（15テーブル）
 *   `supabase/schema_hierarchy.sql`: 商品階層テーブル追加定義
 *   `supabase/migrations/20260227_cm_to_mm.sql`: cm→mm単位変換マイグレーション
 *   `supabase/migrations/20260309_add_missing_columns.sql`: store_planograms/standard_planogramsカラム追加

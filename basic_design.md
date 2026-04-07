@@ -1,7 +1,7 @@
 # 基本設計書 (Basic Design Document)
 
 **作成日**: 2026-01-09
-**最終更新日**: 2026-03-13
+**最終更新日**: 2026-04-02
 **プロジェクト**: 棚割管理システム (Planogram System)
 
 ## 1. 機能設計書 (Functional Design)
@@ -138,5 +138,5 @@ FMTごとの基準となる棚割を作成する機能。
 
 *   [**データベース論理設計書 (database_logical_design.md)**](./database_logical_design.md)
     *   ER図
-    *   テーブル定義（12テーブル）
+    *   テーブル定義（15テーブル）
     *   ビュー定義

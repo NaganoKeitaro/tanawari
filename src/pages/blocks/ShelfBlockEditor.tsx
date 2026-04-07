@@ -802,7 +802,7 @@ export function ShelfBlockEditor() {
     const handleDeleteBlock = async (blockId: string) => {
         if (confirm('このブロックを削除しますか？')) {
             await shelfBlockRepository.delete(blockId);
-            setBlocks(blocks.filter(b => b.id !== blockId));
+            setBlocks(blocks.filter(b => b && b.id !== blockId));
             if (selectedBlock?.id === blockId) {
                 setSelectedBlock(null);
             }
@@ -1279,7 +1279,7 @@ export function ShelfBlockEditor() {
                             flex: 1,
                             paddingBottom: '0.25rem'
                         }}>
-                            {blocks.filter(b => (b.blockType || 'multi-tier') === activeTab).map(block => (
+                            {blocks.filter(b => b && (b.blockType || 'multi-tier') === activeTab).map(block => (
                                 <BlockCard
                                     key={block.id}
                                     block={block}
@@ -1288,7 +1288,7 @@ export function ShelfBlockEditor() {
                                     onDelete={() => handleDeleteBlock(block.id)}
                                 />
                             ))}
-                            {blocks.filter(b => (b.blockType || 'multi-tier') === activeTab).length === 0 && (
+                            {blocks.filter(b => b && (b.blockType || 'multi-tier') === activeTab).length === 0 && (
                                 <div className="text-muted" style={{ padding: '0.5rem 0', fontSize: '0.85rem' }}>
                                     ブロックがありません
                                 </div>
