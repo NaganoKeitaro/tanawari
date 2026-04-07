@@ -186,7 +186,8 @@ class ShelfBlockRepository implements IRepository<ShelfBlock> {
             const { error: hErr } = await supabase.from('shelf_block_hierarchy_placements').insert(hPayloads);
             if (hErr) throw hErr;
         }
-        return this.getById(id) as Promise<ShelfBlock>;
+        const result = await this.getById(id);
+        return result ?? { id, ...item, productPlacements: item.productPlacements || [], hierarchyPlacements: item.hierarchyPlacements || [] } as ShelfBlock;
     }
 
     async update(id: string, item: Partial<ShelfBlock>): Promise<ShelfBlock | null> {
@@ -306,7 +307,8 @@ class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
                 item.hierarchyPlacements.map(h => toSnake({ ...h, id: crypto.randomUUID(), standardPlanogramId: id }))
             );
         }
-        return this.getById(id) as Promise<StandardPlanogram>;
+        const result = await this.getById(id);
+        return result ?? { id, ...item, blocks: item.blocks || [], products: item.products || [], hierarchyPlacements: item.hierarchyPlacements || [] } as StandardPlanogram;
     }
 
     async update(id: string, item: Partial<StandardPlanogram>): Promise<StandardPlanogram | null> {
@@ -413,7 +415,8 @@ class StorePlanogramRepository implements IRepository<StorePlanogram> {
                 item.hierarchyPlacements.map(h => toSnake({ ...h, id: crypto.randomUUID(), storePlanogramId: id }))
             );
         }
-        return this.getById(id) as Promise<StorePlanogram>;
+        const result = await this.getById(id);
+        return result ?? { id, ...item, products: item.products || [], hierarchyPlacements: item.hierarchyPlacements || [] } as StorePlanogram;
     }
 
     async update(id: string, item: Partial<StorePlanogram>): Promise<StorePlanogram | null> {
