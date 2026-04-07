@@ -252,10 +252,10 @@ function DraggablePlacedProduct({
                 }}
                 onClick={handleClick}
             >
-                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.65rem' }}>
+                <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '0.65rem', lineHeight: 1.3, wordBreak: 'break-all' }}>
                     {product.name}
                 </div>
-                <div style={{ opacity: 0.8, fontSize: '0.55rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                <div style={{ opacity: 0.8, fontSize: '0.55rem', fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
                     {product.jan || '-'}
                 </div>
                 <div style={{ opacity: 0.85, fontSize: '0.6rem' }}>×{placement.faceCount}</div>
@@ -346,7 +346,7 @@ function DraggablePlacedHierarchy({
             title={`${placement.hierarchyName}\nクリックでフェイス減少/削除`}
         >
             {/* 階層パス表示 */}
-            <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.6rem', lineHeight: 1.3 }}>
+            <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '0.6rem', lineHeight: 1.3, wordBreak: 'break-all' }}>
                 {placement.hierarchyName}
             </div>
             {/* 幅mm表示 */}
