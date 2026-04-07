@@ -115,59 +115,6 @@ function getUniqueHierarchyOptions(
     return result.sort((a, b) => a.code.localeCompare(b.code));
 }
 
-// 全階層横断で曖昧検索
-function searchHierarchyAcrossLevels(
-    entries: HierarchyEntry[],
-    term: string
-): { level: HierarchyLevel; code: string; name: string; path: string; score: number }[] {
-    const tokens = term.toLowerCase().split(/\s+/).filter(Boolean);
-    if (tokens.length === 0) return [];
-    const seen = new Set<string>();
-    const result: { level: HierarchyLevel; code: string; name: string; path: string; score: number }[] = [];
-    const pathLevels: HierarchyLevel[] = ['department', 'category', 'subCategory', 'segment', 'subSegment'];
-
-    for (const level of HIERARCHY_LEVELS) {
-        const codeKey = getHierarchyCodeKey(level);
-        const nameKey = getHierarchyNameKey(level);
-        for (const e of entries) {
-            const code = e[codeKey] as string;
-            const name = e[nameKey] as string;
-            if (!code) continue;
-            const uniqueKey = `${level}:${code}`;
-            if (seen.has(uniqueKey)) continue;
-            // 全トークンがname or codeに含まれるか、パス全体に含まれるかチェック
-            const searchTarget = [
-                name || '',
-                code,
-                ...pathLevels.map(l => (e[getHierarchyNameKey(l)] as string) || ''),
-            ].join(' ').toLowerCase();
-            if (tokens.every(t => searchTarget.includes(t))) {
-                seen.add(uniqueKey);
-                // パス構築
-                const levelIdx = pathLevels.indexOf(level);
-                const startIdx = pathLevels.indexOf('department');
-                let path = name;
-                if (levelIdx >= startIdx) {
-                    const parts: string[] = [];
-                    for (let i = startIdx; i <= levelIdx; i++) {
-                        const val = e[getHierarchyNameKey(pathLevels[i])] as string;
-                        if (val) parts.push(val);
-                    }
-                    path = parts.join(' > ');
-                }
-                // 関連度スコア: 名前自体にマッチするトークンが多いほど高い
-                const nameLower = (name || '').toLowerCase();
-                const nameMatchCount = tokens.filter(t => nameLower.includes(t)).length;
-                // 全トークンが名前に含まれる = 最高、一部だけ = 中間、パス経由のみ = 低い
-                // 名前が短いほどピンポイント一致とみなしボーナス
-                const score = nameMatchCount * 100 + (nameMatchCount === tokens.length ? 1000 : 0) - (name || '').length;
-                result.push({ level, code, name, path, score });
-            }
-        }
-    }
-    return result.sort((a, b) => b.score - a.score);
-}
-
 // ドラッグプレビュー状態の型
 type DragPreviewState = {
     placementId: string;
@@ -1614,187 +1561,147 @@ export function ShelfBlockEditor() {
                                         onChange={(e) => setHierarchySearchTerm(e.target.value)}
                                     />
 
-                                    {hierarchySearchTerm.trim() ? (
-                                        /* 検索結果（全階層横断） */
-                                        <div
-                                            style={{
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: '0.35rem',
-                                                maxHeight: '500px',
-                                                overflowY: 'auto'
+                                    {/* 階層レベル選択 */}
+                                    <div className="mb-md">
+                                        <label className="form-label" style={{ fontSize: '0.75rem' }}>階層レベル</label>
+                                        <select
+                                            className="form-input"
+                                            value={selectedHierarchyLevel}
+                                            onChange={(e) => {
+                                                const newLevel = e.target.value as HierarchyLevel;
+                                                setSelectedHierarchyLevel(newLevel);
+                                                const idx = HIERARCHY_LEVELS.indexOf(newLevel);
+                                                const newFilters = { ...hierarchyFilters };
+                                                for (let i = idx; i < HIERARCHY_LEVELS.length; i++) {
+                                                    delete newFilters[HIERARCHY_LEVELS[i]];
+                                                }
+                                                setHierarchyFilters(newFilters);
                                             }}
                                         >
-                                            {(() => {
-                                                const results = searchHierarchyAcrossLevels(hierarchyEntries, hierarchySearchTerm.trim());
-                                                if (results.length === 0) {
-                                                    return <div className="text-muted text-sm">該当なし</div>;
-                                                }
-                                                return results.slice(0, 50).map(item => (
-                                                    <div
-                                                        key={`${item.level}:${item.code}`}
-                                                        style={{
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            justifyContent: 'space-between',
-                                                            padding: '0.4rem 0.5rem',
-                                                            background: 'var(--bg-secondary)',
-                                                            border: '1px solid var(--border-color)',
-                                                            borderRadius: 'var(--radius-sm)',
-                                                            fontSize: '0.75rem',
-                                                        }}
-                                                    >
-                                                        <div style={{ minWidth: 0, flex: 1 }}>
-                                                            <div style={{ fontWeight: 500 }}>{item.name}</div>
-                                                            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)' }}>{item.path}</div>
-                                                            <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>
-                                                                {HIERARCHY_LEVEL_LABELS[item.level]} / {item.code}
-                                                            </div>
-                                                        </div>
-                                                        {selectedBlock && (
-                                                            <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap', marginLeft: '4px' }}>
-                                                                {Array.from({ length: selectedBlock.shelfCount }).map((_, si) => (
-                                                                    <button
-                                                                        key={si}
-                                                                        className="btn btn-sm"
-                                                                        style={{ padding: '1px 6px', fontSize: '0.6rem', lineHeight: '1.4' }}
-                                                                        onClick={() => handleAddHierarchy(item.level, item.code, item.name, si)}
-                                                                        title={`${si + 1}段目に配置`}
-                                                                    >
-                                                                        {si + 1}段
-                                                                    </button>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                ));
-                                            })()}
-                                            <div className="text-xs text-muted mt-sm">
-                                                {searchHierarchyAcrossLevels(hierarchyEntries, hierarchySearchTerm.trim()).length}件ヒット（最大50件表示）
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        /* 通常のフィルター選択UI */
-                                        <>
-                                            {/* 階層レベル選択 */}
-                                            <div className="mb-md">
-                                                <label className="form-label" style={{ fontSize: '0.75rem' }}>階層レベル</label>
+                                            {HIERARCHY_LEVELS.map(level => (
+                                                <option key={level} value={level}>{HIERARCHY_LEVEL_LABELS[level]}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    {/* 上位階層フィルター */}
+                                    {HIERARCHY_LEVELS.slice(0, HIERARCHY_LEVELS.indexOf(selectedHierarchyLevel)).map(filterLevel => {
+                                        const parentFilters: Partial<Record<HierarchyLevel, string>> = {};
+                                        for (const l of HIERARCHY_LEVELS) {
+                                            if (l === filterLevel) break;
+                                            if (hierarchyFilters[l]) parentFilters[l] = hierarchyFilters[l];
+                                        }
+                                        const options = getUniqueHierarchyOptions(hierarchyEntries, filterLevel, parentFilters);
+                                        return (
+                                            <div key={filterLevel} className="mb-sm">
+                                                <label className="form-label" style={{ fontSize: '0.7rem' }}>{HIERARCHY_LEVEL_LABELS[filterLevel]}</label>
                                                 <select
                                                     className="form-input"
-                                                    value={selectedHierarchyLevel}
+                                                    style={{ fontSize: '0.8rem' }}
+                                                    value={hierarchyFilters[filterLevel] || ''}
                                                     onChange={(e) => {
-                                                        const newLevel = e.target.value as HierarchyLevel;
-                                                        setSelectedHierarchyLevel(newLevel);
-                                                        const idx = HIERARCHY_LEVELS.indexOf(newLevel);
+                                                        const val = e.target.value;
                                                         const newFilters = { ...hierarchyFilters };
-                                                        for (let i = idx; i < HIERARCHY_LEVELS.length; i++) {
+                                                        if (val) {
+                                                            newFilters[filterLevel] = val;
+                                                        } else {
+                                                            delete newFilters[filterLevel];
+                                                        }
+                                                        const idx = HIERARCHY_LEVELS.indexOf(filterLevel);
+                                                        for (let i = idx + 1; i < HIERARCHY_LEVELS.indexOf(selectedHierarchyLevel); i++) {
                                                             delete newFilters[HIERARCHY_LEVELS[i]];
                                                         }
                                                         setHierarchyFilters(newFilters);
                                                     }}
                                                 >
-                                                    {HIERARCHY_LEVELS.map(level => (
-                                                        <option key={level} value={level}>{HIERARCHY_LEVEL_LABELS[level]}</option>
+                                                    <option value="">すべて</option>
+                                                    {options.map(o => (
+                                                        <option key={o.code} value={o.code}>{o.name} ({o.code})</option>
                                                     ))}
                                                 </select>
                                             </div>
+                                        );
+                                    })}
 
-                                            {/* 上位階層フィルター */}
-                                            {HIERARCHY_LEVELS.slice(0, HIERARCHY_LEVELS.indexOf(selectedHierarchyLevel)).map(filterLevel => {
-                                                const parentFilters: Partial<Record<HierarchyLevel, string>> = {};
-                                                for (const l of HIERARCHY_LEVELS) {
-                                                    if (l === filterLevel) break;
-                                                    if (hierarchyFilters[l]) parentFilters[l] = hierarchyFilters[l];
-                                                }
-                                                const options = getUniqueHierarchyOptions(hierarchyEntries, filterLevel, parentFilters);
-                                                return (
-                                                    <div key={filterLevel} className="mb-sm">
-                                                        <label className="form-label" style={{ fontSize: '0.7rem' }}>{HIERARCHY_LEVEL_LABELS[filterLevel]}</label>
-                                                        <select
-                                                            className="form-input"
-                                                            style={{ fontSize: '0.8rem' }}
-                                                            value={hierarchyFilters[filterLevel] || ''}
-                                                            onChange={(e) => {
-                                                                const val = e.target.value;
-                                                                const newFilters = { ...hierarchyFilters };
-                                                                if (val) {
-                                                                    newFilters[filterLevel] = val;
-                                                                } else {
-                                                                    delete newFilters[filterLevel];
-                                                                }
-                                                                const idx = HIERARCHY_LEVELS.indexOf(filterLevel);
-                                                                for (let i = idx + 1; i < HIERARCHY_LEVELS.indexOf(selectedHierarchyLevel); i++) {
-                                                                    delete newFilters[HIERARCHY_LEVELS[i]];
-                                                                }
-                                                                setHierarchyFilters(newFilters);
-                                                            }}
-                                                        >
-                                                            <option value="">すべて</option>
-                                                            {options.map(o => (
-                                                                <option key={o.code} value={o.code}>{o.name} ({o.code})</option>
-                                                            ))}
-                                                        </select>
+                                    {/* 階層アイテム一覧 */}
+                                    <div className="mt-md" style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.5rem' }}>
+                                        {HIERARCHY_LEVEL_LABELS[selectedHierarchyLevel]}一覧
+                                    </div>
+                                    <div
+                                        style={{
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '0.35rem',
+                                            maxHeight: '400px',
+                                            overflowY: 'auto'
+                                        }}
+                                    >
+                                        {(() => {
+                                            // フィルターで絞り込んだ選択肢を取得
+                                            const options = getUniqueHierarchyOptions(hierarchyEntries, selectedHierarchyLevel, hierarchyFilters);
+
+                                            // テキスト検索による追加絞り込み
+                                            const searchTokens = hierarchySearchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean);
+                                            const filtered = searchTokens.length > 0
+                                                ? options.filter(opt => {
+                                                    const target = `${opt.name} ${opt.code}`.toLowerCase();
+                                                    return searchTokens.every(t => target.includes(t));
+                                                })
+                                                : options;
+
+                                            if (filtered.length === 0) {
+                                                return <div className="text-muted text-sm">該当なし</div>;
+                                            }
+                                            return filtered.map(opt => (
+                                                <div
+                                                    key={opt.code}
+                                                    style={{
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'space-between',
+                                                        padding: '0.4rem 0.5rem',
+                                                        background: 'var(--bg-secondary)',
+                                                        border: '1px solid var(--border-color)',
+                                                        borderRadius: 'var(--radius-sm)',
+                                                        fontSize: '0.75rem',
+                                                    }}
+                                                >
+                                                    <div>
+                                                        <div style={{ fontWeight: 500 }}>{opt.name}</div>
+                                                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{opt.code}</div>
                                                     </div>
-                                                );
-                                            })}
-
-                                            {/* 選択可能な階層アイテム一覧 */}
-                                            <div className="mt-md" style={{ fontSize: '0.75rem', fontWeight: 600, marginBottom: '0.5rem' }}>
-                                                {HIERARCHY_LEVEL_LABELS[selectedHierarchyLevel]}一覧
-                                            </div>
-                                            <div
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: '0.35rem',
-                                                    maxHeight: '400px',
-                                                    overflowY: 'auto'
-                                                }}
-                                            >
-                                                {(() => {
-                                                    const options = getUniqueHierarchyOptions(hierarchyEntries, selectedHierarchyLevel, hierarchyFilters);
-                                                    if (options.length === 0) {
-                                                        return <div className="text-muted text-sm">該当なし</div>;
-                                                    }
-                                                    return options.map(opt => (
-                                                        <div
-                                                            key={opt.code}
-                                                            style={{
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'space-between',
-                                                                padding: '0.4rem 0.5rem',
-                                                                background: 'var(--bg-secondary)',
-                                                                border: '1px solid var(--border-color)',
-                                                                borderRadius: 'var(--radius-sm)',
-                                                                fontSize: '0.75rem',
-                                                            }}
-                                                        >
-                                                            <div>
-                                                                <div style={{ fontWeight: 500 }}>{opt.name}</div>
-                                                                <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'monospace' }}>{opt.code}</div>
-                                                            </div>
-                                                            {selectedBlock && (
-                                                                <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
-                                                                    {Array.from({ length: selectedBlock.shelfCount }).map((_, si) => (
-                                                                        <button
-                                                                            key={si}
-                                                                            className="btn btn-sm"
-                                                                            style={{ padding: '1px 6px', fontSize: '0.6rem', lineHeight: '1.4' }}
-                                                                            onClick={() => handleAddHierarchy(selectedHierarchyLevel, opt.code, opt.name, si)}
-                                                                            title={`${si + 1}段目に配置`}
-                                                                        >
-                                                                            {si + 1}段
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                            )}
+                                                    {selectedBlock && (
+                                                        <div style={{ display: 'flex', gap: '2px', flexWrap: 'wrap' }}>
+                                                            {Array.from({ length: selectedBlock.shelfCount }).map((_, si) => (
+                                                                <button
+                                                                    key={si}
+                                                                    className="btn btn-sm"
+                                                                    style={{ padding: '1px 6px', fontSize: '0.6rem', lineHeight: '1.4' }}
+                                                                    onClick={() => handleAddHierarchy(selectedHierarchyLevel, opt.code, opt.name, si)}
+                                                                    title={`${si + 1}段目に配置`}
+                                                                >
+                                                                    {si + 1}段
+                                                                </button>
+                                                            ))}
                                                         </div>
-                                                    ));
-                                                })()}
-                                            </div>
-                                        </>
-                                    )}
+                                                    )}
+                                                </div>
+                                            ));
+                                        })()}
+                                    </div>
+                                    <div className="text-xs text-muted mt-sm">
+                                        {(() => {
+                                            const options = getUniqueHierarchyOptions(hierarchyEntries, selectedHierarchyLevel, hierarchyFilters);
+                                            const searchTokens = hierarchySearchTerm.trim().toLowerCase().split(/\s+/).filter(Boolean);
+                                            const count = searchTokens.length > 0
+                                                ? options.filter(opt => {
+                                                    const target = `${opt.name} ${opt.code}`.toLowerCase();
+                                                    return searchTokens.every(t => target.includes(t));
+                                                }).length
+                                                : options.length;
+                                            return `${count}件`;
+                                        })()}
+                                    </div>
                                     {hierarchyEntries.length === 0 && (
                                         <div className="text-muted text-sm mt-md">
                                             商品階層マスタが未登録です。マスタ管理画面から初期データを投入してください。
