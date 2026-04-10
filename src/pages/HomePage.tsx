@@ -135,7 +135,7 @@ export function HomePage() {
             )}
 
             {/* ダミーデータ投入（ローカル環境用） */}
-            <div
+            {!import.meta.env.VITE_IS_VERCEL && <div
                 className="card mb-lg"
                 style={{
                     background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(139, 92, 246, 0.15))',
@@ -180,7 +180,7 @@ export function HomePage() {
                         </button>
                     </div>
                 </div>
-            </div>
+            </div>}
 
             {/* 統計カード */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
