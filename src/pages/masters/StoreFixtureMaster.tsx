@@ -258,14 +258,26 @@ export function StoreFixtureMaster() {
 
         const storeId = overId.replace('store-', '');
 
-        // 配置を追加
+        // 配置を追加（既存什器と重ならない位置を計算）
         const existingPlacements = placements.filter(p => p.storeId === storeId);
+
+        // 既存什器の右端を計算して、その隣に配置
+        let nextX = 0;
+        for (const ep of existingPlacements) {
+            const epFixture = fixtures.find(f => f.id === ep.fixtureId);
+            if (epFixture) {
+                const rightEdge = ep.positionX + epFixture.width;
+                if (rightEdge > nextX) nextX = rightEdge;
+            }
+        }
+        // グリッド250mm単位にスナップ
+        nextX = Math.ceil(nextX / 250) * 250;
 
         const optimisticPlacement: StoreFixturePlacement = {
             id: crypto.randomUUID(),
             storeId,
             fixtureId: fixture.id,
-            positionX: 0,
+            positionX: nextX,
             positionY: 0,
             order: existingPlacements.length,
             direction: 0,
@@ -279,7 +291,7 @@ export function StoreFixtureMaster() {
             await storeFixturePlacementRepository.create({
                 storeId,
                 fixtureId: fixture.id,
-                positionX: 0,
+                positionX: nextX,
                 positionY: 0,
                 order: existingPlacements.length
             });

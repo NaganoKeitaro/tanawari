@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TANAWARI - 棚割管理システム デモ</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif;
+    background: #0f172a;
+    color: #f8fafc;
+    overflow: hidden;
+  }
+
+  .slide {
+    display: none;
+    width: 100vw;
+    height: 100vh;
+    padding: 60px 80px;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .slide.active { display: flex; }
+
+  /* Title slide */
+  .slide-title {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 50%, #1e1b4b 100%);
+    align-items: center;
+    text-align: center;
+  }
+  .slide-title h1 {
+    font-size: 3.5rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 16px;
+  }
+  .slide-title .subtitle {
+    font-size: 1.5rem;
+    color: #94a3b8;
+    margin-bottom: 48px;
+  }
+  .slide-title .meta {
+    font-size: 1rem;
+    color: #64748b;
+  }
+
+  /* Content slides */
+  .slide-content {
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+  }
+  .slide-content h2 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: #f1f5f9;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .slide-content h2 .step {
+    font-size: 0.9rem;
+    background: #6366f1;
+    color: white;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-weight: 600;
+  }
+  .slide-content .desc {
+    font-size: 1.1rem;
+    color: #94a3b8;
+    margin-bottom: 32px;
+    line-height: 1.6;
+  }
+
+  /* Screenshot area */
+  .screenshot {
+    flex: 1;
+    background: #1e293b;
+    border: 2px solid #334155;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    min-height: 0;
+  }
+  .screenshot img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+  .screenshot .placeholder {
+    color: #475569;
+    font-size: 1.2rem;
+    text-align: center;
+  }
+
+  /* Callout boxes */
+  .callouts {
+    display: flex;
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .callout {
+    flex: 1;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 10px;
+    padding: 16px 20px;
+  }
+  .callout.green {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: rgba(34, 197, 94, 0.3);
+  }
+  .callout.amber {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.3);
+  }
+  .callout h4 {
+    font-size: 0.85rem;
+    color: #818cf8;
+    margin-bottom: 4px;
+    font-weight: 700;
+  }
+  .callout.green h4 { color: #4ade80; }
+  .callout.amber h4 { color: #fbbf24; }
+  .callout p {
+    font-size: 0.95rem;
+    color: #cbd5e1;
+    line-height: 1.5;
+  }
+
+  /* Narration */
+  .narration {
+    margin-top: 16px;
+    padding: 12px 20px;
+    background: rgba(251, 191, 36, 0.08);
+    border-left: 3px solid #fbbf24;
+    border-radius: 0 8px 8px 0;
+    font-size: 0.95rem;
+    color: #fbbf24;
+    font-style: italic;
+  }
+
+  /* Two column layout */
+  .two-col {
+    display: flex;
+    gap: 24px;
+    flex: 1;
+    min-height: 0;
+  }
+  .two-col .col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .two-col .col h3 {
+    font-size: 1.2rem;
+    color: #e2e8f0;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+  .two-col .col .screenshot { flex: 1; }
+
+  /* Comparison table */
+  .compare-table {
+    margin-top: 16px;
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .compare-table th, .compare-table td {
+    padding: 10px 20px;
+    text-align: center;
+    border: 1px solid #334155;
+    font-size: 1rem;
+  }
+  .compare-table th {
+    background: #1e293b;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  .compare-table td { color: #e2e8f0; }
+  .compare-table .highlight { color: #f472b6; font-weight: 700; }
+
+  /* Summary slide */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 32px;
+  }
+  .summary-card {
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 16px;
+    padding: 32px 24px;
+    text-align: center;
+  }
+  .summary-card .num {
+    font-size: 3rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .summary-card h4 {
+    font-size: 1.1rem;
+    color: #e2e8f0;
+    margin: 8px 0 4px;
+  }
+  .summary-card p {
+    font-size: 0.9rem;
+    color: #94a3b8;
+  }
+
+  /* Navigation */
+  .nav {
+    position: fixed;
+    bottom: 24px;
+    right: 32px;
+    display: flex;
+    gap: 8px;
+    z-index: 100;
+  }
+  .nav button {
+    background: rgba(99, 102, 241, 0.2);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    color: #a5b4fc;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .nav button:hover { background: rgba(99, 102, 241, 0.4); }
+
+  .slide-num {
+    position: fixed;
+    bottom: 28px;
+    left: 32px;
+    color: #475569;
+    font-size: 0.9rem;
+    z-index: 100;
+  }
+
+  /* Arrow indicator */
+  .arrow { font-size: 1.5rem; }
+</style>
+</head>
+<body>
+
+<!-- Slide 1: Title -->
+<div class="slide slide-title active" id="slide1">
+  <h1>TANAWARI</h1>
+  <div class="subtitle">棚割管理システム - 操作デモ</div>
+  <div style="font-size: 1.2rem; color: #cbd5e1; margin-bottom: 32px;">
+    標準棚割を1つ作れば、全店舗に自動最適化展開
+  </div>
+  <div class="meta">2026年4月</div>
+</div>
+
+<!-- Slide 2: Home -->
+<div class="slide slide-content" id="slide2">
+  <h2>ホーム画面</h2>
+  <div class="desc">システム全体の状況把握とワークフローの確認</div>
+  <div class="screenshot">
+    <img src="screenshots/01_home.png" alt="ホーム画面">
+    <div class="placeholder" style="display:none">スクリーンショット: ホーム画面</div>
+  </div>
+  <div class="callouts">
+    <div class="callout">
+      <h4>登録状況</h4>
+      <p>店舗5件・棚ブロック10件・標準棚割2件・個店棚割10件</p>
+    </div>
+    <div class="callout green">
+      <h4>ワークフロー</h4>
+      <p>Step1: マスタ設定 → Step2: 棚割作成の2ステップで完結</p>
+    </div>
+  </div>
+  <div class="narration">「こちらがホーム画面です。登録状況とワークフローが一覧で確認できます」</div>
+</div>
+
+<!-- Slide 3: Shelf Block List -->
+<div class="slide slide-content" id="slide3">
+  <h2><span class="step">Step 1</span>棚ブロック一覧</h2>
+  <div class="desc">商品群を「棚のひとかたまり」として管理</div>
+  <div class="screenshot">
+    <img src="screenshots/02_block_list.png" alt="棚ブロック一覧">
+    <div class="placeholder" style="display:none">スクリーンショット: 棚ブロック一覧</div>
+  </div>
+  <div class="callouts">
+    <div class="callout">
+      <h4>多段ブロック 6件</h4>
+      <p>牛肉(16尺)・豚肉(16尺)・鶏肉(12尺)・加工品(12尺)・MS(12尺)・焼肉セット(12尺)</p>
+    </div>
+    <div class="callout">
+      <h4>平台ブロック 4件</h4>
+      <p>牛肉特選(12尺)・豚鶏おすすめ(12尺)・MSセット(8尺)・焼肉セット(8尺)</p>
+    </div>
+  </div>
+  <div class="narration">「棚ブロック画面です。精肉部門を6つのブロックに分けて管理しています。多段と平台をタブで切り替えられます」</div>
+</div>
+
+<!-- Slide 4: Block Detail (Hierarchy) -->
+<div class="slide slide-content" id="slide4">
+  <h2><span class="step">Step 1</span>ブロックの中身 - 商品階層で構成</h2>
+  <div class="desc">個品ではなく「カテゴリ単位」で棚スペースを定義</div>
+  <div class="screenshot">
+    <img src="screenshots/03_block_detail.png" alt="牛肉ブロック詳細">
+    <div class="placeholder" style="display:none">スクリーンショット: 牛肉ブロック詳細</div>
+  </div>
+  <div class="callouts">
+    <div class="callout">
+      <h4>階層で配置</h4>
+      <p>「牛肉 > こま切れ」「牛肉 > ステーキ」などカテゴリ単位でスペースを割当</p>
+    </div>
+    <div class="callout green">
+      <h4>右パネル</h4>
+      <p>商品階層タブから階層レベル・カテゴリを選んでドラッグ配置</p>
+    </div>
+    <div class="callout amber">
+      <h4>メリット</h4>
+      <p>商品の入れ替えがあっても棚の構成（カテゴリ配分）は維持される</p>
+    </div>
+  </div>
+  <div class="narration">「ブロックの中身です。個品ではなく商品階層の単位で棚を構成します。右のパネルから階層を選んでドラッグするだけの簡単操作です」</div>
+</div>
+
+<!-- Slide 5: Standard Planogram -->
+<div class="slide slide-content" id="slide5">
+  <h2><span class="step">Step 2</span>FMT標準棚割</h2>
+  <div class="desc">ブロックを並べてFMTの基準棚割を作成（SuC: 80尺）</div>
+  <div class="screenshot">
+    <img src="screenshots/04_standard_planogram.png" alt="標準棚割エディタ">
+    <div class="placeholder" style="display:none">スクリーンショット: 標準棚割エディタ</div>
+  </div>
+  <div class="callouts">
+    <div class="callout">
+      <h4>操作</h4>
+      <p>左パネルのブロック一覧から選択してキャンバスに配置するだけ</p>
+    </div>
+    <div class="callout">
+      <h4>構成</h4>
+      <p>牛肉16尺 → 豚肉16尺 → 鶏肉12尺 → 加工12尺 → MS12尺 → 焼肉12尺 = 合計80尺</p>
+    </div>
+  </div>
+  <div class="narration">「ブロックを並べて標準棚割を作ります。左のブロック一覧からドラッグ配置するだけで、80尺の基準棚割が完成します」</div>
+</div>
+
+<!-- Slide 6: Batch Generation (Select) -->
+<div class="slide slide-content" id="slide6">
+  <h2><span class="step">Step 3</span>個店自動展開 - 店舗選択</h2>
+  <div class="desc">標準棚割を選び、対象店舗にチェック、ボタン1つで展開</div>
+  <div class="screenshot">
+    <img src="screenshots/05_batch_select.png" alt="自動棚割提案">
+    <div class="placeholder" style="display:none">スクリーンショット: 自動棚割提案（店舗選択）</div>
+  </div>
+  <div class="callouts">
+    <div class="callout">
+      <h4>1. FMT選択</h4>
+      <p>SuCを選択 → 5店舗が表示</p>
+    </div>
+    <div class="callout">
+      <h4>2. 標準棚割選択</h4>
+      <p>「SuC精肉 多段標準棚割」</p>
+    </div>
+    <div class="callout green">
+      <h4>3. 実行</h4>
+      <p>全店舗チェック → 「自動棚割提案を作成」</p>
+    </div>
+  </div>
+  <div class="narration">「個店展開の操作です。FMTを選び、標準棚割を選び、対象店舗にチェックを入れてボタンを押すだけ。これだけの操作で全店舗に展開されます」</div>
+</div>
+
+<!-- Slide 7: Batch Result -->
+<div class="slide slide-content" id="slide7">
+  <h2><span class="step">Step 3</span>生成結果 - 全店舗完了</h2>
+  <div class="desc">5店舗すべてに棚割が自動生成</div>
+  <div class="screenshot">
+    <img src="screenshots/06_batch_result.png" alt="生成結果">
+    <div class="placeholder" style="display:none">スクリーンショット: 生成結果</div>
+  </div>
+  <div class="callouts">
+    <div class="callout green">
+      <h4>結果</h4>
+      <p>完了: 5 / 警告: 0 / エラー: 0</p>
+    </div>
+    <div class="callout">
+      <h4>自動調整</h4>
+      <p>各店舗の棚サイズに応じてルールA（カット）/ ルールB（拡張）を自動適用</p>
+    </div>
+  </div>
+  <div class="narration">「5店舗すべて正常に完了しました。店舗ごとにサイズが違っても、自動調整ルールが適用されています」</div>
+</div>
+
+<!-- Slide 8: Compare -->
+<div class="slide slide-content" id="slide8">
+  <h2>自動調整の効果 - 博多店 vs 大分店</h2>
+  <div class="desc">同じ標準棚割から、店舗サイズに応じて自動調整</div>
+  <div class="two-col">
+    <div class="col">
+      <h3>SuC博多店（基準）</h3>
+      <div class="screenshot">
+        <img src="screenshots/07_hakata.png" alt="博多店 80尺">
+        <div class="placeholder" style="display:none">博多店 80尺</div>
+      </div>
+    </div>
+    <div class="col">
+      <h3>SuC大分店（自動カット）</h3>
+      <div class="screenshot">
+        <img src="screenshots/08_oita.png" alt="大分店 40尺">
+        <div class="placeholder" style="display:none">大分店 40尺</div>
+      </div>
+    </div>
+  </div>
+  <table class="compare-table">
+    <tr><th></th><th>SuC博多店</th><th>SuC大分店</th></tr>
+    <tr><td>棚幅</td><td>80尺（24,000mm）</td><td class="highlight">40尺（12,000mm）</td></tr>
+    <tr><td>段数</td><td>5段</td><td class="highlight">4段</td></tr>
+    <tr><td>調整</td><td>基準どおり</td><td class="highlight">ルールAで自動カット</td></tr>
+  </table>
+  <div class="narration">「左が基準の博多店80尺、右が大分店40尺です。半分のサイズでも、売れ筋カテゴリを維持しながら自動で最適化されています」</div>
+</div>
+
+<!-- Slide 9: Summary -->
+<div class="slide slide-content" id="slide9">
+  <h2>まとめ</h2>
+  <div class="desc">TANAWARIの3ステップ操作</div>
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="num">1</div>
+      <h4>棚ブロック作成</h4>
+      <p>商品階層をドラッグして<br>棚の構成単位を作成</p>
+    </div>
+    <div class="summary-card">
+      <div class="num">2</div>
+      <h4>標準棚割作成</h4>
+      <p>ブロックを並べて<br>FMTの基準棚割を構成</p>
+    </div>
+    <div class="summary-card">
+      <div class="num">3</div>
+      <h4>個店自動展開</h4>
+      <p>店舗を選んでボタン1つ<br>全店舗に自動最適化展開</p>
+    </div>
+  </div>
+  <div style="margin-top: 48px; text-align: center;">
+    <div style="font-size: 1.5rem; color: #a78bfa; font-weight: 700; margin-bottom: 8px;">
+      棚割展開の工数を大幅削減
+    </div>
+    <div style="font-size: 1.1rem; color: #94a3b8;">
+      本部の意図を守りながら、店舗サイズに合わせて自動最適化
+    </div>
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="slide-num"><span id="currentSlide">1</span> / <span id="totalSlides">9</span></div>
+<div class="nav">
+  <button onclick="prevSlide()"><span class="arrow">&larr;</span> 前へ</button>
+  <button onclick="nextSlide()">次へ <span class="arrow">&rarr;</span></button>
+</div>
+
+<script>
+  let current = 1;
+  const total = 9;
+
+  function showSlide(n) {
+    document.querySelectorAll('.slide').forEach(s => s.classList.remove('active'));
+    document.getElementById('slide' + n).classList.add('active');
+    document.getElementById('currentSlide').textContent = n;
+  }
+
+  function nextSlide() {
+    if (current < total) { current++; showSlide(current); }
+  }
+
+  function prevSlide() {
+    if (current > 1) { current--; showSlide(current); }
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ') { e.preventDefault(); nextSlide(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); prevSlide(); }
+  });
+</script>
+</body>
+</html>
