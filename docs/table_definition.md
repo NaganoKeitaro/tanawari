@@ -15,6 +15,9 @@
 | standard_planogram_products | 標準棚割商品。標準棚割内の展開済み商品配置を管理 |
 | store_planograms | 個店棚割。店舗固有の棚割・ステータス・警告を管理 |
 | store_planogram_products | 個店棚割商品。個店棚割内の商品配置・自動生成フラグを管理 |
+| shelf_block_hierarchy_placements | ブロック内階層配置。ブロック内の商品階層の位置・幅を管理 |
+| standard_planogram_hierarchy_placements | 標準棚割階層配置。標準棚割内の商品階層の位置・幅を管理 |
+| store_planogram_hierarchy_placements | 個店棚割階層配置。個店棚割内の商品階層の位置・幅を管理 |
 
 ## Table Detail
 
@@ -215,3 +218,45 @@
 | face_count | integer | - | - | NOT NULL | フェイス数 |
 | is_auto_generated | boolean | - | - | NOT NULL | ルールA/B自動適用フラグ（デフォルト: false） |
 | is_cut | boolean | - | - | NOT NULL | ルールAカットフラグ（デフォルト: false） |
+
+### shelf_block_hierarchy_placements
+
+| column_name | type | pk | fk | nullable | description |
+|-------------|------|----|----|----------|-------------|
+| id | uuid | PK | - | NOT NULL | 一意識別子（自動生成） |
+| block_id | uuid | - | FK(shelf_blocks.id) ON DELETE CASCADE | NOT NULL | ブロックID |
+| hierarchy_level | varchar(20) | - | - | NOT NULL | 階層レベル（division〜subSegment） |
+| hierarchy_code | varchar(50) | - | - | NOT NULL | 階層コード |
+| hierarchy_name | varchar(100) | - | - | NOT NULL | 階層名 |
+| shelf_index | integer | - | - | NOT NULL | 段インデックス（0始まり） |
+| position_x | decimal(8,2) | - | - | NOT NULL | 段内X座標（mm） |
+| width | decimal(8,2) | - | - | NOT NULL | 幅（mm） |
+| face_count | integer | - | - | NOT NULL | フェイス数 |
+
+### standard_planogram_hierarchy_placements
+
+| column_name | type | pk | fk | nullable | description |
+|-------------|------|----|----|----------|-------------|
+| id | uuid | PK | - | NOT NULL | 一意識別子（自動生成） |
+| standard_planogram_id | uuid | - | FK(standard_planograms.id) ON DELETE CASCADE | NOT NULL | 標準棚割ID |
+| hierarchy_level | varchar(20) | - | - | NOT NULL | 階層レベル |
+| hierarchy_code | varchar(50) | - | - | NOT NULL | 階層コード |
+| hierarchy_name | varchar(100) | - | - | NOT NULL | 階層名 |
+| shelf_index | integer | - | - | NOT NULL | 段インデックス（0始まり） |
+| position_x | decimal(8,2) | - | - | NOT NULL | 段内X座標（mm） |
+| width | decimal(8,2) | - | - | NOT NULL | 幅（mm） |
+| face_count | integer | - | - | NOT NULL | フェイス数 |
+
+### store_planogram_hierarchy_placements
+
+| column_name | type | pk | fk | nullable | description |
+|-------------|------|----|----|----------|-------------|
+| id | uuid | PK | - | NOT NULL | 一意識別子（自動生成） |
+| store_planogram_id | uuid | - | FK(store_planograms.id) ON DELETE CASCADE | NOT NULL | 個店棚割ID |
+| hierarchy_level | varchar(20) | - | - | NOT NULL | 階層レベル |
+| hierarchy_code | varchar(50) | - | - | NOT NULL | 階層コード |
+| hierarchy_name | varchar(100) | - | - | NOT NULL | 階層名 |
+| shelf_index | integer | - | - | NOT NULL | 段インデックス（0始まり） |
+| position_x | decimal(8,2) | - | - | NOT NULL | 段内X座標（mm） |
+| width | decimal(8,2) | - | - | NOT NULL | 幅（mm） |
+| face_count | integer | - | - | NOT NULL | フェイス数 |

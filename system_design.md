@@ -1,7 +1,7 @@
 # システムアーキテクチャ設計書 (System Architecture Design)
 
 **作成日**: 2026-01-08
-**最終更新日**: 2026-04-02
+**最終更新日**: 2026-04-14
 **プロジェクト**: 棚割管理システム (Planogram System)
 
 ## 1. はじめに
@@ -28,8 +28,8 @@ UI層とデータ層を疎結合にするレイヤードアーキテクチャを
 | 区分 | 技術 | バージョン | 備考 |
 |------|------|-----------|------|
 | フロントエンド | React | 19.2.0 | |
-| 言語 | TypeScript | 5.x | strict: true |
-| ビルドツール | Vite | 6.x | tsc -b && vite build |
+| 言語 | TypeScript | 5.9.x | strict: true |
+| ビルドツール | Vite | 7.x | tsc -b && vite build |
 | ルーティング | React Router DOM | 7.11.0 | BrowserRouter + 14ルート |
 | D&D | @dnd-kit/core + sortable | 6.3.1 / 10.0.0 | 商品・ブロック配置 |
 | バックエンド | Supabase (PostgreSQL) | 2.97.0 | 本番用 |
@@ -73,7 +73,7 @@ interface IRepository<T> {
 *   **Store**: 店舗情報（コード、名称、FMT、地域）
 *   **Fixture**: 什器マスタ（`fixtureType` で機能別分類: multi-tier/flat-refrigerated/flat-frozen/end-cap-refrigerated/end-cap-frozen/gondola）
 *   **StoreFixturePlacement**: 店舗ごとの什器の平面レイアウト（絶対座標 X, Y mm、回転角度 0/90/180/270）を保持。
-*   **ShelfBlock**: 商品群（フェイス等）の組み合わせテンプレート。blockType（multi-tier/flat）を持つ。
+*   **ShelfBlock**: 商品群（フェイス等）の組み合わせテンプレート。blockType（multi-tier/flat）を持つ。商品階層プレースメント（HierarchyPlacement）にも対応。
 *   **StandardPlanogram**: 標準・デフォルトとなる陳列計画。適用期間（startDate/endDate）を持つ。
 *   **StorePlanogram**: 個店舗ごとの拡張・カットを経て生成される陳列実態データ。status（pending/generated/warning/error/synced）で管理。
 
@@ -89,6 +89,7 @@ PostgreSQLデータベースのスキーマは以下の3ファイルで管理:
 *   `supabase/migrations/20260227_cm_to_mm.sql`: cm→mm単位変換マイグレーション
 *   `supabase/migrations/20260309_add_missing_columns.sql`: store_planograms/standard_planogramsカラム追加
 *   `supabase/migrations/20260311_fix_shelf_block_decimal_precision.sql`: shelf_block decimal精度修正
+*   `supabase/migrations/20260331_add_hierarchy_placements.sql`: 階層プレースメントテーブル追加（shelf_block_hierarchy_placements, standard_planogram_hierarchy_placements, store_planogram_hierarchy_placements）
 
 ## 4. 今後の拡張性
 

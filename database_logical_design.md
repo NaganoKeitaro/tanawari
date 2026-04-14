@@ -1,7 +1,7 @@
 # データベース論理設計書 (Database Logical Design Document)
 
 **作成日**: 2026-01-09
-**最終更新日**: 2026-04-02
+**最終更新日**: 2026-04-14
 **プロジェクト**: 棚割管理システム (Planogram System)
 
 ## 1. 概要
@@ -157,6 +157,21 @@
 | position_x | 横位置 | DECIMAL(8,2) | NOT NULL | ブロック左端からの距離(mm) |
 | face_count | フェイス数 | INT | NOT NULL | DEFAULT 1 |
 
+#### 3.2.4 shelf_block_hierarchy_placements (ブロック内階層配置)
+棚ブロック内の商品階層配置詳細。
+
+| カラム名 | 論理名 | データ型 | 制約 | 説明 |
+| :--- | :--- | :--- | :--- | :--- |
+| **id** | ID | VARCHAR(36) | PK | UUID |
+| block_id | ブロックID | VARCHAR(36) | FK(shelf_blocks) ON DELETE CASCADE | |
+| hierarchy_level | 階層レベル | VARCHAR(20) | NOT NULL | division〜subSegmentの8レベル |
+| hierarchy_code | 階層コード | VARCHAR(50) | NOT NULL | |
+| hierarchy_name | 階層名 | VARCHAR(100) | NOT NULL | |
+| shelf_index | 段位置 | INT | NOT NULL | 0-indexed |
+| position_x | 横位置 | DECIMAL(8,2) | NOT NULL | ブロック左端からの距離(mm) |
+| width | 幅 | DECIMAL(8,2) | NOT NULL | mm単位 |
+| face_count | フェイス数 | INT | NOT NULL | DEFAULT 1 |
+
 ### 3.3 標準棚割 (Standard Planogram)
 
 #### 3.3.1 standard_planograms (標準棚割ヘッダ)
@@ -201,6 +216,21 @@
 | position_x | 横位置 | DECIMAL(8,2) | NOT NULL | 全体座標での位置(mm) |
 | face_count | フェイス数 | INT | NOT NULL | |
 
+#### 3.3.4 standard_planogram_hierarchy_placements (標準棚割階層配置)
+標準棚割内の商品階層配置情報。
+
+| カラム名 | 論理名 | データ型 | 制約 | 説明 |
+| :--- | :--- | :--- | :--- | :--- |
+| **id** | ID | VARCHAR(36) | PK | UUID |
+| standard_planogram_id | 標準棚割ID | VARCHAR(36) | FK ON DELETE CASCADE | |
+| hierarchy_level | 階層レベル | VARCHAR(20) | NOT NULL | |
+| hierarchy_code | 階層コード | VARCHAR(50) | NOT NULL | |
+| hierarchy_name | 階層名 | VARCHAR(100) | NOT NULL | |
+| shelf_index | 段位置 | INT | NOT NULL | |
+| position_x | 横位置 | DECIMAL(8,2) | NOT NULL | |
+| width | 幅 | DECIMAL(8,2) | NOT NULL | |
+| face_count | フェイス数 | INT | NOT NULL | DEFAULT 1 |
+
 ### 3.4 個店棚割 (Store Planogram)
 
 #### 3.4.1 store_planograms (個店棚割ヘッダ)
@@ -233,6 +263,21 @@
 | face_count | フェイス数 | INT | NOT NULL | 調整後のフェイス数 |
 | is_auto_generated | 自動生成フラグ | BOOLEAN | DEFAULT FALSE | ロジックで自動的に拡張・追加されたか |
 | is_cut | カットフラグ | BOOLEAN | DEFAULT FALSE | 原本（標準仕様）から削減されたか |
+
+#### 3.4.3 store_planogram_hierarchy_placements (個店棚割階層配置)
+個店棚割内の商品階層配置情報。
+
+| カラム名 | 論理名 | データ型 | 制約 | 説明 |
+| :--- | :--- | :--- | :--- | :--- |
+| **id** | ID | VARCHAR(36) | PK | UUID |
+| store_planogram_id | 個店棚割ID | VARCHAR(36) | FK ON DELETE CASCADE | |
+| hierarchy_level | 階層レベル | VARCHAR(20) | NOT NULL | |
+| hierarchy_code | 階層コード | VARCHAR(50) | NOT NULL | |
+| hierarchy_name | 階層名 | VARCHAR(100) | NOT NULL | |
+| shelf_index | 段位置 | INT | NOT NULL | |
+| position_x | 横位置 | DECIMAL(8,2) | NOT NULL | |
+| width | 幅 | DECIMAL(8,2) | NOT NULL | |
+| face_count | フェイス数 | INT | NOT NULL | DEFAULT 1 |
 
 ## 4. ビュー定義 (Views)
 
@@ -281,3 +326,4 @@ GROUP BY p.id, p.name, p.jan;
 | 2026-02-27 | `20260227_cm_to_mm.sql` | 全テーブルの寸法カラムをcmからmmに変換（×10）。decimal精度を(5,2)→(8,2)に拡張。 |
 | 2026-03-09 | `20260309_add_missing_columns.sql` | store_planogramsにwidth/height/shelf_count追加。standard_planogramsにstart_date/end_date/description追加。 |
 | 2026-03-11 | `20260311_fix_shelf_block_decimal_precision.sql` | shelf_block_products.position_xとshelf_blocks.widthをdecimal(8,2)に拡張（1000mm超ブロック対応）。 |
+| 2026-03-31 | `20260331_add_hierarchy_placements.sql` | 階層プレースメントテーブル3つを追加（shelf_block_hierarchy_placements, standard_planogram_hierarchy_placements, store_planogram_hierarchy_placements）。 |

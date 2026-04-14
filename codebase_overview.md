@@ -1,7 +1,7 @@
 # コードベース概要ドキュメント
 
 > 作成日: 2026-03-09
-> 最終更新日: 2026-04-02
+> 最終更新日: 2026-04-14
 > 対象プロジェクト: 棚割管理システム（tanawari）
 
 ---
@@ -41,8 +41,8 @@
 | 区分 | 技術 | バージョン |
 |------|------|-----------|
 | フロントエンド | React | 19.2.0 |
-| 言語 | TypeScript | 5.x |
-| ビルドツール | Vite | 6.x |
+| 言語 | TypeScript | 5.9.x |
+| ビルドツール | Vite | 7.x |
 | ルーティング | React Router DOM | 7.11.0 |
 | D&D | @dnd-kit/core + sortable | 6.3.1 / 10.0.0 |
 | バックエンド | Supabase (PostgreSQL) | 2.97.0 |
@@ -70,10 +70,13 @@ tanawari/
 │   └── migrations/
 │       ├── 20260227_cm_to_mm.sql       # 単位変換マイグレーション
 │       ├── 20260309_add_missing_columns.sql  # カラム追加
-│       └── 20260311_fix_shelf_block_decimal_precision.sql  # decimal精度修正
+│       ├── 20260311_fix_shelf_block_decimal_precision.sql  # decimal精度修正
+│       └── 20260331_add_hierarchy_placements.sql  # 階層プレースメントテーブル追加
 ├── docs/
 │   ├── deployment.md                   # デプロイガイド
 │   ├── operation_manual.md             # 操作マニュアル
+│   ├── demo/
+│   │   └── presentation.html           # デモプレゼンテーション
 │   ├── images/                         # 図表画像
 │   └── diagrams/                       # Mermaidソース
 └── src/
@@ -83,6 +86,9 @@ tanawari/
     ├── data/
     │   ├── supabaseClient.ts           # Supabaseクライアント初期化
     │   ├── seedData.ts                 # サンプルデータ生成
+    │   ├── seedDummyData.ts            # JAN型ダミーデータ生成
+    │   ├── seedHierarchyDummyData.ts   # 階層型ダミーデータ生成
+    │   ├── initialHierarchyData.ts     # 商品階層初期データ
     │   ├── types/
     │   │   ├── index.ts                # 全ドメイン型定義・定数
     │   │   └── productHierarchy.ts     # 商品階層型定義
@@ -146,7 +152,7 @@ tanawari/
 ## 4. 設定ファイル
 
 ### [package.json](package.json)
-- **主要スクリプト**: `dev`（開発サーバー）, `build`（`tsc -b && vite build`）, `lint`, `preview`
+- **主要スクリプト**: `dev`（開発サーバー）, `build`（`tsc -b && vite build`）, `lint`, `preview`, `test`（Vitest実行）, `test:watch`（Vitestウォッチモード）
 - **主要依存**:
   - `react` / `react-dom` 19.2.0
   - `react-router-dom` 7.11.0
@@ -155,7 +161,9 @@ tanawari/
   - `xlsx` 0.18.5
 
 ### [vite.config.ts](vite.config.ts)
-- `@vitejs/plugin-react` プラグイン適用のみ（シンプル構成）
+- `@vitejs/plugin-react` プラグイン適用
+- `import.meta.env.VITE_IS_VERCEL` をビルド時に定義（Vercel環境判定）
+- `test: { globals: true }` でVitestグローバル設定
 
 ### [tsconfig.app.json](tsconfig.app.json)
 - `target: ES2022`, `strict: true`, `jsx: react-jsx`
@@ -166,7 +174,7 @@ tanawari/
 ### Supabaseスキーマ
 - `supabase/schema.sql`: メインテーブル定義（マスタ・構成・棚割テーブル）
 - `supabase/schema_hierarchy.sql`: 商品階層テーブル
-- `supabase/migrations/`: 3つのマイグレーションファイル
+- `supabase/migrations/`: 4つのマイグレーションファイル（階層プレースメントテーブル追加を含む）
 
 ---
 
@@ -192,6 +200,16 @@ tanawari/
 ### [src/data/seedData.ts](src/data/seedData.ts)
 - `generateSeedStores()` — 18店舗のサンプルデータ（九州地方中心）
 - FMTプレフィックス（MEGA, SuC, SMART, GO, FC）+ 4桁番号でコード自動生成
+
+### [src/data/seedDummyData.ts](src/data/seedDummyData.ts)
+- JAN型ダミーデータの一括生成（商品90品、店舗6店、ブロック、標準/個店棚割）
+
+### [src/data/seedHierarchyDummyData.ts](src/data/seedHierarchyDummyData.ts)
+- 階層型ダミーデータの生成（既存データを削除せず追加）
+- 畜産・精肉を中心とした商品階層テストデータ
+
+### [src/data/initialHierarchyData.ts](src/data/initialHierarchyData.ts)
+- 商品階層マスタの初期投入用データ定義
 
 ### [src/data/types/index.ts](src/data/types/index.ts)
 - **定数**:
@@ -223,7 +241,9 @@ interface IRepository<T> {
 - `LocalStorageRepository<T>` が `IRepository<T>` を実装。IDは `crypto.randomUUID()` で自動生成。
 
 ### [src/data/repositories/supabaseRepository.ts](src/data/repositories/supabaseRepository.ts)
-- `SupabaseRepository<T>` が `IRepository<T>` を実装。camelCase ↔ snake_case 自動変換。
+- `SupabaseSimpleRepository<T>` + 専用リポジトリ（ShelfBlock/StandardPlanogram/StorePlanogram/ProductHierarchy）で `IRepository<T>` を実装。camelCase ↔ snake_case 自動変換。
+- ShelfBlockRepositoryは子テーブル（products, hierarchy_placements）のカスケード管理対応。
+- ProductHierarchySupabaseRepositoryはSupabase 1000行制限を回避するページネーション・チャンク分割挿入対応。
 
 ### [src/data/repositories/repositoryFactory.ts](src/data/repositories/repositoryFactory.ts)
 - `VITE_SUPABASE_URL` 設定済み → `SupabaseRepository`、未設定 → `LocalStorageRepository`
@@ -287,7 +307,9 @@ interface IRepository<T> {
 - `mapRowToHierarchyEntry(row)`, `validateHierarchyEntry(entry)` — 変換・バリデーション
 
 ### [src/utils/hierarchyHelpers.tsx](src/utils/hierarchyHelpers.tsx)
-- 階層レベル表示ロジック、パンくずリスト生成
+- 階層レベル表示ロジック（折りたたみ可能なツリー表示）
+- `countProductsInHierarchy()` — 再帰的な商品カウント
+- `renderHierarchyLevel()` — 階層レベルごとのJSXレンダリング（展開/折りたたみ・商品数バッジ・ランク色分け）
 
 ### [src/utils/metricsGenerator.ts](src/utils/metricsGenerator.ts)
 - `generateRandomMetrics()` — ランダムな売上・粗利・客数・客単価
@@ -355,7 +377,9 @@ interface IRepository<T> {
 
 ### [src/components/planogram/PlanogramVisualizer.tsx](src/components/planogram/PlanogramVisualizer.tsx)
 - 棚割のヒートマップビジュアライザー
-- 表示モード: `jan`（単品）, `hierarchy`（階層）, `block`（ブロック）, `planogram`（全体）
+- 表示モード: `jan`（単品）, `hierarchy`（階層）
+- 評価指標: sales, grossProfit, quantity, traffic
+- 階層レベル集計（hierarchySums）、空間グルーピング（hierarchyLayouts）対応
 - カテゴリ色分け表示、商品ツールチップ（JAN・フェイス数）対応
 
 ---
@@ -363,7 +387,8 @@ interface IRepository<T> {
 ## 14. ページコンポーネント（pages/）
 
 ### [src/pages/HomePage.tsx](src/pages/HomePage.tsx)
-- システム統計カード、店舗マスタ生成ボタン、ワークフロー説明
+- システム統計カード、店舗マスタ生成ボタン、ワークフロー説明、JAN型/階層型ダミーデータ生成
+- Vercel環境ではテストデータ投入UIを非表示（`VITE_IS_VERCEL`）
 
 ### [src/pages/Dashboard.tsx](src/pages/Dashboard.tsx)
 - スコープ選択（全社/個店）、KPIカード、カテゴリ別棒グラフ+円グラフ
@@ -394,12 +419,16 @@ interface IRepository<T> {
 - 店舗選択→什器配置一覧、StoreLayoutEditorでフロアレイアウト編集
 
 ### [src/pages/blocks/ShelfBlockEditor.tsx](src/pages/blocks/ShelfBlockEditor.tsx)
-- ブロック作成・編集、D&Dで商品配置、SCALE=0.3ビジュアルプレビュー
+- ブロック作成・編集、D&Dで商品・階層配置、SCALE=0.3ビジュアルプレビュー
 - カテゴリ色分け、商品ツールチップ（JAN・フェイス数）対応
+- 全階層横断の曖昧検索（複数ワードAND検索・関連度順ソート）
+- 階層フィルターと検索の併用可能
+- 商品名・階層名の折り返し表示対応
 
 ### [src/pages/planogram/StandardPlanogramEditor.tsx](src/pages/planogram/StandardPlanogramEditor.tsx)
 - FMT別棚割一覧、ブロックD&D配置、什器タイプ別タブ、適用期間設定、複製機能
 - 分析モード（ヒートマップ）、カテゴリ色分け、商品ツールチップ対応
+- 階層プレースメント表示対応
 
 ### [src/pages/planogram/StorePlanogramBatch.tsx](src/pages/planogram/StorePlanogramBatch.tsx)
 - FMTカード選択→標準棚割選択→店舗チェックボックス→一括生成→結果レポート
@@ -536,8 +565,20 @@ export const SHAKU_TO_MM = 300;
   height: number                 // mm
   shelfCount: number
   productPlacements: ProductPlacement[]
+  hierarchyPlacements: HierarchyPlacement[]
   createdAt: string
   updatedAt: string
+}
+
+interface HierarchyPlacement {
+  id: string
+  hierarchyLevel: HierarchyLevel  // 8レベル
+  hierarchyCode: string
+  hierarchyName: string
+  shelfIndex: number
+  positionX: number              // mm
+  width: number                  // mm
+  faceCount: number
 }
 
 interface ProductPlacement {
@@ -565,6 +606,7 @@ interface ProductPlacement {
   description?: string           // メモ・用途
   blocks: StandardPlanogramBlock[]
   products: StandardPlanogramProduct[]
+  hierarchyPlacements: StandardPlanogramHierarchyPlacement[]
   createdAt: string
   updatedAt: string
 }
@@ -580,6 +622,7 @@ interface ProductPlacement {
   height: number
   shelfCount: number
   products: StorePlanogramProduct[]
+  hierarchyPlacements: StorePlanogramHierarchyPlacement[]
   status: PlanogramStatus        // 'pending' | 'generated' | 'warning' | 'error' | 'synced'
   warnings: string[]
   createdAt: string

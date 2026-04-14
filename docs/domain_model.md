@@ -27,11 +27,14 @@
 | ENT-005 | AGG-008 | StoreFixturePlacement（集約ルート） |
 | ENT-006 | AGG-005 | ShelfBlock（集約ルート） |
 | ENT-007 | AGG-005 | ProductPlacement（ブロック内エンティティ） |
+| ENT-013a | AGG-005 | HierarchyPlacement（ブロック内階層配置エンティティ） |
 | ENT-008 | AGG-006 | StandardPlanogram（集約ルート） |
 | ENT-009 | AGG-006 | StandardPlanogramBlock（集約内エンティティ） |
 | ENT-010 | AGG-006 | StandardPlanogramProduct（集約内エンティティ） |
+| ENT-013b | AGG-006 | HierarchyPlacement（標準棚割内階層配置エンティティ） |
 | ENT-011 | AGG-007 | StorePlanogram（集約ルート） |
 | ENT-012 | AGG-007 | StorePlanogramProduct（集約内エンティティ） |
+| ENT-013c | AGG-007 | HierarchyPlacement（個店棚割内階層配置エンティティ） |
 
 ### Value Objects
 | vo_id | description |
@@ -47,6 +50,7 @@
 | VO-009 | HeatmapMetric - ヒートマップ指標（sales/grossProfit/quantity/traffic/spendPerCustomer） |
 | VO-010 | HeatmapLevel - ヒートマップレベル（jan/hierarchy/block/planogram） |
 | VO-011 | ProductColor - 商品カテゴリ色（bg/border/text） |
+| VO-012 | HierarchyLevel - 階層レベル（division/divisionSub/line/department/category/subCategory/segment/subSegment） |
 
 ## 3. Rules
 
@@ -82,8 +86,11 @@
 | Store | StandardPlanogram | 1:N | 店舗は標準棚割の基準店舗になりうる |
 | Fixture | StoreFixturePlacement | 1:N | 什器は複数の店舗に配置される |
 | ShelfBlock | ProductPlacement | 1:N | ブロックは複数の商品配置を持つ |
+| ShelfBlock | HierarchyPlacement | 1:N | ブロックは複数の階層配置を持つ |
 | ShelfBlock | StandardPlanogramBlock | 1:N | ブロックは複数の標準棚割で使用される |
 | StandardPlanogram | StandardPlanogramBlock | 1:N | 標準棚割は複数のブロック配置を持つ |
 | StandardPlanogram | StandardPlanogramProduct | 1:N | 標準棚割は複数の展開済み商品を持つ |
+| StandardPlanogram | HierarchyPlacement | 1:N | 標準棚割は複数の階層配置を持つ |
 | StandardPlanogram | StorePlanogram | 1:N | 標準棚割は複数の個店棚割の元となる |
 | StorePlanogram | StorePlanogramProduct | 1:N | 個店棚割は複数の商品配置を持つ |
+| StorePlanogram | HierarchyPlacement | 1:N | 個店棚割は複数の階層配置を持つ |

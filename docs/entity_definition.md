@@ -15,6 +15,7 @@
 | ENT-010 | StandardPlanogramProduct | 標準棚割商品。標準棚割内の展開済み商品配置 |
 | ENT-011 | StorePlanogram | 個店棚割。標準棚割から自動生成された店舗固有の棚割 |
 | ENT-012 | StorePlanogramProduct | 個店棚割商品。個店棚割内の商品配置（自動生成フラグ・カットフラグ付き） |
+| ENT-013 | HierarchyPlacement | 階層配置。棚ブロック・標準棚割・個店棚割内の商品階層の配置情報 |
 
 ## 2. Entity Detail
 
@@ -189,6 +190,7 @@
 | related_entity | relation_type | description |
 |----------------|--------------|-------------|
 | ProductPlacement | 1:N | ブロックは複数の商品配置を持つ |
+| HierarchyPlacement | 1:N | ブロックは複数の階層配置を持つ |
 | StandardPlanogramBlock | 1:N | ブロックは複数の標準棚割で使用される |
 
 ### ENT-007
@@ -237,6 +239,7 @@
 | Store | N:1 | 基準店舗を参照する |
 | StandardPlanogramBlock | 1:N | 複数のブロック配置を持つ |
 | StandardPlanogramProduct | 1:N | 複数の展開済み商品配置を持つ |
+| HierarchyPlacement | 1:N | 複数の階層配置を持つ |
 | StorePlanogram | 1:N | 複数の個店棚割の元となる |
 
 ### ENT-009
@@ -303,6 +306,7 @@
 | Store | N:1 | 1つの店舗に属する |
 | StandardPlanogram | N:1 | 1つの標準棚割を元にする |
 | StorePlanogramProduct | 1:N | 複数の商品配置を持つ |
+| HierarchyPlacement | 1:N | 複数の階層配置を持つ |
 
 ### ENT-012
 - name: StorePlanogramProduct
@@ -325,3 +329,26 @@
 |----------------|--------------|-------------|
 | StorePlanogram | N:1 | 1つの個店棚割に属する |
 | Product | N:1 | 1つの商品を参照する |
+
+### ENT-013
+- name: HierarchyPlacement
+- description: 棚ブロック・標準棚割・個店棚割内における商品階層の配置情報。カテゴリやセグメントなどの階層レベルで棚の領域を定義する
+
+#### attributes:
+| attribute_name | type | required | description |
+|----------------|------|----------|-------------|
+| id | string (UUID) | yes | 一意識別子 |
+| hierarchyLevel | HierarchyLevel | yes | 階層レベル（division〜subSegment） |
+| hierarchyCode | string | yes | 階層コード |
+| hierarchyName | string | yes | 階層名 |
+| shelfIndex | number | yes | 段インデックス（0始まり） |
+| positionX | number | yes | 段内X座標（mm） |
+| width | number | yes | 幅（mm） |
+| faceCount | number | yes | フェイス数 |
+
+#### relationships:
+| related_entity | relation_type | description |
+|----------------|--------------|-------------|
+| ShelfBlock | N:1 | ブロック内階層配置として属する |
+| StandardPlanogram | N:1 | 標準棚割内階層配置として属する |
+| StorePlanogram | N:1 | 個店棚割内階層配置として属する |

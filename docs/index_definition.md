@@ -48,3 +48,9 @@
 | idx_stpp_product_id | store_planogram_products | product_id | no | 商品別個店棚割参照検索用 |
 | idx_stpp_auto_generated | store_planogram_products | is_auto_generated | no | 自動生成商品絞り込み用 |
 | idx_stpp_is_cut | store_planogram_products | is_cut | no | カット対象商品絞り込み用 |
+| idx_sbhp_pk | shelf_block_hierarchy_placements | id | yes | 主キーインデックス |
+| idx_sbhp_block_id | shelf_block_hierarchy_placements | block_id | no | ブロック別階層配置検索用 |
+| idx_sphp_pk | standard_planogram_hierarchy_placements | id | yes | 主キーインデックス |
+| idx_sphp_planogram_id | standard_planogram_hierarchy_placements | standard_planogram_id | no | 標準棚割別階層配置検索用 |
+| idx_stphp_pk | store_planogram_hierarchy_placements | id | yes | 主キーインデックス |
+| idx_stphp_planogram_id | store_planogram_hierarchy_placements | store_planogram_id | no | 個店棚割別階層配置検索用 |

@@ -15,3 +15,6 @@
 | StandardPlanogramProduct | - | - | - | - | - | - | CRUD | CR | R | - | R | - | - | - | R | R | - | - |
 | StorePlanogram | - | - | - | - | - | - | - | - | CRU | RU | RU | RU | - | - | R | R | - | - |
 | StorePlanogramProduct | - | - | - | - | - | - | - | - | CRU | CRUD | CRU | - | - | - | R | R | - | - |
+| HierarchyPlacement (Block) | - | - | - | - | - | CRUD | R | R | - | - | - | - | - | - | - | R | - | - |
+| HierarchyPlacement (Standard) | - | - | - | - | - | - | CRUD | CR | R | - | R | - | - | - | R | R | - | - |
+| HierarchyPlacement (Store) | - | - | - | - | - | - | - | - | CRU | R | CRU | - | - | - | R | R | - | - |
