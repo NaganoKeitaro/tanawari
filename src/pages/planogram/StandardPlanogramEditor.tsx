@@ -339,6 +339,81 @@ function PlanogramCanvas({
                             }}>
                                 {shelfIndex + 1}段
                             </div>
+                            {/* 階層プレースメント */}
+                            {(planogram.hierarchyPlacements || [])
+                                .filter(hp => hp.shelfIndex === shelfIndex)
+                                .map(hp => {
+                                    const width = hp.width * hp.faceCount * SCALE;
+                                    // ブロック移動プレビュー時の位置調整
+                                    let displayX = hp.positionX;
+                                    if (hp.placedBlockId && previewPositions?.[hp.placedBlockId] !== undefined) {
+                                        const pb = planogram.blocks.find(b => b.id === hp.placedBlockId);
+                                        if (pb) {
+                                            const offset = previewPositions[hp.placedBlockId] - pb.positionX;
+                                            displayX = hp.positionX + offset;
+                                        }
+                                    }
+                                    const belongsToSelected = selectedBlockId && hp.placedBlockId === selectedBlockId;
+                                    const isDimmed = selectedBlockId && !belongsToSelected;
+
+                                    return (
+                                        <div
+                                            key={hp.id}
+                                            onClick={() => {
+                                                if (hp.placedBlockId && onSelectBlock) {
+                                                    onSelectBlock(hp.placedBlockId);
+                                                }
+                                            }}
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${displayX * SCALE}px`,
+                                                top: '1px',
+                                                bottom: '1px',
+                                                width: `${width}px`,
+                                                background: 'rgba(99, 102, 241, 0.12)',
+                                                border: '1.5px solid rgba(99, 102, 241, 0.4)',
+                                                borderRadius: '2px',
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                padding: '2px',
+                                                fontSize: '0.7rem',
+                                                overflow: 'hidden',
+                                                cursor: 'pointer',
+                                                zIndex: 3,
+                                                boxSizing: 'border-box',
+                                                opacity: isDimmed ? 0.25 : 1,
+                                                transition: previewPositions ? 'left 0.15s ease, opacity 0.2s ease' : 'opacity 0.2s ease',
+                                            }}
+                                            title={`${hp.hierarchyName} (${hp.hierarchyCode})\n階層: ${hp.hierarchyLevel}\nフェイス: ${hp.faceCount}`}
+                                        >
+                                            <div style={{
+                                                fontSize: '0.55rem',
+                                                color: 'rgba(99, 102, 241, 0.7)',
+                                                fontWeight: 600,
+                                            }}>
+                                                {hp.hierarchyLevel}
+                                            </div>
+                                            <div style={{
+                                                fontWeight: 600,
+                                                whiteSpace: 'nowrap',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                maxWidth: '100%',
+                                                fontSize: '0.7rem',
+                                                color: 'rgba(99, 102, 241, 0.9)',
+                                            }}>
+                                                {hp.hierarchyName}
+                                            </div>
+                                            {hp.faceCount > 1 && width > 20 && (
+                                                <div style={{ fontSize: '0.55rem', color: 'rgba(99, 102, 241, 0.6)' }}>
+                                                    x{hp.faceCount}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             {/* 商品セル */}
                             {shelfProducts.map(sp => {
                                 const product = products.find(p => p.id === sp.productId);
