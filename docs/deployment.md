@@ -1,6 +1,6 @@
 # デプロイガイド (Deployment Guide)
 
-**最終更新日**: 2026-04-02
+**最終更新日**: 2026-04-14
 
 本プロジェクトは [Vercel](https://vercel.com) でホスティングされます。
 
@@ -47,6 +47,8 @@
 | `VITE_SUPABASE_URL` | SupabaseプロジェクトのURL | 任意 |
 | `VITE_SUPABASE_ANON_KEY` | Supabaseの匿名キー | 任意 |
 
+> **Note**: `VITE_IS_VERCEL` はVercel環境で自動設定されます（`vite.config.ts`で `process.env.VERCEL` を参照）。テストデータ投入UIの表示制御に使用されます。
+
 > **注意**: 環境変数が未設定の場合、アプリケーションはLocalStorageをフォールバックとして使用します。本番環境ではSupabase環境変数の設定を推奨します。
 
 ### 4. デプロイ
@@ -75,6 +77,7 @@ Supabaseをバックエンドとして使用する場合:
    - `supabase/migrations/20260227_cm_to_mm.sql`（単位変換）
    - `supabase/migrations/20260309_add_missing_columns.sql`（カラム追加）
    - `supabase/migrations/20260311_fix_shelf_block_decimal_precision.sql`（精度修正）
+   - `supabase/migrations/20260331_add_hierarchy_placements.sql`（階層プレースメントテーブル追加）
 3. プロジェクトのURL・匿名キーをVercelの環境変数に設定
 
 ## ブランチ戦略

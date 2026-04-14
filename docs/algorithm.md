@@ -388,3 +388,60 @@ FUNCTION batchGenerateStorePlanograms(standardPlanogram, storeIds, onProgress):
     RETURN (results, summary)
 END FUNCTION
 ```
+
+---
+
+## 9. 階層横断曖昧検索アルゴリズム（Cross-Hierarchy Fuzzy Search）
+
+### 9.1 Overview
+- algorithm_id: ALG-009
+- description: 商品階層マスタを全8レベル（16フィールド）横断で曖昧検索し、関連度順にソートする
+
+### 9.2 Input
+| name | type | description |
+|------|------|-------------|
+| query | string | 検索クエリ（スペース区切りで複数ワードAND検索） |
+| hierarchies | HierarchyEntry[] | 商品階層マスタ全件 |
+
+### 9.3 Output
+| name | type | description |
+|------|------|-------------|
+| results | {entry: HierarchyEntry, score: number}[] | 関連度スコア付きの検索結果（スコア降順） |
+
+### 9.4 Logic
+```pseudo
+FUNCTION searchHierarchyAcrossLevels(query, hierarchies):
+    words = SPLIT(query, /\s+/)  // スペース区切りでワード分割
+    results = []
+
+    FOR EACH entry IN hierarchies:
+        // 全16フィールド（8レベル × コード＋名称）を検索対象
+        fields = [entry.divisionCode, entry.divisionName, ..., entry.subSegmentCode, entry.subSegmentName]
+
+        // 全ワードがいずれかのフィールドに含まれるかチェック（AND条件）
+        allWordsMatch = TRUE
+        score = 0
+
+        FOR EACH word IN words:
+            wordFound = FALSE
+            FOR EACH field IN fields:
+                IF field CONTAINS word (case-insensitive) THEN
+                    wordFound = TRUE
+                    score = score + 1  // 一致フィールド数でスコアリング
+                END IF
+            END FOR
+            IF NOT wordFound THEN
+                allWordsMatch = FALSE
+                BREAK
+            END IF
+        END FOR
+
+        IF allWordsMatch THEN
+            results.ADD({entry, score})
+        END IF
+    END FOR
+
+    SORT results BY score DESC
+    RETURN results
+END FUNCTION
+```
