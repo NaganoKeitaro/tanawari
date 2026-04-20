@@ -46,12 +46,25 @@ class SupabaseSimpleRepository<T extends { id: string }> implements IRepository<
     }
 
     async getAll(): Promise<T[]> {
-        const { data, error } = await supabase.from(this.tableName).select('*');
-        if (error) {
-            console.error(`Error fetching ${this.tableName}:`, error);
-            return [];
+        // ページネーションで全件取得（Supabaseのデフォルト1000行制限を回避）
+        const allData: any[] = [];
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        while (true) {
+            const { data, error } = await supabase
+                .from(this.tableName)
+                .select('*')
+                .range(offset, offset + PAGE_SIZE - 1);
+            if (error) {
+                console.error(`Error fetching ${this.tableName}:`, error);
+                return toCamel(allData) as T[];
+            }
+            if (!data || data.length === 0) break;
+            allData.push(...data);
+            if (data.length < PAGE_SIZE) break;
+            offset += PAGE_SIZE;
         }
-        return toCamel(data) as T[];
+        return toCamel(allData) as T[];
     }
 
     async getById(id: string): Promise<T | null> {
@@ -122,7 +135,14 @@ class SupabaseSimpleRepository<T extends { id: string }> implements IRepository<
     }
 
     async clear(): Promise<void> {
-        await supabase.from(this.tableName).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        // Supabaseのdelete上限を回避するためループで全件削除
+        while (true) {
+            const { data } = await supabase.from(this.tableName).select('id').limit(500);
+            if (!data || data.length === 0) break;
+            const ids = data.map((d: { id: string }) => d.id);
+            const { error } = await supabase.from(this.tableName).delete().in('id', ids);
+            if (error) throw error;
+        }
     }
 }
 
@@ -139,13 +159,21 @@ class ShelfBlockRepository implements IRepository<ShelfBlock> {
     }
 
     async getAll(): Promise<ShelfBlock[]> {
-        const { data, error } = await supabase.from('shelf_blocks').select(`
-            *,
-            shelf_block_products (*),
-            shelf_block_hierarchy_placements (*)
-        `);
-        if (error) return [];
-        return data.map((d: Record<string, unknown>) => this.mapBlock(d));
+        const allData: any[] = [];
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        while (true) {
+            const { data, error } = await supabase.from('shelf_blocks').select(`
+                *,
+                shelf_block_products (*),
+                shelf_block_hierarchy_placements (*)
+            `).range(offset, offset + PAGE_SIZE - 1);
+            if (error || !data || data.length === 0) break;
+            allData.push(...data);
+            if (data.length < PAGE_SIZE) break;
+            offset += PAGE_SIZE;
+        }
+        return allData.map((d: Record<string, unknown>) => this.mapBlock(d));
     }
 
     async getById(id: string): Promise<ShelfBlock | null> {
@@ -244,7 +272,12 @@ class ShelfBlockRepository implements IRepository<ShelfBlock> {
     }
 
     async clear(): Promise<void> {
-        await supabase.from('shelf_blocks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        while (true) {
+            const { data } = await supabase.from('shelf_blocks').select('id').limit(500);
+            if (!data || data.length === 0) break;
+            const { error } = await supabase.from('shelf_blocks').delete().in('id', data.map((d: { id: string }) => d.id));
+            if (error) throw error;
+        }
     }
 }
 
@@ -261,14 +294,22 @@ class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
     }
 
     async getAll(): Promise<StandardPlanogram[]> {
-        const { data, error } = await supabase.from('standard_planograms').select(`
-            *,
-            standard_planogram_blocks (*),
-            standard_planogram_products (*),
-            standard_planogram_hierarchy_placements (*)
-        `);
-        if (error) return [];
-        return data.map((d: Record<string, unknown>) => this.mapPlanogram(d));
+        const allData: any[] = [];
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        while (true) {
+            const { data, error } = await supabase.from('standard_planograms').select(`
+                *,
+                standard_planogram_blocks (*),
+                standard_planogram_products (*),
+                standard_planogram_hierarchy_placements (*)
+            `).range(offset, offset + PAGE_SIZE - 1);
+            if (error || !data || data.length === 0) break;
+            allData.push(...data);
+            if (data.length < PAGE_SIZE) break;
+            offset += PAGE_SIZE;
+        }
+        return allData.map((d: Record<string, unknown>) => this.mapPlanogram(d));
     }
 
     async getById(id: string): Promise<StandardPlanogram | null> {
@@ -362,7 +403,12 @@ class StandardPlanogramRepository implements IRepository<StandardPlanogram> {
     }
 
     async clear(): Promise<void> {
-        await supabase.from('standard_planograms').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        while (true) {
+            const { data } = await supabase.from('standard_planograms').select('id').limit(500);
+            if (!data || data.length === 0) break;
+            const { error } = await supabase.from('standard_planograms').delete().in('id', data.map((d: { id: string }) => d.id));
+            if (error) throw error;
+        }
     }
 }
 
@@ -377,13 +423,21 @@ class StorePlanogramRepository implements IRepository<StorePlanogram> {
     }
 
     async getAll(): Promise<StorePlanogram[]> {
-        const { data, error } = await supabase.from('store_planograms').select(`
-            *,
-            store_planogram_products (*),
-            store_planogram_hierarchy_placements (*)
-        `);
-        if (error) return [];
-        return data.map((d: Record<string, unknown>) => this.mapPlanogram(d));
+        const allData: any[] = [];
+        const PAGE_SIZE = 1000;
+        let offset = 0;
+        while (true) {
+            const { data, error } = await supabase.from('store_planograms').select(`
+                *,
+                store_planogram_products (*),
+                store_planogram_hierarchy_placements (*)
+            `).range(offset, offset + PAGE_SIZE - 1);
+            if (error || !data || data.length === 0) break;
+            allData.push(...data);
+            if (data.length < PAGE_SIZE) break;
+            offset += PAGE_SIZE;
+        }
+        return allData.map((d: Record<string, unknown>) => this.mapPlanogram(d));
     }
 
     async getById(id: string): Promise<StorePlanogram | null> {
@@ -471,7 +525,12 @@ class StorePlanogramRepository implements IRepository<StorePlanogram> {
     }
 
     async clear(): Promise<void> {
-        await supabase.from('store_planograms').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+        while (true) {
+            const { data } = await supabase.from('store_planograms').select('id').limit(500);
+            if (!data || data.length === 0) break;
+            const { error } = await supabase.from('store_planograms').delete().in('id', data.map((d: { id: string }) => d.id));
+            if (error) throw error;
+        }
     }
 }
 
@@ -570,10 +629,150 @@ export async function setInitialized(_value: boolean): Promise<void> {
     // No-op for DB, it's inferred from content
 }
 
+// テーブルの全件を1000行制限を回避して削除
+async function deleteAllFromTable(table: string): Promise<void> {
+    while (true) {
+        const { data } = await supabase.from(table).select('id').limit(500);
+        if (!data || data.length === 0) break;
+        const { error } = await supabase.from(table).delete().in('id', data.map((d: { id: string }) => d.id));
+        if (error) throw error;
+    }
+}
+
 export async function clearAllData(): Promise<void> {
-    // Note: Due to FK constraints, order matters, but cascade handles it largely.
-    await supabase.from('products').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('stores').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('fixtures').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('shelf_blocks').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await deleteAllFromTable('products');
+    await deleteAllFromTable('stores');
+    await deleteAllFromTable('fixtures');
+    await deleteAllFromTable('shelf_blocks');
+}
+
+// バックアップ復元用: IDを保持したまま全データを一括復元
+export async function restoreAllData(data: {
+    products: any[];
+    stores: any[];
+    fixtures: any[];
+    storeFixtures: any[];
+    shelfBlocks: any[];
+    standardPlanograms: any[];
+    storePlanograms: any[];
+    hierarchy: any[];
+}): Promise<void> {
+    const CHUNK_SIZE = 500;
+
+    // テーブルごとの許可カラム（未知カラムをSupabaseに送らないため）
+    const TABLE_COLUMNS: Record<string, string[]> = {
+        products: ['id','jan','name','width','height','depth','category','image_url','sales_rank','sales_quantity','quantity','sales','gross_profit','traffic','spend_per_customer','division_code','division_name','division_sub_code','division_sub_name','line_code','line_name','department_code','department_name','category_code','category_name','sub_category_code','sub_category_name','segment_code','segment_name','sub_segment_code','sub_segment_name','created_at','updated_at'],
+        stores: ['id','code','name','fmt','region','created_at','updated_at'],
+        fixtures: ['id','name','width','height','depth','shelf_count','manufacturer','model_number','install_date','warranty_end_date','fixture_type','created_at'],
+        store_fixture_placements: ['id','store_id','fixture_id','position_x','position_y','order','direction','zone','label','created_at'],
+        shelf_blocks: ['id','name','description','block_type','width','height','shelf_count','created_at','updated_at'],
+        shelf_block_products: ['id','block_id','product_id','shelf_index','position_x','face_count'],
+        shelf_block_hierarchy_placements: ['id','block_id','hierarchy_level','hierarchy_code','hierarchy_name','shelf_index','position_x','width','face_count'],
+        standard_planograms: ['id','name','fmt','base_store_id','fixture_type','width','height','shelf_count','start_date','end_date','description','created_at','updated_at'],
+        standard_planogram_blocks: ['id','standard_planogram_id','block_id','position_x','position_y'],
+        standard_planogram_products: ['id','standard_planogram_id','product_id','shelf_index','position_x','face_count'],
+        standard_planogram_hierarchy_placements: ['id','standard_planogram_id','hierarchy_level','hierarchy_code','hierarchy_name','shelf_index','position_x','width','face_count','placed_block_id'],
+        store_planograms: ['id','store_id','standard_planogram_id','status','width','height','shelf_count','warnings','created_at','updated_at','synced_at'],
+        store_planogram_products: ['id','store_planogram_id','product_id','shelf_index','position_x','face_count','is_auto_generated','is_cut'],
+        store_planogram_hierarchy_placements: ['id','store_planogram_id','hierarchy_level','hierarchy_code','hierarchy_name','shelf_index','position_x','width','face_count','is_auto_generated'],
+    };
+
+    function filterColumns(table: string, row: any): any {
+        const allowed = TABLE_COLUMNS[table];
+        if (!allowed) return row;
+        const filtered: any = {};
+        for (const col of allowed) {
+            if (col in row) filtered[col] = row[col];
+        }
+        return filtered;
+    }
+
+    async function insertChunked(table: string, items: any[]) {
+        for (let i = 0; i < items.length; i += CHUNK_SIZE) {
+            const chunk = items.slice(i, i + CHUNK_SIZE).map(item => filterColumns(table, item));
+            const { error } = await supabase.from(table).insert(chunk);
+            if (error) throw error;
+        }
+    }
+
+    // 全データ削除（依存関係の順序: 子テーブルから）
+    await storePlanogramRepository.clear();
+    await standardPlanogramRepository.clear();
+    await shelfBlockRepository.clear();
+    await deleteAllFromTable('store_fixture_placements');
+    await deleteAllFromTable('fixtures');
+    await deleteAllFromTable('stores');
+    await deleteAllFromTable('products');
+    await productHierarchyRepository.deleteAll();
+
+    // 復元（親テーブルから、IDを保持したままinsert）
+    // シンプルテーブル
+    if (data.products.length > 0) {
+        await insertChunked('products', data.products.map(toSnake));
+    }
+    if (data.stores.length > 0) {
+        await insertChunked('stores', data.stores.map(toSnake));
+    }
+    if (data.fixtures.length > 0) {
+        await insertChunked('fixtures', data.fixtures.map(toSnake));
+    }
+    if (data.storeFixtures.length > 0) {
+        await insertChunked('store_fixture_placements', data.storeFixtures.map(toSnake));
+    }
+
+    // 棚ブロック（親 + 子テーブル）: 親をバルクinsertし、子をまとめてinsert
+    {
+        const blockParents: any[] = [];
+        const blockProducts: any[] = [];
+        const blockHierarchies: any[] = [];
+        for (const block of data.shelfBlocks) {
+            const { productPlacements, hierarchyPlacements, ...blockData } = block;
+            blockParents.push(toSnake(blockData));
+            if (productPlacements) blockProducts.push(...productPlacements.map((p: any) => toSnake(p)));
+            if (hierarchyPlacements) blockHierarchies.push(...hierarchyPlacements.map((h: any) => toSnake(h)));
+        }
+        if (blockParents.length > 0) await insertChunked('shelf_blocks', blockParents);
+        if (blockProducts.length > 0) await insertChunked('shelf_block_products', blockProducts);
+        if (blockHierarchies.length > 0) await insertChunked('shelf_block_hierarchy_placements', blockHierarchies);
+    }
+
+    // 標準棚割（親 + 子テーブル）: バルクinsert
+    {
+        const planParents: any[] = [];
+        const planBlocks: any[] = [];
+        const planProducts: any[] = [];
+        const planHierarchies: any[] = [];
+        for (const plan of data.standardPlanograms) {
+            const { blocks, products, hierarchyPlacements, ...planData } = plan;
+            planParents.push(toSnake(planData));
+            if (blocks) planBlocks.push(...blocks.map((b: any) => toSnake(b)));
+            if (products) planProducts.push(...products.map((p: any) => toSnake(p)));
+            if (hierarchyPlacements) planHierarchies.push(...hierarchyPlacements.map((h: any) => toSnake(h)));
+        }
+        if (planParents.length > 0) await insertChunked('standard_planograms', planParents);
+        if (planBlocks.length > 0) await insertChunked('standard_planogram_blocks', planBlocks);
+        if (planProducts.length > 0) await insertChunked('standard_planogram_products', planProducts);
+        if (planHierarchies.length > 0) await insertChunked('standard_planogram_hierarchy_placements', planHierarchies);
+    }
+
+    // 個店棚割（親 + 子テーブル）: バルクinsert
+    {
+        const planParents: any[] = [];
+        const planProducts: any[] = [];
+        const planHierarchies: any[] = [];
+        for (const plan of data.storePlanograms) {
+            const { products, hierarchyPlacements, ...planData } = plan;
+            planParents.push(toSnake(planData));
+            if (products) planProducts.push(...products.map((p: any) => toSnake(p)));
+            if (hierarchyPlacements) planHierarchies.push(...hierarchyPlacements.map((h: any) => toSnake(h)));
+        }
+        if (planParents.length > 0) await insertChunked('store_planograms', planParents);
+        if (planProducts.length > 0) await insertChunked('store_planogram_products', planProducts);
+        if (planHierarchies.length > 0) await insertChunked('store_planogram_hierarchy_placements', planHierarchies);
+    }
+
+    // 階層データ
+    if (data.hierarchy.length > 0) {
+        await productHierarchyRepository.saveAll(data.hierarchy);
+    }
 }

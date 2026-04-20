@@ -14,6 +14,7 @@ import { StorePlanogramEditor } from './pages/planogram/StorePlanogramEditor';
 import { Dashboard } from './pages/Dashboard';
 import { Analytics } from './pages/Analytics';
 import { BulkDelete } from './pages/BulkDelete';
+import { BackupRestore } from './pages/BackupRestore';
 import { InstructionSheet } from './pages/InstructionSheet';
 
 function App() {
@@ -49,6 +50,7 @@ function App() {
 
           {/* データ管理 */}
           <Route path="/bulk-delete" element={<BulkDelete />} />
+          <Route path="/backup" element={<BackupRestore />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>

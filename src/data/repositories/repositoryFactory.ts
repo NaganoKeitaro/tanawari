@@ -38,3 +38,4 @@ export const productHierarchyRepository = repo.productHierarchyRepository;
 export const isInitialized = repo.isInitialized;
 export const setInitialized = repo.setInitialized;
 export const clearAllData = repo.clearAllData;
+export const restoreAllData = repo.restoreAllData;
