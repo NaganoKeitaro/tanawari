@@ -197,3 +197,38 @@ export async function setInitialized(value: boolean): Promise<void> {
 export async function clearAllData(): Promise<void> {
     await dataStore.clear();
 }
+
+// バックアップ復元用: 全データを一括復元
+export async function restoreAllData(data: {
+    products: any[];
+    stores: any[];
+    fixtures: any[];
+    storeFixtures: any[];
+    shelfBlocks: any[];
+    standardPlanograms: any[];
+    storePlanograms: any[];
+    hierarchy: any[];
+}): Promise<void> {
+    // 全削除
+    await productRepository.clear();
+    await storeRepository.clear();
+    await fixtureRepository.clear();
+    await storeFixturePlacementRepository.clear();
+    await shelfBlockRepository.clear();
+    await standardPlanogramRepository.clear();
+    await storePlanogramRepository.clear();
+    await productHierarchyRepository.deleteAll();
+
+    // ID保持で一括復元
+    await (productRepository as any).setAll(data.products);
+    await (storeRepository as any).setAll(data.stores);
+    await (fixtureRepository as any).setAll(data.fixtures);
+    await (storeFixturePlacementRepository as any).setAll(data.storeFixtures);
+    await (shelfBlockRepository as any).setAll(data.shelfBlocks);
+    await (standardPlanogramRepository as any).setAll(data.standardPlanograms);
+    await (storePlanogramRepository as any).setAll(data.storePlanograms);
+
+    if (data.hierarchy.length > 0) {
+        await productHierarchyRepository.saveAll(data.hierarchy);
+    }
+}

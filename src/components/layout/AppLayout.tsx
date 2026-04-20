@@ -48,7 +48,8 @@ const navSections: NavSection[] = [
     {
         title: 'データ管理',
         items: [
-            { path: '/bulk-delete', label: 'データ一括削除', icon: '🗑️' }
+            { path: '/bulk-delete', label: 'データ一括削除', icon: '🗑️' },
+            { path: '/backup', label: 'バックアップ/復旧', icon: '💾' }
         ]
     }
 ];
