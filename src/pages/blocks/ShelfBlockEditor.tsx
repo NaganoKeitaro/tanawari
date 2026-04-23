@@ -252,13 +252,13 @@ function DraggablePlacedProduct({
                 }}
                 onClick={handleClick}
             >
-                <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '0.8rem', lineHeight: 1.3, wordBreak: 'break-all' }}>
+                <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '0.95rem', lineHeight: 1.2, wordBreak: 'break-all', textAlign: 'center' }}>
                     {product.name}
                 </div>
-                <div style={{ opacity: 0.8, fontSize: '0.65rem', fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
+                <div style={{ opacity: 0.8, fontSize: '0.75rem', fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
                     {product.jan || '-'}
                 </div>
-                <div style={{ opacity: 0.85, fontSize: '0.7rem' }}>×{placement.faceCount}</div>
+                <div style={{ opacity: 0.85, fontSize: '0.8rem' }}>×{placement.faceCount}</div>
             </div>
         </ProductTooltip>
     );
@@ -346,14 +346,14 @@ function DraggablePlacedHierarchy({
             title={`${placement.hierarchyName}\nクリックでフェイス減少/削除`}
         >
             {/* 階層パス表示 */}
-            <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '0.8rem', lineHeight: 1.3, wordBreak: 'break-all' }}>
+            <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '1.1rem', lineHeight: 1.2, wordBreak: 'break-all', textAlign: 'center' }}>
                 {placement.hierarchyName}
             </div>
             {/* 幅mm表示 */}
-            <div style={{ fontSize: '0.65rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 500 }}>
+            <div style={{ fontSize: '0.75rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 500 }}>
                 {Math.round(totalWidth)}mm
             </div>
-            <div style={{ opacity: 0.85, fontSize: '0.65rem' }}>×{placement.faceCount}</div>
+            <div style={{ opacity: 0.85, fontSize: '0.75rem' }}>×{placement.faceCount}</div>
             {/* 5cm刻みリサイズボタン */}
             <div style={{ display: 'flex', gap: '2px', marginTop: '2px' }} onClick={(e) => e.stopPropagation()}>
                 <button
