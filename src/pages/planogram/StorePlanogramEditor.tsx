@@ -832,6 +832,7 @@ export function StorePlanogramEditor() {
 
     // 集計幅
     const [multiTierTotalWidth, setMultiTierTotalWidth] = useState(0);
+    const [wallFlatTotalWidth, setWallFlatTotalWidth] = useState(0);
     const [flatTotalWidth, setFlatTotalWidth] = useState(0);
 
     const [loading, setLoading] = useState(true);
@@ -1125,6 +1126,7 @@ export function StorePlanogramEditor() {
 
         // 幅集計
         let multiW = 0;
+        let wallFlatW = 0;
         let flatW = 0;
 
         for (const placement of placementsData) {
@@ -1133,12 +1135,15 @@ export function StorePlanogramEditor() {
 
             if (FIXTURE_GROUPS['multi-tier'].types.includes(fixture.fixtureType)) {
                 multiW += fixture.width;
+            } else if (FIXTURE_GROUPS['wall-flat'].types.includes(fixture.fixtureType)) {
+                wallFlatW += fixture.width;
             } else if (FIXTURE_GROUPS['flat'].types.includes(fixture.fixtureType)) {
                 flatW += fixture.width;
             }
         }
 
         setMultiTierTotalWidth(multiW);
+        setWallFlatTotalWidth(wallFlatW);
         setFlatTotalWidth(flatW);
         setLoading(false);
     }, [storeId]);
@@ -1215,6 +1220,14 @@ export function StorePlanogramEditor() {
                                 onClick={() => setSelectedGroup('multi-tier')}
                             >
                                 {FIXTURE_GROUPS['multi-tier'].label} (幅: <UnitDisplay valueMm={multiTierTotalWidth} />)
+                            </button>
+                            <button
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${selectedGroup === 'wall-flat'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted hover:text-foreground'}`}
+                                onClick={() => setSelectedGroup('wall-flat')}
+                            >
+                                {FIXTURE_GROUPS['wall-flat'].label} (幅: <UnitDisplay valueMm={wallFlatTotalWidth} />)
                             </button>
                             <button
                                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${selectedGroup === 'flat'
