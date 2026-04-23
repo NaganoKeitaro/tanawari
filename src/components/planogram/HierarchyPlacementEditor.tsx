@@ -217,8 +217,8 @@ export function HierarchyPlacementEditor({
                             flexDirection: 'column',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            padding: '4px 6px',
-                            fontSize: '0.85rem',
+                            padding: '4px 8px',
+                            fontSize: '1rem',
                             overflow: 'hidden',
                             zIndex: 2,
                             cursor: isDragging ? 'grabbing' : 'grab',
@@ -234,7 +234,7 @@ export function HierarchyPlacementEditor({
                         }}
                         title={`${hp.hierarchyName} (${hp.hierarchyCode})\n${Math.round(totalWidth / SHAKU_TO_MM * 10) / 10}尺 = ${totalWidth}mm`}
                     >
-                        <div style={{ fontSize: '0.7rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 600 }}>
+                        <div style={{ fontSize: '0.8rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 600 }}>
                             {HIERARCHY_LEVEL_LABELS[hp.hierarchyLevel] || hp.hierarchyLevel}
                         </div>
                         <div style={{
@@ -243,11 +243,11 @@ export function HierarchyPlacementEditor({
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             maxWidth: '100%',
-                            fontSize: '0.85rem',
+                            fontSize: '1rem',
                         }}>
                             {hp.hierarchyName}
                         </div>
-                        <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                             {Math.round(totalWidth / SHAKU_TO_MM * 10) / 10}尺
                         </div>
 

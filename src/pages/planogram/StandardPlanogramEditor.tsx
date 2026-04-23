@@ -378,8 +378,8 @@ function PlanogramCanvas({
                                                 flexDirection: 'column',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                padding: '4px 6px',
-                                                fontSize: '0.85rem',
+                                                padding: '4px 8px',
+                                                fontSize: '1rem',
                                                 overflow: 'hidden',
                                                 cursor: 'pointer',
                                                 zIndex: 3,
@@ -390,7 +390,7 @@ function PlanogramCanvas({
                                             title={`${hp.hierarchyName} (${hp.hierarchyCode})\n階層: ${hp.hierarchyLevel}\nフェイス: ${hp.faceCount}`}
                                         >
                                             <div style={{
-                                                fontSize: '0.7rem',
+                                                fontSize: '0.8rem',
                                                 color: 'rgba(99, 102, 241, 0.7)',
                                                 fontWeight: 600,
                                             }}>
@@ -402,13 +402,13 @@ function PlanogramCanvas({
                                                 overflow: 'hidden',
                                                 textOverflow: 'ellipsis',
                                                 maxWidth: '100%',
-                                                fontSize: '0.85rem',
+                                                fontSize: '1rem',
                                                 color: 'rgba(99, 102, 241, 0.9)',
                                             }}>
                                                 {hp.hierarchyName}
                                             </div>
                                             {hp.faceCount > 1 && width > 20 && (
-                                                <div style={{ fontSize: '0.65rem', color: 'rgba(99, 102, 241, 0.6)' }}>
+                                                <div style={{ fontSize: '0.75rem', color: 'rgba(99, 102, 241, 0.6)' }}>
                                                     x{hp.faceCount}
                                                 </div>
                                             )}
