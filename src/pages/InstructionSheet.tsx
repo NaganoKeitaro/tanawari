@@ -22,6 +22,8 @@ import {
 import { UnitDisplay } from '../components/common/UnitDisplay';
 import { initProductColorMap } from '../utils/productColorUtils';
 import { ProductTooltip } from '../components/common/ProductTooltip';
+import { PlanogramExcelHeader } from '../components/planogram/PlanogramExcelHeader';
+import type { BlockInfo } from '../components/planogram/PlanogramExcelHeader';
 
 // ===== 定数 =====
 
@@ -123,6 +125,28 @@ function PlanogramVisual({
                 padding: '0.75rem', paddingLeft: '50px', overflow: 'auto',
                 border: '1px solid var(--border-color)'
             }}>
+                {/* ブロック名帯ヘッダー（個店棚割と同じ） */}
+                {standardPlanogram && (() => {
+                    const displayBlocks = planogram.blocks ?? standardPlanogram.blocks;
+                    const blockInfos: BlockInfo[] = displayBlocks
+                        .map((b) => {
+                            const master = blocks.find(m => m.id === b.blockId);
+                            if (!master) return null;
+                            const uniqueIds = [...new Set(displayBlocks.map(pb => pb.blockId))].sort();
+                            return {
+                                id: b.id,
+                                name: master.name,
+                                widthMm: master.width,
+                                positionXMm: b.positionX,
+                                positionY: b.positionY,
+                                shelfCount: master.shelfCount,
+                                colorIndex: uniqueIds.indexOf(b.blockId)
+                            };
+                        })
+                        .filter((b): b is BlockInfo => b !== null);
+                    return <PlanogramExcelHeader blocks={blockInfos} totalWidthMm={planogram.width} />;
+                })()}
+
                 <div style={{ width: `${planogram.width * SCALE}px`, position: 'relative' }}>
                     {/* 段ごとの商品配置 */}
                     {Array.from({ length: planogram.shelfCount }).map((_, i) => i).reverse().map((shelfIndex) => {
