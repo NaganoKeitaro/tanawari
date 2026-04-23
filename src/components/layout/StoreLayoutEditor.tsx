@@ -84,9 +84,9 @@ const FIXTURE_COLORS: Record<string, string> = {
     'multi-tier': '#f0f0f0',           // 多段: ソフトグレー
     'flat-refrigerated': '#e0f7fa',    // 平台冷蔵: ペールシアン
     'flat-frozen': '#e3f2fd',          // 平台冷凍: ペールブルー
+    'wall-flat-refrigerated': '#fff8e1', // 壁面平台冷蔵: ペールアンバー
     'end-cap-refrigerated': '#b2ebf2', // エンド冷蔵: ソフトシアン
     'end-cap-frozen': '#bbdefb',       // エンド冷凍: ソフトブルー
-    'gondola': '#fff8e1',              // ゴンドラ: ペールアンバー
     'default': 'var(--bg-secondary)'
 };
 

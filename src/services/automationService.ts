@@ -36,8 +36,7 @@ async function getStoreTotalWidth(storeId: string, fixtureType?: string): Promis
             // fixtureTypeでのフィルタリング
             if (fixtureType) {
                 const fType = fixture.fixtureType || '';
-                const isMatch = (fixtureType === 'multi-tier' && ['multi-tier', 'gondola'].includes(fType)) ||
-                    (fixtureType === fType);
+                const isMatch = fixtureType === fType;
                 if (!isMatch) continue;
             }
 

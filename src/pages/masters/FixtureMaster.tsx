@@ -12,9 +12,9 @@ const FIXTURE_TYPE_LABELS: Record<FixtureType, string> = {
     'multi-tier': '多段',
     'flat-refrigerated': '平台冷蔵',
     'flat-frozen': '平台冷凍',
-    'end-cap-refrigerated': '平台冷蔵エンド',
-    'end-cap-frozen': '平台冷凍エンド',
-    'gondola': 'ゴンドラ'
+    'wall-flat-refrigerated': '壁面平台冷蔵',
+    'end-cap-refrigerated': 'エンド平台冷蔵',
+    'end-cap-frozen': 'エンド平台冷凍'
 };
 
 interface FixtureFormData {
@@ -31,7 +31,7 @@ interface FixtureFormData {
 }
 
 // 平台系かどうか判定するヘルパー
-const isFlatFixtureType = (type: FixtureType) => type !== 'multi-tier' && type !== 'gondola';
+const isFlatFixtureType = (type: FixtureType) => type !== 'multi-tier' && type !== 'wall-flat-refrigerated';
 
 const initialFormData: FixtureFormData = {
     name: '',
@@ -332,8 +332,10 @@ export function FixtureMaster() {
                                 fixtureType: newType,
                                 // 平台系：段数1、高さリセット、奥行きデフォルト60
                                 ...(isFlat ? { shelfCount: 1, height: 0, depth: formData.depth || 600 } : {}),
+                                // 壁面平台：2段デフォルト
+                                ...(newType === 'wall-flat-refrigerated' && formData.height === 0 ? { height: 1200, shelfCount: 2 } : {}),
                                 // 多段系：高さ復帰
-                                ...(!isFlat && formData.height === 0 ? { height: 1800, shelfCount: 5 } : {})
+                                ...(newType === 'multi-tier' && formData.height === 0 ? { height: 1800, shelfCount: 5 } : {})
                             });
                         }}
                     >

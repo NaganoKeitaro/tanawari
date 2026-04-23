@@ -29,11 +29,11 @@ const SCALE = 0.25;
 
 const TYPE_LABELS: Record<FixtureType, string> = {
     'multi-tier': '多段',
-    'gondola': 'ゴンドラ',
     'flat-refrigerated': '平台冷蔵',
     'flat-frozen': '平台冷凍',
-    'end-cap-refrigerated': '平台冷蔵エンド',
-    'end-cap-frozen': '平台冷凍エンド'
+    'wall-flat-refrigerated': '壁面平台冷蔵',
+    'end-cap-refrigerated': 'エンド平台冷蔵',
+    'end-cap-frozen': 'エンド平台冷凍'
 };
 
 const BLOCK_COLORS = [
@@ -42,9 +42,10 @@ const BLOCK_COLORS = [
 ];
 
 // 什器グループ定義
-type FixtureGroup = 'multi-tier' | 'flat';
+type FixtureGroup = 'multi-tier' | 'wall-flat' | 'flat';
 const FIXTURE_GROUPS: Record<FixtureGroup, { label: string; types: FixtureType[] }> = {
-    'multi-tier': { label: '多段棚', types: ['multi-tier', 'gondola'] },
+    'multi-tier': { label: '多段棚', types: ['multi-tier'] },
+    'wall-flat': { label: '壁面平台', types: ['wall-flat-refrigerated'] },
     'flat': { label: '平台', types: ['flat-refrigerated', 'flat-frozen', 'end-cap-refrigerated', 'end-cap-frozen'] }
 };
 
@@ -68,9 +69,9 @@ const FIXTURE_BG: Record<string, string> = {
     'multi-tier': '#f0f0f0',
     'flat-refrigerated': '#e0f7fa',
     'flat-frozen': '#e3f2fd',
+    'wall-flat-refrigerated': '#fff8e1',
     'end-cap-refrigerated': '#b2ebf2',
     'end-cap-frozen': '#bbdefb',
-    'gondola': '#fff8e1',
     'default': '#f1f5f9'
 };
 

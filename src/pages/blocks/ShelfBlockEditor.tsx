@@ -614,7 +614,7 @@ export function ShelfBlockEditor() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [activeProduct, setActiveProduct] = useState<Product | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState<'multi-tier' | 'flat'>('multi-tier');
+    const [activeTab, setActiveTab] = useState<'multi-tier' | 'flat' | 'wall-flat'>('multi-tier');
     const [panelMode, setPanelMode] = useState<'products' | 'hierarchy'>('products');
 
     // 商品階層データ
@@ -644,7 +644,7 @@ export function ShelfBlockEditor() {
     const [newBlock, setNewBlock] = useState<{
         name: string;
         description: string;
-        blockType: 'multi-tier' | 'flat';
+        blockType: 'multi-tier' | 'flat' | 'wall-flat';
         width: number;
         height: number;
         shelfCount: number;
@@ -1263,6 +1263,19 @@ export function ShelfBlockEditor() {
                             多段
                         </button>
                         <button
+                            className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'wall-flat'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-muted hover:text-foreground'
+                                }`}
+                            onClick={() => {
+                                setActiveTab('wall-flat');
+                                setNewBlock(prev => ({ ...prev, blockType: 'wall-flat', shelfCount: 2, height: 1200 }));
+                                setSelectedBlock(null);
+                            }}
+                        >
+                            壁面平台
+                        </button>
+                        <button
                             className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'flat'
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-muted hover:text-foreground'
@@ -1283,7 +1296,7 @@ export function ShelfBlockEditor() {
                             className="btn btn-primary"
                             style={{ flexShrink: 0 }}
                             onClick={() => {
-                                setNewBlock({ name: '', description: '', blockType: activeTab, width: 900, height: activeTab === 'flat' ? 900 : 1800, shelfCount: 5 });
+                                setNewBlock({ name: '', description: '', blockType: activeTab, width: 900, height: activeTab === 'flat' ? 900 : activeTab === 'wall-flat' ? 1200 : 1800, shelfCount: activeTab === 'wall-flat' ? 2 : 5 });
                                 setIsCreateModalOpen(true);
                             }}
                         >
@@ -1778,7 +1791,7 @@ export function ShelfBlockEditor() {
                         className="form-input"
                         value={newBlock.name}
                         onChange={(e) => setNewBlock({ ...newBlock, name: e.target.value })}
-                        placeholder={newBlock.blockType === 'flat' ? "精肉平台ブロック" : "焼肉セットブロック"}
+                        placeholder={newBlock.blockType === 'flat' ? "精肉平台ブロック" : newBlock.blockType === 'wall-flat' ? "壁面平台ブロック" : "焼肉セットブロック"}
                     />
                 </div>
 
@@ -1800,14 +1813,14 @@ export function ShelfBlockEditor() {
                         min={30}
                     />
                     <UnitInput
-                        label={newBlock.blockType === 'flat' ? '奥行き' : '高さ'}
+                        label={newBlock.blockType === 'flat' ? '奥行き' : '高さ (H)'}
                         value={newBlock.height}
                         onChange={(h) => setNewBlock({ ...newBlock, height: h })}
                         min={30}
                     />
                 </div>
 
-                {newBlock.blockType === 'multi-tier' && (
+                {(newBlock.blockType === 'multi-tier' || newBlock.blockType === 'wall-flat') && (
                     <div className="form-group">
                         <label className="form-label">段数</label>
                         <input

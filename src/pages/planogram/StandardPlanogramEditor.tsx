@@ -54,9 +54,10 @@ const SCALE = 0.3; // 1mm = 0.3px
 const PLANOGRAM_TYPES: { id: FixtureType; label: string }[] = [
     { id: 'multi-tier', label: '多段' },
     { id: 'flat-refrigerated', label: '平台冷蔵' },
-    { id: 'end-cap-refrigerated', label: '平台冷蔵エンド' },
     { id: 'flat-frozen', label: '平台冷凍' },
-    { id: 'end-cap-frozen', label: '平台冷凍エンド' },
+    { id: 'wall-flat-refrigerated', label: '壁面平台冷蔵' },
+    { id: 'end-cap-refrigerated', label: 'エンド平台冷蔵' },
+    { id: 'end-cap-frozen', label: 'エンド平台冷凍' },
 ];
 
 // 選択可能な棚ブロック（クリックで選択→キャンバスクリックで配置）
@@ -660,8 +661,7 @@ export function StandardPlanogramEditor() {
             if (!fixture) continue;
 
             const fType = fixture.fixtureType || '';
-            const isMatch = (selectedFixtureType === 'multi-tier' && ['multi-tier', 'gondola'].includes(fType as any)) ||
-                (selectedFixtureType === fType);
+            const isMatch = selectedFixtureType === fType;
 
             if (isMatch) {
                 totalWidth += fixture.width;
@@ -1160,8 +1160,7 @@ export function StandardPlanogramEditor() {
             if (!fixture) continue;
 
             const fType = fixture.fixtureType || '';
-            const isMatch = (selectedFixtureType === 'multi-tier' && ['multi-tier', 'gondola'].includes(fType as any)) ||
-                (selectedFixtureType === fType);
+            const isMatch = selectedFixtureType === fType;
 
             if (isMatch) {
                 const isFlatOrEnd = String(fixture.fixtureType).includes('flat') || String(fixture.fixtureType).includes('end-cap');
@@ -1323,8 +1322,9 @@ export function StandardPlanogramEditor() {
                                     }}>
                                         {blocks.filter(b => {
                                             const isFlat = b.blockType === 'flat';
-                                            const isMultiTierFixture = selectedFixtureType === 'multi-tier' || selectedFixtureType === 'gondola';
-                                            return isMultiTierFixture ? !isFlat : isFlat;
+                                            const isMultiTierFixture = selectedFixtureType === 'multi-tier';
+                                            const isWallFlat = selectedFixtureType === 'wall-flat-refrigerated';
+                                            return isMultiTierFixture ? !isFlat && b.blockType !== 'wall-flat' : isWallFlat ? b.blockType === 'wall-flat' : isFlat;
                                         }).map(block => (
                                             <SelectableBlock
                                                 key={block.id}
@@ -1336,8 +1336,9 @@ export function StandardPlanogramEditor() {
                                     </div>
                                     {blocks.filter(b => {
                                         const isFlat = b.blockType === 'flat';
-                                        const isMultiTierFixture = selectedFixtureType === 'multi-tier' || selectedFixtureType === 'gondola';
-                                        return isMultiTierFixture ? !isFlat : isFlat;
+                                        const isMultiTierFixture = selectedFixtureType === 'multi-tier';
+                                            const isWallFlat = selectedFixtureType === 'wall-flat-refrigerated';
+                                        return isMultiTierFixture ? !isFlat && b.blockType !== 'wall-flat' : isWallFlat ? b.blockType === 'wall-flat' : isFlat;
                                     }).length === 0 && (
                                             <div className="text-center text-muted" style={{ padding: '1rem' }}>
                                                 棚ブロックがありません

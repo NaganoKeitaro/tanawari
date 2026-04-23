@@ -85,14 +85,14 @@ export interface Store {
 // ========================================
 
 // 什器タイプ
-export const FIXTURE_TYPES = ['multi-tier', 'flat-refrigerated', 'flat-frozen', 'end-cap-refrigerated', 'end-cap-frozen', 'gondola'] as const;
+export const FIXTURE_TYPES = ['multi-tier', 'flat-refrigerated', 'flat-frozen', 'wall-flat-refrigerated', 'end-cap-refrigerated', 'end-cap-frozen'] as const;
 export type FixtureType = typeof FIXTURE_TYPES[number];
 
 export interface Fixture {
   id: string;
   name: string;
   width: number;       // mm
-  height: number;      // mm（多段・ゴンドラの場合）
+  height: number;      // mm（多段・壁面平台の場合）
   depth?: number;      // mm（平台の場合の奥行き）
   shelfCount: number;  // 段数
   manufacturer?: string;
@@ -107,7 +107,7 @@ export interface Fixture {
 // ========================================
 
 // ゾーンタイプ
-export const ZONE_TYPES = ['多段', '平台冷蔵', '平台冷蔵エンド', '平台冷凍', '平台冷凍エンド'] as const;
+export const ZONE_TYPES = ['多段', '平台冷蔵', '平台冷凍', '壁面平台冷蔵', '平台冷蔵エンド', '平台冷凍エンド'] as const;
 export type ZoneType = typeof ZONE_TYPES[number];
 
 export interface StoreFixturePlacement {
@@ -149,7 +149,7 @@ export interface ShelfBlock {
   id: string;
   name: string;
   description?: string;
-  blockType?: 'multi-tier' | 'flat'; // ブロックの種別（多段 / 平台）
+  blockType?: 'multi-tier' | 'flat' | 'wall-flat'; // ブロックの種別（多段 / 平台 / 壁面平台）
   width: number;       // mm（ブロック幅）
   height: number;      // mm（ブロック高さ / 平台の場合は奥行きとして扱う）
   shelfCount: number;  // 段数（平台の場合は実質1となる）
