@@ -672,7 +672,7 @@ export async function restoreAllData(data: {
         standard_planogram_blocks: ['id','standard_planogram_id','block_id','position_x','position_y'],
         standard_planogram_products: ['id','standard_planogram_id','product_id','shelf_index','position_x','face_count'],
         standard_planogram_hierarchy_placements: ['id','standard_planogram_id','hierarchy_level','hierarchy_code','hierarchy_name','shelf_index','position_x','width','face_count','placed_block_id'],
-        store_planograms: ['id','store_id','standard_planogram_id','status','width','height','shelf_count','warnings','created_at','updated_at','synced_at'],
+        store_planograms: ['id','store_id','standard_planogram_id','status','width','height','shelf_count','warnings','blocks','created_at','updated_at','synced_at'],
         store_planogram_products: ['id','store_planogram_id','product_id','shelf_index','position_x','face_count','is_auto_generated','is_cut'],
         store_planogram_hierarchy_placements: ['id','store_planogram_id','hierarchy_level','hierarchy_code','hierarchy_name','shelf_index','position_x','width','face_count','is_auto_generated'],
     };

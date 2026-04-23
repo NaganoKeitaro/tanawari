@@ -325,6 +325,7 @@ export async function generateStorePlanogram(
             shelfCount: totalShelfCount || standardPlanogram.shelfCount,
             products: result.products,
             hierarchyPlacements,
+            blocks: null, // 同期時は個店用ブロック配置をクリア（標準棚割にフォールバック）
             status: result.warnings.length > 0 ? 'warning' : 'generated',
             warnings: result.warnings,
             createdAt: existing[0]?.createdAt || new Date().toISOString(),

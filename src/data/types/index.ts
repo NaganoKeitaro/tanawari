@@ -231,6 +231,7 @@ export interface StorePlanogram {
   shelfCount: number;
   products: StorePlanogramProduct[];
   hierarchyPlacements: StorePlanogramHierarchyPlacement[];
+  blocks?: StandardPlanogramBlock[] | null;  // 個店用ブロック配置（null/未設定時は標準棚割のblocksを使用）
   status: PlanogramStatus;
   warnings: string[];          // 警告メッセージ
   createdAt: string;
