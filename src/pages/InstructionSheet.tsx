@@ -25,7 +25,7 @@ import { ProductTooltip } from '../components/common/ProductTooltip';
 
 // ===== 定数 =====
 
-const SCALE = 0.25;
+const SCALE = 0.3;
 
 // ボックス幅と文字数に応じてフォントサイズを動的に計算
 function calcFontSize(widthPx: number, textLength: number, base: number = 1.3, min: number = 0.7): string {
@@ -120,7 +120,7 @@ function PlanogramVisual({
             {/* 棚割グリッド */}
             <div style={{
                 background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)',
-                padding: '0.75rem', paddingLeft: '40px', overflow: 'auto',
+                padding: '0.75rem', paddingLeft: '50px', overflow: 'auto',
                 border: '1px solid var(--border-color)'
             }}>
                 <div style={{ width: `${planogram.width * SCALE}px`, position: 'relative' }}>
@@ -166,10 +166,10 @@ function PlanogramVisual({
                             <div
                                 key={shelfIndex}
                                 style={{
-                                    height: `${Math.max(65, (planogram.shelfCount > 0 ? planogram.height / planogram.shelfCount : planogram.height) * SCALE)}px`,
+                                    height: `${Math.max(90, (planogram.shelfCount > 0 ? planogram.height / planogram.shelfCount : planogram.height) * SCALE)}px`,
                                     position: 'relative',
-                                    borderBottom: '2px solid var(--border-color)',
-                                    background: shelfIndex % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)'
+                                    borderBottom: '1px solid var(--border-color)',
+                                    background: 'transparent'
                                 }}
                             >
                                 {/* 階層プレースメント */}
@@ -177,8 +177,8 @@ function PlanogramVisual({
                                     .filter(hp => hp.shelfIndex === shelfIndex)
                                     .map(hp => {
                                         const width = hp.width * hp.faceCount * SCALE;
-                                        const hpNameFs = calcFontSize(width, hp.hierarchyName.length, 1.2, 0.5);
-                                        const hpLevelFs = calcFontSize(width, hp.hierarchyLevel.length, 0.8, 0.4);
+                                        const hpNameFs = calcFontSize(width, hp.hierarchyName.length, 1.4, 0.6);
+                                        const hpLevelFs = calcFontSize(width, hp.hierarchyLevel.length, 1.0, 0.5);
                                         return (
                                             <div
                                                 key={hp.id}
@@ -213,7 +213,7 @@ function PlanogramVisual({
                                     const product = products.find(p => p.id === sp.productId);
                                     if (!product) return null;
                                     const width = product.width * sp.faceCount * SCALE;
-                                    const prodFs = calcFontSize(width, product.name.length, 1.1, 0.5);
+                                    const prodFs = calcFontSize(width, product.name.length, 1.3, 0.6);
                                     return (
                                         <ProductTooltip key={sp.id} productName={product.name} jan={product.jan || '-'} faceCount={sp.faceCount} category={product.category}>
                                             <div
@@ -223,7 +223,7 @@ function PlanogramVisual({
                                                     background: 'white',
                                                     border: '1px solid var(--border-color)',
                                                     color: 'var(--text-primary)',
-                                                    borderRadius: 'var(--radius-sm)',
+                                                    borderRadius: '1px',
                                                     display: 'flex', flexDirection: 'column',
                                                     alignItems: 'center', justifyContent: 'center',
                                                     padding: '4px 6px', overflow: 'hidden'
@@ -232,14 +232,12 @@ function PlanogramVisual({
                                                 <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: prodFs, lineHeight: 1.2, textAlign: 'center', wordBreak: 'break-all' }}>
                                                     {product.name}
                                                 </div>
-                                                <div style={{ opacity: 0.8, fontSize: `calc(${prodFs} * 0.75)`, fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
+                                                <div style={{ opacity: 0.5, fontSize: `calc(${prodFs} * 0.75)`, fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
                                                     {product.jan || '-'}
                                                 </div>
-                                                {sp.faceCount > 1 && (
-                                                    <div style={{ fontSize: `calc(${prodFs} * 0.8)`, opacity: 0.85, fontWeight: 600 }}>
-                                                        ×{sp.faceCount}
-                                                    </div>
-                                                )}
+                                                <div style={{ fontSize: `calc(${prodFs} * 0.8)`, opacity: 0.85, fontWeight: 600 }}>
+                                                    ×{sp.faceCount}
+                                                </div>
                                             </div>
                                         </ProductTooltip>
                                     );
@@ -255,8 +253,8 @@ function PlanogramVisual({
                                     </div>
                                 )}
                                 <div style={{
-                                    position: 'absolute', left: '-35px', top: '50%', transform: 'translateY(-50%)',
-                                    fontSize: '0.65rem', color: 'var(--text-muted)'
+                                    position: 'absolute', left: '-45px', top: '50%', transform: 'translateY(-50%)',
+                                    fontSize: '0.75rem', color: 'var(--text-muted)'
                                 }}>
                                     {shelfIndex + 1}段
                                 </div>
