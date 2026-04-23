@@ -124,35 +124,6 @@ function PlanogramVisual({
                 border: '1px solid var(--border-color)'
             }}>
                 <div style={{ width: `${planogram.width * SCALE}px`, position: 'relative' }}>
-                    {/* ブロック背景 */}
-                    {standardPlanogram?.blocks.map((block, idx) => {
-                        const masterBlock = blocks.find(b => b.id === block.blockId);
-                        if (!masterBlock) return null;
-                        return (
-                            <div
-                                key={block.id}
-                                style={{
-                                    position: 'absolute', left: `${block.positionX * SCALE}px`,
-                                    top: 0, bottom: 0, width: `${masterBlock.width * SCALE}px`,
-                                    border: `2px dashed ${BLOCK_COLORS[idx % BLOCK_COLORS.length]}40`,
-                                    borderTop: 'none', borderBottom: 'none',
-                                    pointerEvents: 'none', zIndex: 0,
-                                    display: 'flex', justifyContent: 'center'
-                                }}
-                            >
-                                <div style={{
-                                    marginTop: '-18px', background: 'rgba(255,255,255,0.9)',
-                                    padding: '1px 6px', borderRadius: '3px', fontSize: '0.6rem',
-                                    color: BLOCK_COLORS[idx % BLOCK_COLORS.length],
-                                    whiteSpace: 'nowrap', border: `1px solid ${BLOCK_COLORS[idx % BLOCK_COLORS.length]}40`,
-                                    fontWeight: 600
-                                }}>
-                                    {masterBlock.name}
-                                </div>
-                            </div>
-                        );
-                    })}
-
                     {/* 段ごとの商品配置 */}
                     {Array.from({ length: planogram.shelfCount }).map((_, i) => i).reverse().map((shelfIndex) => {
                         const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
