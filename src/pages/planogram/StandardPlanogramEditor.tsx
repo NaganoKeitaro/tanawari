@@ -51,6 +51,15 @@ import type { SwapDirection } from './standardPlanogramRearrange';
 
 const SCALE = 0.3; // 1mm = 0.3px
 
+// ボックス幅と文字数に応じてフォントサイズを動的に計算
+function calcFontSize(widthPx: number, textLength: number, base: number = 1.3, min: number = 0.7): string {
+    const availableWidth = widthPx - 16;
+    const charWidthRatio = 0.7;
+    const idealSize = availableWidth / (textLength * charWidthRatio);
+    const clamped = Math.max(min, Math.min(base, idealSize / 16));
+    return `${Math.round(clamped * 100) / 100}rem`;
+}
+
 const PLANOGRAM_TYPES: { id: FixtureType; label: string }[] = [
     { id: 'multi-tier', label: '多段' },
     { id: 'flat-refrigerated', label: '平台冷蔵' },
@@ -345,6 +354,8 @@ function PlanogramCanvas({
                                 .filter(hp => hp.shelfIndex === shelfIndex)
                                 .map(hp => {
                                     const width = hp.width * hp.faceCount * SCALE;
+                                    const hpNameFontSize = calcFontSize(width, hp.hierarchyName.length, 1.4, 0.7);
+                                    const hpLevelFontSize = calcFontSize(width, hp.hierarchyLevel.length, 1.0, 0.6);
                                     // ブロック移動プレビュー時の位置調整
                                     let displayX = hp.positionX;
                                     if (hp.placedBlockId && previewPositions?.[hp.placedBlockId] !== undefined) {
@@ -390,7 +401,7 @@ function PlanogramCanvas({
                                             title={`${hp.hierarchyName} (${hp.hierarchyCode})\n階層: ${hp.hierarchyLevel}\nフェイス: ${hp.faceCount}`}
                                         >
                                             <div style={{
-                                                fontSize: '0.9rem',
+                                                fontSize: hpLevelFontSize,
                                                 color: 'rgba(99, 102, 241, 0.7)',
                                                 fontWeight: 600,
                                             }}>
@@ -400,7 +411,7 @@ function PlanogramCanvas({
                                                 fontWeight: 600,
                                                 overflow: 'hidden',
                                                 maxWidth: '100%',
-                                                fontSize: '1.1rem',
+                                                fontSize: hpNameFontSize,
                                                 lineHeight: 1.2,
                                                 textAlign: 'center',
                                                 wordBreak: 'break-all',

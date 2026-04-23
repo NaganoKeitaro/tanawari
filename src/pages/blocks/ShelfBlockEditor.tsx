@@ -27,6 +27,15 @@ import { ProductTooltip } from '../../components/common/ProductTooltip';
 // 1mm = 0.3px表示
 const SCALE = 0.3; // 1mm = 0.3px表示
 
+// ボックス幅と文字数に応じてフォントサイズを動的に計算
+function calcFontSize(widthPx: number, textLength: number, base: number = 1.3, min: number = 0.7): string {
+    const availableWidth = widthPx - 16;
+    const charWidthRatio = 0.7;
+    const idealSize = availableWidth / (textLength * charWidthRatio);
+    const clamped = Math.max(min, Math.min(base, idealSize / 16));
+    return `${Math.round(clamped * 100) / 100}rem`;
+}
+
 const HIERARCHY_DEFAULT_WIDTH = 300; // mm（1尺）
 
 const HIERARCHY_LEVEL_LABELS: Record<HierarchyLevel, string> = {
@@ -220,6 +229,7 @@ function DraggablePlacedProduct({
 
     const productWidth = product.width * placement.faceCount * SCALE;
     const displayX = previewX !== undefined ? previewX : placement.positionX;
+    const prodNameFontSize = calcFontSize(productWidth, product.name.length, 1.3, 0.65);
 
     return (
         <ProductTooltip productName={product.name} jan={product.jan || '-'} faceCount={placement.faceCount} category={product.category}>
@@ -241,7 +251,6 @@ function DraggablePlacedProduct({
                     alignItems: 'center',
                     justifyContent: 'center',
                     padding: '4px 8px',
-                    fontSize: '0.75rem',
                     overflow: 'hidden',
                     cursor: isDragging ? 'grabbing' : 'grab',
                     color: 'var(--text-primary)',
@@ -252,13 +261,13 @@ function DraggablePlacedProduct({
                 }}
                 onClick={handleClick}
             >
-                <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '0.95rem', lineHeight: 1.2, wordBreak: 'break-all', textAlign: 'center' }}>
+                <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: prodNameFontSize, lineHeight: 1.2, wordBreak: 'break-all', textAlign: 'center' }}>
                     {product.name}
                 </div>
-                <div style={{ opacity: 0.8, fontSize: '0.75rem', fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
+                <div style={{ opacity: 0.8, fontSize: `calc(${prodNameFontSize} * 0.75)`, fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
                     {product.jan || '-'}
                 </div>
-                <div style={{ opacity: 0.85, fontSize: '0.8rem' }}>×{placement.faceCount}</div>
+                <div style={{ opacity: 0.85, fontSize: `calc(${prodNameFontSize} * 0.8)` }}>×{placement.faceCount}</div>
             </div>
         </ProductTooltip>
     );
@@ -302,6 +311,7 @@ function DraggablePlacedHierarchy({
     const totalWidth = placement.width * placement.faceCount;
     const displayWidth = totalWidth * SCALE;
     const displayX = previewX !== undefined ? previewX : placement.positionX;
+    const hierNameFontSize = calcFontSize(displayWidth, placement.hierarchyName.length, 1.4, 0.7);
 
     const handleShrink = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -346,14 +356,14 @@ function DraggablePlacedHierarchy({
             title={`${placement.hierarchyName}\nクリックでフェイス減少/削除`}
         >
             {/* 階層パス表示 */}
-            <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '1.1rem', lineHeight: 1.2, wordBreak: 'break-all', textAlign: 'center' }}>
+            <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: hierNameFontSize, lineHeight: 1.2, wordBreak: 'break-all', textAlign: 'center' }}>
                 {placement.hierarchyName}
             </div>
             {/* 幅mm表示 */}
-            <div style={{ fontSize: '0.75rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 500 }}>
+            <div style={{ fontSize: `calc(${hierNameFontSize} * 0.65)`, color: 'rgba(99, 102, 241, 0.8)', fontWeight: 500 }}>
                 {Math.round(totalWidth)}mm
             </div>
-            <div style={{ opacity: 0.85, fontSize: '0.75rem' }}>×{placement.faceCount}</div>
+            <div style={{ opacity: 0.85, fontSize: `calc(${hierNameFontSize} * 0.65)` }}>×{placement.faceCount}</div>
             {/* 5cm刻みリサイズボタン */}
             <div style={{ display: 'flex', gap: '2px', marginTop: '2px' }} onClick={(e) => e.stopPropagation()}>
                 <button

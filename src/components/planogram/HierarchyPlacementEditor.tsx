@@ -10,6 +10,16 @@ import { SHAKU_TO_MM } from '../../data/types';
 
 const SCALE = 0.3; // 1mm = 0.3px
 
+// ボックス幅と文字数に応じてフォントサイズを動的に計算
+function calcFontSize(widthPx: number, textLength: number, base: number = 1.3, min: number = 0.7): string {
+    // 1行に収まる文字数の目安（1文字≒フォントサイズpx幅）
+    const availableWidth = widthPx - 16; // padding分
+    const charWidthRatio = 0.7; // 全角文字の幅/フォントサイズ比
+    const idealSize = availableWidth / (textLength * charWidthRatio);
+    const clamped = Math.max(min, Math.min(base, idealSize / 16)); // rem換算
+    return `${Math.round(clamped * 100) / 100}rem`;
+}
+
 const HIERARCHY_LEVEL_LABELS: Record<HierarchyLevel, string> = {
     division: '事業部',
     divisionSub: 'ディビジョン',
@@ -196,6 +206,9 @@ export function HierarchyPlacementEditor({
                 const totalWidth = hp.width * hp.faceCount;
                 const widthPx = totalWidth * scale;
                 const isSelected = selectedId === hp.id;
+                const nameFontSize = calcFontSize(widthPx, hp.hierarchyName.length, 1.4, 0.7);
+                const levelLabel = HIERARCHY_LEVEL_LABELS[hp.hierarchyLevel] || hp.hierarchyLevel;
+                const levelFontSize = calcFontSize(widthPx, levelLabel.length, 1.0, 0.6);
 
                 return (
                     <div
@@ -234,14 +247,14 @@ export function HierarchyPlacementEditor({
                         }}
                         title={`${hp.hierarchyName} (${hp.hierarchyCode})\n${Math.round(totalWidth / SHAKU_TO_MM * 10) / 10}尺 = ${totalWidth}mm`}
                     >
-                        <div style={{ fontSize: '0.9rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 600 }}>
-                            {HIERARCHY_LEVEL_LABELS[hp.hierarchyLevel] || hp.hierarchyLevel}
+                        <div style={{ fontSize: levelFontSize, color: 'rgba(99, 102, 241, 0.8)', fontWeight: 600 }}>
+                            {levelLabel}
                         </div>
                         <div style={{
                             fontWeight: 600,
                             overflow: 'hidden',
                             maxWidth: '100%',
-                            fontSize: '1.1rem',
+                            fontSize: nameFontSize,
                             lineHeight: 1.2,
                             textAlign: 'center',
                             wordBreak: 'break-all',
