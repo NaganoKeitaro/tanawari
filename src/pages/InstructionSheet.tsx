@@ -22,18 +22,29 @@ import {
 import { UnitDisplay } from '../components/common/UnitDisplay';
 import { initProductColorMap } from '../utils/productColorUtils';
 import { ProductTooltip } from '../components/common/ProductTooltip';
+import { PlanogramExcelHeader } from '../components/planogram/PlanogramExcelHeader';
+import type { BlockInfo } from '../components/planogram/PlanogramExcelHeader';
 
 // ===== 定数 =====
 
-const SCALE = 0.25;
+const SCALE = 0.3;
+
+// ボックス幅と文字数に応じてフォントサイズを動的に計算
+function calcFontSize(widthPx: number, textLength: number, base: number = 1.3, min: number = 0.7): string {
+    const availableWidth = widthPx - 16;
+    const charWidthRatio = 0.7;
+    const idealSize = availableWidth / (textLength * charWidthRatio);
+    const clamped = Math.max(min, Math.min(base, idealSize / 16));
+    return `${Math.round(clamped * 100) / 100}rem`;
+}
 
 const TYPE_LABELS: Record<FixtureType, string> = {
     'multi-tier': '多段',
-    'gondola': 'ゴンドラ',
     'flat-refrigerated': '平台冷蔵',
     'flat-frozen': '平台冷凍',
-    'end-cap-refrigerated': '平台冷蔵エンド',
-    'end-cap-frozen': '平台冷凍エンド'
+    'wall-flat-refrigerated': '壁面平台冷蔵',
+    'end-cap-refrigerated': 'エンド平台冷蔵',
+    'end-cap-frozen': 'エンド平台冷凍'
 };
 
 const BLOCK_COLORS = [
@@ -42,9 +53,10 @@ const BLOCK_COLORS = [
 ];
 
 // 什器グループ定義
-type FixtureGroup = 'multi-tier' | 'flat';
+type FixtureGroup = 'multi-tier' | 'wall-flat' | 'flat';
 const FIXTURE_GROUPS: Record<FixtureGroup, { label: string; types: FixtureType[] }> = {
-    'multi-tier': { label: '多段棚', types: ['multi-tier', 'gondola'] },
+    'multi-tier': { label: '多段棚', types: ['multi-tier'] },
+    'wall-flat': { label: '壁面平台', types: ['wall-flat-refrigerated'] },
     'flat': { label: '平台', types: ['flat-refrigerated', 'flat-frozen', 'end-cap-refrigerated', 'end-cap-frozen'] }
 };
 
@@ -68,9 +80,9 @@ const FIXTURE_BG: Record<string, string> = {
     'multi-tier': '#f0f0f0',
     'flat-refrigerated': '#e0f7fa',
     'flat-frozen': '#e3f2fd',
+    'wall-flat-refrigerated': '#fff8e1',
     'end-cap-refrigerated': '#b2ebf2',
     'end-cap-frozen': '#bbdefb',
-    'gondola': '#fff8e1',
     'default': '#f1f5f9'
 };
 
@@ -110,39 +122,32 @@ function PlanogramVisual({
             {/* 棚割グリッド */}
             <div style={{
                 background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)',
-                padding: '0.75rem', paddingLeft: '40px', overflow: 'auto',
+                padding: '0.75rem', paddingLeft: '50px', overflow: 'auto',
                 border: '1px solid var(--border-color)'
             }}>
-                <div style={{ width: `${planogram.width * SCALE}px`, position: 'relative' }}>
-                    {/* ブロック背景 */}
-                    {standardPlanogram?.blocks.map((block, idx) => {
-                        const masterBlock = blocks.find(b => b.id === block.blockId);
-                        if (!masterBlock) return null;
-                        return (
-                            <div
-                                key={block.id}
-                                style={{
-                                    position: 'absolute', left: `${block.positionX * SCALE}px`,
-                                    top: 0, bottom: 0, width: `${masterBlock.width * SCALE}px`,
-                                    border: `2px dashed ${BLOCK_COLORS[idx % BLOCK_COLORS.length]}40`,
-                                    borderTop: 'none', borderBottom: 'none',
-                                    pointerEvents: 'none', zIndex: 0,
-                                    display: 'flex', justifyContent: 'center'
-                                }}
-                            >
-                                <div style={{
-                                    marginTop: '-18px', background: 'rgba(255,255,255,0.9)',
-                                    padding: '1px 6px', borderRadius: '3px', fontSize: '0.6rem',
-                                    color: BLOCK_COLORS[idx % BLOCK_COLORS.length],
-                                    whiteSpace: 'nowrap', border: `1px solid ${BLOCK_COLORS[idx % BLOCK_COLORS.length]}40`,
-                                    fontWeight: 600
-                                }}>
-                                    {masterBlock.name}
-                                </div>
-                            </div>
-                        );
-                    })}
+                {/* ブロック名帯ヘッダー（個店棚割と同じ） */}
+                {standardPlanogram && (() => {
+                    const displayBlocks = planogram.blocks ?? standardPlanogram.blocks;
+                    const blockInfos: BlockInfo[] = displayBlocks
+                        .map((b) => {
+                            const master = blocks.find(m => m.id === b.blockId);
+                            if (!master) return null;
+                            const uniqueIds = [...new Set(displayBlocks.map(pb => pb.blockId))].sort();
+                            return {
+                                id: b.id,
+                                name: master.name,
+                                widthMm: master.width,
+                                positionXMm: b.positionX,
+                                positionY: b.positionY,
+                                shelfCount: master.shelfCount,
+                                colorIndex: uniqueIds.indexOf(b.blockId)
+                            };
+                        })
+                        .filter((b): b is BlockInfo => b !== null);
+                    return <PlanogramExcelHeader blocks={blockInfos} totalWidthMm={planogram.width} />;
+                })()}
 
+                <div style={{ width: `${planogram.width * SCALE}px`, position: 'relative' }}>
                     {/* 段ごとの商品配置 */}
                     {Array.from({ length: planogram.shelfCount }).map((_, i) => i).reverse().map((shelfIndex) => {
                         const shelfProducts = planogram.products.filter(p => p.shelfIndex === shelfIndex);
@@ -156,10 +161,10 @@ function PlanogramVisual({
                             <div
                                 key={shelfIndex}
                                 style={{
-                                    height: `${Math.max(65, (planogram.shelfCount > 0 ? planogram.height / planogram.shelfCount : planogram.height) * SCALE)}px`,
+                                    height: `${Math.max(90, (planogram.shelfCount > 0 ? planogram.height / planogram.shelfCount : planogram.height) * SCALE)}px`,
                                     position: 'relative',
-                                    borderBottom: '2px solid var(--border-color)',
-                                    background: shelfIndex % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.02)'
+                                    borderBottom: '1px solid var(--border-color)',
+                                    background: 'transparent'
                                 }}
                             >
                                 {/* 階層プレースメント */}
@@ -167,6 +172,8 @@ function PlanogramVisual({
                                     .filter(hp => hp.shelfIndex === shelfIndex)
                                     .map(hp => {
                                         const width = hp.width * hp.faceCount * SCALE;
+                                        const hpNameFs = calcFontSize(width, hp.hierarchyName.length, 1.4, 0.6);
+                                        const hpLevelFs = calcFontSize(width, hp.hierarchyLevel.length, 1.0, 0.5);
                                         return (
                                             <div
                                                 key={hp.id}
@@ -178,18 +185,18 @@ function PlanogramVisual({
                                                     borderRadius: 'var(--radius-sm)',
                                                     display: 'flex', flexDirection: 'column',
                                                     alignItems: 'center', justifyContent: 'center',
-                                                    padding: '2px', fontSize: '0.5rem', overflow: 'hidden'
+                                                    padding: '4px 6px', overflow: 'hidden'
                                                 }}
                                                 title={`${hp.hierarchyName} (${hp.hierarchyCode})`}
                                             >
-                                                <div style={{ fontSize: '0.4rem', color: 'rgba(99, 102, 241, 0.7)', fontWeight: 600 }}>
+                                                <div style={{ fontSize: hpLevelFs, color: 'rgba(99, 102, 241, 0.7)', fontWeight: 600 }}>
                                                     {hp.hierarchyLevel}
                                                 </div>
-                                                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.5rem', color: 'rgba(99, 102, 241, 0.9)' }}>
+                                                <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: hpNameFs, lineHeight: 1.2, textAlign: 'center', wordBreak: 'break-all', color: 'rgba(99, 102, 241, 0.9)' }}>
                                                     {hp.hierarchyName}
                                                 </div>
                                                 {hp.faceCount > 1 && (
-                                                    <div style={{ fontSize: '0.4rem', color: 'rgba(99, 102, 241, 0.6)' }}>
+                                                    <div style={{ fontSize: `calc(${hpNameFs} * 0.7)`, color: 'rgba(99, 102, 241, 0.6)' }}>
                                                         ×{hp.faceCount}
                                                     </div>
                                                 )}
@@ -201,6 +208,7 @@ function PlanogramVisual({
                                     const product = products.find(p => p.id === sp.productId);
                                     if (!product) return null;
                                     const width = product.width * sp.faceCount * SCALE;
+                                    const prodFs = calcFontSize(width, product.name.length, 1.3, 0.6);
                                     return (
                                         <ProductTooltip key={sp.id} productName={product.name} jan={product.jan || '-'} faceCount={sp.faceCount} category={product.category}>
                                             <div
@@ -210,23 +218,21 @@ function PlanogramVisual({
                                                     background: 'white',
                                                     border: '1px solid var(--border-color)',
                                                     color: 'var(--text-primary)',
-                                                    borderRadius: 'var(--radius-sm)',
+                                                    borderRadius: '1px',
                                                     display: 'flex', flexDirection: 'column',
                                                     alignItems: 'center', justifyContent: 'center',
-                                                    padding: '2px', fontSize: '0.55rem', overflow: 'hidden'
+                                                    padding: '4px 6px', overflow: 'hidden'
                                                 }}
                                             >
-                                                <div style={{ fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', fontSize: '0.55rem' }}>
+                                                <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: prodFs, lineHeight: 1.2, textAlign: 'center', wordBreak: 'break-all' }}>
                                                     {product.name}
                                                 </div>
-                                                <div style={{ opacity: 0.8, fontSize: '0.45rem', fontFamily: 'monospace', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+                                                <div style={{ opacity: 0.5, fontSize: `calc(${prodFs} * 0.75)`, fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
                                                     {product.jan || '-'}
                                                 </div>
-                                                {sp.faceCount > 1 && (
-                                                    <div style={{ fontSize: '0.45rem', opacity: 0.85, fontWeight: 600 }}>
-                                                        ×{sp.faceCount}
-                                                    </div>
-                                                )}
+                                                <div style={{ fontSize: `calc(${prodFs} * 0.8)`, opacity: 0.85, fontWeight: 600 }}>
+                                                    ×{sp.faceCount}
+                                                </div>
                                             </div>
                                         </ProductTooltip>
                                     );
@@ -242,8 +248,8 @@ function PlanogramVisual({
                                     </div>
                                 )}
                                 <div style={{
-                                    position: 'absolute', left: '-35px', top: '50%', transform: 'translateY(-50%)',
-                                    fontSize: '0.65rem', color: 'var(--text-muted)'
+                                    position: 'absolute', left: '-45px', top: '50%', transform: 'translateY(-50%)',
+                                    fontSize: '0.75rem', color: 'var(--text-muted)'
                                 }}>
                                     {shelfIndex + 1}段
                                 </div>

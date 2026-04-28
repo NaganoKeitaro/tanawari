@@ -445,3 +445,46 @@ FUNCTION searchHierarchyAcrossLevels(query, hierarchies):
     RETURN results
 END FUNCTION
 ```
+
+---
+
+## 10. ルールE: 非直線棚配置の処理方針（Non-Linear Shelf Layout Policy）
+
+### 10.1 Overview
+- algorithm_id: ALG-010
+- description: 棚が直線に並んでいない場合（棚間にドアがある、L字配置など）の個店棚割生成における処理方針を定義する
+
+### 10.2 対象パターン
+| パターン | 説明 |
+|----------|------|
+| ドア分断 | 棚と棚の間にドアや通路があり、物理的に棚が分断されている |
+| L字配置 | 棚がL字型に折れ曲がって配置されている |
+| コの字配置 | 棚がコの字型に配置されている |
+| その他非直線 | 上記以外の直線でない棚配置全般 |
+
+### 10.3 基本方針
+非直線棚配置に対する自動生成（ルールA〜C）の処理方針は以下の通り:
+
+1. **ブロックを分割しない** — 標準棚割上のブロック（商品グループ）は、棚の物理的な折れ曲がりやドア分断に関わらず、分割せずにそのまま適用する
+2. **折り返さない** — ブロック内の商品配置を棚の折れ曲がり地点で折り返す処理は行わない
+3. **自動生成は直線前提で処理する** — カット/拡張アルゴリズムは什器幅の合計値に対して直線配置として処理を行う
+
+### 10.4 Logic
+```pseudo
+FUNCTION handleNonLinearLayout(standardPlanogram, storeFixtures, storeWidth):
+    // 非直線配置であっても、什器幅の合計値を用いて直線として処理する
+    // ブロック分割・折り返しは一切行わない
+    totalWidth = SUM(fixture.width FOR fixture IN storeFixtures)
+
+    IF totalWidth < standardPlanogram.width THEN
+        RETURN applyCutRule(standardPlanogram.products, totalWidth, productMaster)
+    ELSE IF totalWidth > standardPlanogram.width THEN
+        RETURN applyExpandRule(standardPlanogram.products, totalWidth, productMaster)
+    ELSE
+        RETURN (COPY(standardPlanogram.products), [])
+    END IF
+END FUNCTION
+```
+
+### 10.5 個別調整について
+自動生成結果が店舗の物理レイアウトに適さない場合（ドア位置でブロックを分けたい、L字の折れ曲がり地点で商品を区切りたい等）は、**個店棚割編集画面**にてユーザーが手動で個別に修正を行う。自動生成アルゴリズムでは非直線レイアウト固有の最適化は行わない。

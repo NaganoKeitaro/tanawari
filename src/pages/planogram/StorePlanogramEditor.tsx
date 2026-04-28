@@ -61,12 +61,16 @@ function getBlockOverlayColor(index: number) {
 }
 
 // 什器グループ定義
-type FixtureGroup = 'multi-tier' | 'flat';
+type FixtureGroup = 'multi-tier' | 'wall-flat' | 'flat';
 
 const FIXTURE_GROUPS: Record<FixtureGroup, { label: string; types: FixtureType[] }> = {
     'multi-tier': {
         label: '多段棚',
-        types: ['multi-tier', 'gondola']
+        types: ['multi-tier']
+    },
+    'wall-flat': {
+        label: '壁面平台',
+        types: ['wall-flat-refrigerated']
     },
     'flat': {
         label: '平台',
@@ -76,11 +80,11 @@ const FIXTURE_GROUPS: Record<FixtureGroup, { label: string; types: FixtureType[]
 
 const TYPE_LABELS: Record<FixtureType, string> = {
     'multi-tier': '多段',
-    'gondola': 'ゴンドラ',
     'flat-refrigerated': '平台冷蔵',
     'flat-frozen': '平台冷凍',
-    'end-cap-refrigerated': '平台冷蔵エンド',
-    'end-cap-frozen': '平台冷凍エンド'
+    'wall-flat-refrigerated': '壁面平台冷蔵',
+    'end-cap-refrigerated': 'エンド平台冷蔵',
+    'end-cap-frozen': 'エンド平台冷凍'
 };
 
 // ドラッグ可能な商品（パレット用）
@@ -828,6 +832,7 @@ export function StorePlanogramEditor() {
 
     // 集計幅
     const [multiTierTotalWidth, setMultiTierTotalWidth] = useState(0);
+    const [wallFlatTotalWidth, setWallFlatTotalWidth] = useState(0);
     const [flatTotalWidth, setFlatTotalWidth] = useState(0);
 
     const [loading, setLoading] = useState(true);
@@ -1121,6 +1126,7 @@ export function StorePlanogramEditor() {
 
         // 幅集計
         let multiW = 0;
+        let wallFlatW = 0;
         let flatW = 0;
 
         for (const placement of placementsData) {
@@ -1129,12 +1135,15 @@ export function StorePlanogramEditor() {
 
             if (FIXTURE_GROUPS['multi-tier'].types.includes(fixture.fixtureType)) {
                 multiW += fixture.width;
+            } else if (FIXTURE_GROUPS['wall-flat'].types.includes(fixture.fixtureType)) {
+                wallFlatW += fixture.width;
             } else if (FIXTURE_GROUPS['flat'].types.includes(fixture.fixtureType)) {
                 flatW += fixture.width;
             }
         }
 
         setMultiTierTotalWidth(multiW);
+        setWallFlatTotalWidth(wallFlatW);
         setFlatTotalWidth(flatW);
         setLoading(false);
     }, [storeId]);
@@ -1211,6 +1220,14 @@ export function StorePlanogramEditor() {
                                 onClick={() => setSelectedGroup('multi-tier')}
                             >
                                 {FIXTURE_GROUPS['multi-tier'].label} (幅: <UnitDisplay valueMm={multiTierTotalWidth} />)
+                            </button>
+                            <button
+                                className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${selectedGroup === 'wall-flat'
+                                    ? 'border-primary text-primary'
+                                    : 'border-transparent text-muted hover:text-foreground'}`}
+                                onClick={() => setSelectedGroup('wall-flat')}
+                            >
+                                {FIXTURE_GROUPS['wall-flat'].label} (幅: <UnitDisplay valueMm={wallFlatTotalWidth} />)
                             </button>
                             <button
                                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${selectedGroup === 'flat'
@@ -1311,9 +1328,9 @@ export function StorePlanogramEditor() {
                                         'multi-tier': '#f0f0f0',
                                         'flat-refrigerated': '#e0f7fa',
                                         'flat-frozen': '#e3f2fd',
+                                        'wall-flat-refrigerated': '#fff8e1',
                                         'end-cap-refrigerated': '#b2ebf2',
                                         'end-cap-frozen': '#bbdefb',
-                                        'gondola': '#fff8e1',
                                         'default': '#f1f5f9'
                                     };
 

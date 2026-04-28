@@ -51,12 +51,22 @@ import type { SwapDirection } from './standardPlanogramRearrange';
 
 const SCALE = 0.3; // 1mm = 0.3px
 
+// ボックス幅と文字数に応じてフォントサイズを動的に計算
+function calcFontSize(widthPx: number, textLength: number, base: number = 1.3, min: number = 0.7): string {
+    const availableWidth = widthPx - 16;
+    const charWidthRatio = 0.7;
+    const idealSize = availableWidth / (textLength * charWidthRatio);
+    const clamped = Math.max(min, Math.min(base, idealSize / 16));
+    return `${Math.round(clamped * 100) / 100}rem`;
+}
+
 const PLANOGRAM_TYPES: { id: FixtureType; label: string }[] = [
     { id: 'multi-tier', label: '多段' },
     { id: 'flat-refrigerated', label: '平台冷蔵' },
-    { id: 'end-cap-refrigerated', label: '平台冷蔵エンド' },
     { id: 'flat-frozen', label: '平台冷凍' },
-    { id: 'end-cap-frozen', label: '平台冷凍エンド' },
+    { id: 'wall-flat-refrigerated', label: '壁面平台冷蔵' },
+    { id: 'end-cap-refrigerated', label: 'エンド平台冷蔵' },
+    { id: 'end-cap-frozen', label: 'エンド平台冷凍' },
 ];
 
 // 選択可能な棚ブロック（クリックで選択→キャンバスクリックで配置）
@@ -344,6 +354,8 @@ function PlanogramCanvas({
                                 .filter(hp => hp.shelfIndex === shelfIndex)
                                 .map(hp => {
                                     const width = hp.width * hp.faceCount * SCALE;
+                                    const hpNameFontSize = calcFontSize(width, hp.hierarchyName.length, 1.4, 0.7);
+                                    const hpLevelFontSize = calcFontSize(width, hp.hierarchyLevel.length, 1.0, 0.6);
                                     // ブロック移動プレビュー時の位置調整
                                     let displayX = hp.positionX;
                                     if (hp.placedBlockId && previewPositions?.[hp.placedBlockId] !== undefined) {
@@ -377,8 +389,8 @@ function PlanogramCanvas({
                                                 flexDirection: 'column',
                                                 alignItems: 'center',
                                                 justifyContent: 'center',
-                                                padding: '2px',
-                                                fontSize: '0.7rem',
+                                                padding: '4px 8px',
+                                                fontSize: '1rem',
                                                 overflow: 'hidden',
                                                 cursor: 'pointer',
                                                 zIndex: 3,
@@ -389,7 +401,7 @@ function PlanogramCanvas({
                                             title={`${hp.hierarchyName} (${hp.hierarchyCode})\n階層: ${hp.hierarchyLevel}\nフェイス: ${hp.faceCount}`}
                                         >
                                             <div style={{
-                                                fontSize: '0.55rem',
+                                                fontSize: hpLevelFontSize,
                                                 color: 'rgba(99, 102, 241, 0.7)',
                                                 fontWeight: 600,
                                             }}>
@@ -397,17 +409,18 @@ function PlanogramCanvas({
                                             </div>
                                             <div style={{
                                                 fontWeight: 600,
-                                                whiteSpace: 'nowrap',
                                                 overflow: 'hidden',
-                                                textOverflow: 'ellipsis',
                                                 maxWidth: '100%',
-                                                fontSize: '0.7rem',
+                                                fontSize: hpNameFontSize,
+                                                lineHeight: 1.2,
+                                                textAlign: 'center',
+                                                wordBreak: 'break-all',
                                                 color: 'rgba(99, 102, 241, 0.9)',
                                             }}>
                                                 {hp.hierarchyName}
                                             </div>
                                             {hp.faceCount > 1 && width > 20 && (
-                                                <div style={{ fontSize: '0.55rem', color: 'rgba(99, 102, 241, 0.6)' }}>
+                                                <div style={{ fontSize: '0.85rem', color: 'rgba(99, 102, 241, 0.6)' }}>
                                                     x{hp.faceCount}
                                                 </div>
                                             )}
@@ -660,8 +673,7 @@ export function StandardPlanogramEditor() {
             if (!fixture) continue;
 
             const fType = fixture.fixtureType || '';
-            const isMatch = (selectedFixtureType === 'multi-tier' && ['multi-tier', 'gondola'].includes(fType as any)) ||
-                (selectedFixtureType === fType);
+            const isMatch = selectedFixtureType === fType;
 
             if (isMatch) {
                 totalWidth += fixture.width;
@@ -1160,8 +1172,7 @@ export function StandardPlanogramEditor() {
             if (!fixture) continue;
 
             const fType = fixture.fixtureType || '';
-            const isMatch = (selectedFixtureType === 'multi-tier' && ['multi-tier', 'gondola'].includes(fType as any)) ||
-                (selectedFixtureType === fType);
+            const isMatch = selectedFixtureType === fType;
 
             if (isMatch) {
                 const isFlatOrEnd = String(fixture.fixtureType).includes('flat') || String(fixture.fixtureType).includes('end-cap');
@@ -1323,8 +1334,9 @@ export function StandardPlanogramEditor() {
                                     }}>
                                         {blocks.filter(b => {
                                             const isFlat = b.blockType === 'flat';
-                                            const isMultiTierFixture = selectedFixtureType === 'multi-tier' || selectedFixtureType === 'gondola';
-                                            return isMultiTierFixture ? !isFlat : isFlat;
+                                            const isMultiTierFixture = selectedFixtureType === 'multi-tier';
+                                            const isWallFlat = selectedFixtureType === 'wall-flat-refrigerated';
+                                            return isMultiTierFixture ? !isFlat && b.blockType !== 'wall-flat' : isWallFlat ? b.blockType === 'wall-flat' : isFlat;
                                         }).map(block => (
                                             <SelectableBlock
                                                 key={block.id}
@@ -1336,8 +1348,9 @@ export function StandardPlanogramEditor() {
                                     </div>
                                     {blocks.filter(b => {
                                         const isFlat = b.blockType === 'flat';
-                                        const isMultiTierFixture = selectedFixtureType === 'multi-tier' || selectedFixtureType === 'gondola';
-                                        return isMultiTierFixture ? !isFlat : isFlat;
+                                        const isMultiTierFixture = selectedFixtureType === 'multi-tier';
+                                            const isWallFlat = selectedFixtureType === 'wall-flat-refrigerated';
+                                        return isMultiTierFixture ? !isFlat && b.blockType !== 'wall-flat' : isWallFlat ? b.blockType === 'wall-flat' : isFlat;
                                     }).length === 0 && (
                                             <div className="text-center text-muted" style={{ padding: '1rem' }}>
                                                 棚ブロックがありません

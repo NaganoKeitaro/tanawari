@@ -9,8 +9,9 @@ import { Modal } from '../common/Modal';
 const ZONE_COLORS: Record<ZoneType, { bg: string; border: string; text: string }> = {
     '多段': { bg: 'rgba(59, 130, 246, 0.3)', border: '#3B82F6', text: '#1E40AF' },
     '平台冷蔵': { bg: 'rgba(34, 197, 94, 0.3)', border: '#22C55E', text: '#166534' },
-    '平台冷蔵エンド': { bg: 'rgba(34, 197, 94, 0.5)', border: '#16A34A', text: '#166534' },
     '平台冷凍': { bg: 'rgba(249, 115, 22, 0.3)', border: '#F97316', text: '#C2410C' },
+    '壁面平台冷蔵': { bg: 'rgba(234, 179, 8, 0.3)', border: '#EAB308', text: '#854D0E' },
+    '平台冷蔵エンド': { bg: 'rgba(34, 197, 94, 0.5)', border: '#16A34A', text: '#166534' },
     '平台冷凍エンド': { bg: 'rgba(249, 115, 22, 0.5)', border: '#EA580C', text: '#C2410C' }
 };
 
@@ -43,14 +44,11 @@ interface BlockMapping {
 // 什器タイプからゾーンを推測
 function inferZoneFromFixture(fixture: Fixture): ZoneType {
     if (fixture.fixtureType === 'multi-tier' || fixture.name.includes('多段')) return '多段';
-    if (fixture.fixtureType === 'flat-frozen' || fixture.name.includes('冷凍')) {
-        if (fixture.fixtureType === 'end-cap-frozen' || fixture.name.includes('エンド')) return '平台冷凍エンド';
-        return '平台冷凍';
-    }
-    if (fixture.fixtureType === 'flat-refrigerated' || fixture.name.includes('冷蔵') || fixture.name.includes('平台')) {
-        if (fixture.fixtureType === 'end-cap-refrigerated' || fixture.name.includes('エンド')) return '平台冷蔵エンド';
-        return '平台冷蔵';
-    }
+    if (fixture.fixtureType === 'wall-flat-refrigerated' || fixture.name.includes('壁面平台')) return '壁面平台冷蔵';
+    if (fixture.fixtureType === 'end-cap-frozen' || (fixture.name.includes('冷凍') && fixture.name.includes('エンド'))) return '平台冷凍エンド';
+    if (fixture.fixtureType === 'end-cap-refrigerated' || (fixture.name.includes('冷蔵') && fixture.name.includes('エンド'))) return '平台冷蔵エンド';
+    if (fixture.fixtureType === 'flat-frozen' || fixture.name.includes('冷凍')) return '平台冷凍';
+    if (fixture.fixtureType === 'flat-refrigerated' || fixture.name.includes('冷蔵') || fixture.name.includes('平台')) return '平台冷蔵';
     return '多段'; // デフォルト
 }
 
@@ -90,8 +88,9 @@ export function StoreLayoutVisualizer({
         const groups: Record<ZoneType, Array<{ placement: StoreFixturePlacement; fixture: Fixture }>> = {
             '多段': [],
             '平台冷蔵': [],
-            '平台冷蔵エンド': [],
             '平台冷凍': [],
+            '壁面平台冷蔵': [],
+            '平台冷蔵エンド': [],
             '平台冷凍エンド': []
         };
 
@@ -138,19 +137,20 @@ export function StoreLayoutVisualizer({
             ...groupedPlacements['平台冷凍エンド']
         ].sort((a, b) => a.placement.order - b.placement.order);
 
-        return { refrigerated, frozen };
+        // 壁面平台冷蔵
+        const wallFlat = [
+            ...groupedPlacements['壁面平台冷蔵']
+        ].sort((a, b) => a.placement.order - b.placement.order);
+
+        return { refrigerated, frozen, wallFlat };
     }, [groupedPlacements]);
 
     // レイアウト幅の計算（最大幅を取得）
     const maxWidth = Math.max(
         zoneStats['多段'].totalWidth,
-        // 平台は結合して計算（エンドの扱いによるが、簡易的に合計）
-        combinedPlatforms.refrigerated.reduce((sum, item) => {
-            // エンドの場合は幅ではなく奥行きを使用するように視覚的にはなるが、
-            // 総幅としては単純合計で一旦計算
-            return sum + item.fixture.width;
-        }, 0),
+        combinedPlatforms.refrigerated.reduce((sum, item) => sum + item.fixture.width, 0),
         combinedPlatforms.frozen.reduce((sum, item) => sum + item.fixture.width, 0),
+        combinedPlatforms.wallFlat.reduce((sum, item) => sum + item.fixture.width, 0),
         1560 // 最小幅
     );
 
@@ -247,6 +247,8 @@ export function StoreLayoutVisualizer({
             visualHeight = fixture.width; // 横置きにするので、什器の幅が視覚的な高さになる
         } else if (zone === '多段') {
             visualHeight = fixture.height * 0.8; // 多段は高さをある程度反映
+        } else if (zone === '壁面平台冷蔵') {
+            visualHeight = fixture.height * 0.6; // 壁面平台は2段、やや低め
         }
 
         return (
@@ -420,6 +422,9 @@ export function StoreLayoutVisualizer({
             <div style={{ overflowX: 'auto', padding: '1rem' }}>
                 {/* 多段ゾーン */}
                 {renderZoneRow(groupedPlacements['多段'], '多段ゾーン')}
+
+                {/* 壁面平台ゾーン */}
+                {combinedPlatforms.wallFlat.length > 0 && renderZoneRow(combinedPlatforms.wallFlat, '壁面平台冷蔵ゾーン')}
 
                 {/* 平台ゾーン */}
                 <div

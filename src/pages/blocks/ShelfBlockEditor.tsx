@@ -27,6 +27,15 @@ import { ProductTooltip } from '../../components/common/ProductTooltip';
 // 1mm = 0.3px表示
 const SCALE = 0.3; // 1mm = 0.3px表示
 
+// ボックス幅と文字数に応じてフォントサイズを動的に計算
+function calcFontSize(widthPx: number, textLength: number, base: number = 1.3, min: number = 0.7): string {
+    const availableWidth = widthPx - 16;
+    const charWidthRatio = 0.7;
+    const idealSize = availableWidth / (textLength * charWidthRatio);
+    const clamped = Math.max(min, Math.min(base, idealSize / 16));
+    return `${Math.round(clamped * 100) / 100}rem`;
+}
+
 const HIERARCHY_DEFAULT_WIDTH = 300; // mm（1尺）
 
 const HIERARCHY_LEVEL_LABELS: Record<HierarchyLevel, string> = {
@@ -220,6 +229,7 @@ function DraggablePlacedProduct({
 
     const productWidth = product.width * placement.faceCount * SCALE;
     const displayX = previewX !== undefined ? previewX : placement.positionX;
+    const prodNameFontSize = calcFontSize(productWidth, product.name.length, 1.3, 0.65);
 
     return (
         <ProductTooltip productName={product.name} jan={product.jan || '-'} faceCount={placement.faceCount} category={product.category}>
@@ -240,8 +250,7 @@ function DraggablePlacedProduct({
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    padding: '2px',
-                    fontSize: '0.6rem',
+                    padding: '4px 8px',
                     overflow: 'hidden',
                     cursor: isDragging ? 'grabbing' : 'grab',
                     color: 'var(--text-primary)',
@@ -252,13 +261,13 @@ function DraggablePlacedProduct({
                 }}
                 onClick={handleClick}
             >
-                <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '0.65rem', lineHeight: 1.3, wordBreak: 'break-all' }}>
+                <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: prodNameFontSize, lineHeight: 1.2, wordBreak: 'break-all', textAlign: 'center' }}>
                     {product.name}
                 </div>
-                <div style={{ opacity: 0.8, fontSize: '0.55rem', fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
+                <div style={{ opacity: 0.8, fontSize: `calc(${prodNameFontSize} * 0.75)`, fontFamily: 'monospace', overflow: 'hidden', maxWidth: '100%', wordBreak: 'break-all' }}>
                     {product.jan || '-'}
                 </div>
-                <div style={{ opacity: 0.85, fontSize: '0.6rem' }}>×{placement.faceCount}</div>
+                <div style={{ opacity: 0.85, fontSize: `calc(${prodNameFontSize} * 0.8)` }}>×{placement.faceCount}</div>
             </div>
         </ProductTooltip>
     );
@@ -302,6 +311,7 @@ function DraggablePlacedHierarchy({
     const totalWidth = placement.width * placement.faceCount;
     const displayWidth = totalWidth * SCALE;
     const displayX = previewX !== undefined ? previewX : placement.positionX;
+    const hierNameFontSize = calcFontSize(displayWidth, placement.hierarchyName.length, 1.4, 0.7);
 
     const handleShrink = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -332,8 +342,8 @@ function DraggablePlacedHierarchy({
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: '2px',
-                fontSize: '0.6rem',
+                padding: '4px 8px',
+                fontSize: '0.75rem',
                 overflow: 'hidden',
                 cursor: isDragging ? 'grabbing' : 'grab',
                 color: 'var(--text-primary)',
@@ -346,14 +356,14 @@ function DraggablePlacedHierarchy({
             title={`${placement.hierarchyName}\nクリックでフェイス減少/削除`}
         >
             {/* 階層パス表示 */}
-            <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: '0.6rem', lineHeight: 1.3, wordBreak: 'break-all' }}>
+            <div style={{ fontWeight: 600, overflow: 'hidden', maxWidth: '100%', fontSize: hierNameFontSize, lineHeight: 1.2, wordBreak: 'break-all', textAlign: 'center' }}>
                 {placement.hierarchyName}
             </div>
             {/* 幅mm表示 */}
-            <div style={{ fontSize: '0.55rem', color: 'rgba(99, 102, 241, 0.8)', fontWeight: 500 }}>
+            <div style={{ fontSize: `calc(${hierNameFontSize} * 0.65)`, color: 'rgba(99, 102, 241, 0.8)', fontWeight: 500 }}>
                 {Math.round(totalWidth)}mm
             </div>
-            <div style={{ opacity: 0.85, fontSize: '0.55rem' }}>×{placement.faceCount}</div>
+            <div style={{ opacity: 0.85, fontSize: `calc(${hierNameFontSize} * 0.65)` }}>×{placement.faceCount}</div>
             {/* 5cm刻みリサイズボタン */}
             <div style={{ display: 'flex', gap: '2px', marginTop: '2px' }} onClick={(e) => e.stopPropagation()}>
                 <button
@@ -614,7 +624,7 @@ export function ShelfBlockEditor() {
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [activeProduct, setActiveProduct] = useState<Product | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState<'multi-tier' | 'flat'>('multi-tier');
+    const [activeTab, setActiveTab] = useState<'multi-tier' | 'flat' | 'wall-flat'>('multi-tier');
     const [panelMode, setPanelMode] = useState<'products' | 'hierarchy'>('products');
 
     // 商品階層データ
@@ -644,7 +654,7 @@ export function ShelfBlockEditor() {
     const [newBlock, setNewBlock] = useState<{
         name: string;
         description: string;
-        blockType: 'multi-tier' | 'flat';
+        blockType: 'multi-tier' | 'flat' | 'wall-flat';
         width: number;
         height: number;
         shelfCount: number;
@@ -1263,6 +1273,19 @@ export function ShelfBlockEditor() {
                             多段
                         </button>
                         <button
+                            className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'wall-flat'
+                                ? 'border-primary text-primary'
+                                : 'border-transparent text-muted hover:text-foreground'
+                                }`}
+                            onClick={() => {
+                                setActiveTab('wall-flat');
+                                setNewBlock(prev => ({ ...prev, blockType: 'wall-flat', shelfCount: 2, height: 1200 }));
+                                setSelectedBlock(null);
+                            }}
+                        >
+                            壁面平台
+                        </button>
+                        <button
                             className={`flex-1 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === 'flat'
                                 ? 'border-primary text-primary'
                                 : 'border-transparent text-muted hover:text-foreground'
@@ -1283,7 +1306,7 @@ export function ShelfBlockEditor() {
                             className="btn btn-primary"
                             style={{ flexShrink: 0 }}
                             onClick={() => {
-                                setNewBlock({ name: '', description: '', blockType: activeTab, width: 900, height: activeTab === 'flat' ? 900 : 1800, shelfCount: 5 });
+                                setNewBlock({ name: '', description: '', blockType: activeTab, width: 900, height: activeTab === 'flat' ? 900 : activeTab === 'wall-flat' ? 1200 : 1800, shelfCount: activeTab === 'wall-flat' ? 2 : 5 });
                                 setIsCreateModalOpen(true);
                             }}
                         >
@@ -1778,7 +1801,7 @@ export function ShelfBlockEditor() {
                         className="form-input"
                         value={newBlock.name}
                         onChange={(e) => setNewBlock({ ...newBlock, name: e.target.value })}
-                        placeholder={newBlock.blockType === 'flat' ? "精肉平台ブロック" : "焼肉セットブロック"}
+                        placeholder={newBlock.blockType === 'flat' ? "精肉平台ブロック" : newBlock.blockType === 'wall-flat' ? "壁面平台ブロック" : "焼肉セットブロック"}
                     />
                 </div>
 
@@ -1800,14 +1823,14 @@ export function ShelfBlockEditor() {
                         min={30}
                     />
                     <UnitInput
-                        label={newBlock.blockType === 'flat' ? '奥行き' : '高さ'}
+                        label={newBlock.blockType === 'flat' ? '奥行き' : '高さ (H)'}
                         value={newBlock.height}
                         onChange={(h) => setNewBlock({ ...newBlock, height: h })}
                         min={30}
                     />
                 </div>
 
-                {newBlock.blockType === 'multi-tier' && (
+                {(newBlock.blockType === 'multi-tier' || newBlock.blockType === 'wall-flat') && (
                     <div className="form-group">
                         <label className="form-label">段数</label>
                         <input
